@@ -1,0 +1,58 @@
+# --- AI & Deep Learning Foundations ---
+torch==2.5.1+cu121 --extra-index-url https://download.pytorch.org/whl/cu121
+torchvision
+torchaudio==2.5.1+cu121
+tensorflow==2.16.1
+tf-keras
+diffusers
+transformers
+accelerate
+huggingface_hub
+
+# --- Vision & Imaging (The Modern Stack) ---
+opencv-python==4.10.0.84
+Pillow==10.3.0
+imageio
+scikit-image
+mtcnn
+deepface
+omegaconf
+gdown
+
+# --- Audio & Speech ---
+faster-whisper==1.0.3
+openai-whisper
+piper-tts
+sounddevice
+soundfile
+pygame
+
+# --- Core Math (The Compatibility Anchor) ---
+numpy>=1.24.0,<2.0.0
+scipy
+pandas
+sympy
+matplotlib
+networkx
+
+# --- System & Web ---
+flask
+pyserial
+psutil
+zeroconf
+tqdm
+pathvalidate
+rich
+typer
+
+einops==0.8.1
+gradio==5.24.0
+
+gdown
+requests
+imageio[ffmpeg]
+
+omegaconf
+ffmpeg-python
+moviepy==1.0.3
+gradio

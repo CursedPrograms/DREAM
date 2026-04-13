@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>ComCentre — {{ char_name }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body>
+
+  <!-- Thinking progress bar -->
+  <div id="thinking-bar"></div>
+
+  <!-- ═══ HEADER ═══════════════════════════════════════════════════════════ -->
+  <header>
+    <div class="logo">COMCENTRE <span>v2.7</span></div>
+
+    <div id="status-bar">
+      <span><span class="dot" id="dot-nodes"></span>NODES</span>
+      <span><span class="dot" id="dot-ollama"></span>OLLAMA</span>
+      <span><span class="dot" id="dot-piper"></span>PIPER</span>
+      <span><span class="dot" id="dot-sse"></span>LINK</span>
+    </div>
+
+    <div id="state-badge" class="idle">IDLE</div>
+  </header>
+
+  <!-- ═══ SIDEBAR ══════════════════════════════════════════════════════════ -->
+  <aside>
+    <!-- Avatar -->
+    <div class="avatar-wrap">
+      <div class="avatar-ring" id="avatar-ring">
+        <div class="avatar-inner">CC</div>
+      </div>
+      <div class="avatar-name">{{ char_name | upper }}</div>
+      <div id="waveform">
+        <!-- 12 animated bars -->
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <nav class="quick-actions">
+      <button class="qbtn" onclick="quickSend('system stats', false)">
+        <span class="qbtn-icon">▣</span> SYSTEM STATS
+      </button>
+      <button class="qbtn" id="wifi-btn" onclick="triggerWifiScan()">
+        <span class="qbtn-icon">◈</span> WIFI SCAN
+      </button>
+      <button class="qbtn" onclick="clearChat()">
+        <span class="qbtn-icon">⌫</span> CLEAR LOG
+      </button>
+    </nav>
+  </aside>
+
+  <!-- ═══ CHAT LOG ══════════════════════════════════════════════════════════ -->
+  <main>
+    <div id="chat-log">
+      <div class="msg system">
+        <div class="msg-role">SYSTEM</div>
+        <div class="msg-bubble">Interface initialized. Peer discovery active.</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ═══ INFO PANEL ════════════════════════════════════════════════════════ -->
+  <div id="info">
+
+    <!-- Neural network / peers -->
+    <div class="panel-label">NEURAL NETWORK</div>
+    <div id="node-list">
+      <div class="dim-note">Searching for peers…</div>
+    </div>
+
+    <!-- Resource gauges -->
+    <div class="panel-label">RESOURCES</div>
+    <div class="stat-row"><span>CPU</span><span id="sv-cpu">—</span></div>
+    <div class="bar-track"><div class="bar-fill" id="bf-cpu" style="width:0%"></div></div>
+    <div class="stat-row"><span>RAM</span><span id="sv-ram">—</span></div>
+    <div class="bar-track"><div class="bar-fill" id="bf-ram" style="width:0%"></div></div>
+    <div class="stat-row"><span>DISK</span><span id="sv-disk">—</span></div>
+    <div class="bar-track"><div class="bar-fill" id="bf-disk" style="width:0%"></div></div>
+    <div class="stat-row" id="temp-row" style="display:none"><span>TEMP</span><span id="sv-temp">—</span></div>
+
+    <!-- WiFi devices -->
+    <div class="panel-label">NETWORK DEVICES</div>
+    <div id="wifi-list">
+      <div class="dim-note">Run scan to list devices.</div>
+    </div>
+
+  </div>
+
+  <!-- ═══ FOOTER / INPUT ════════════════════════════════════════════════════ -->
+  <footer>
+    <button id="mic-btn" title="Hold to record, click to toggle">🎙</button>
+    <input id="text-input" type="text" placeholder="Type a command… (no voice reply)" autocomplete="off"/>
+    <button id="send-btn">SEND</button>
+  </footer>
+
+  <script src="/static/js/main.js" data-char="{{ char_name | upper }}" data-node="{{ node_name | upper }}"></script>
+</body>
+</html>
