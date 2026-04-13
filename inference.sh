@@ -24,21 +24,21 @@ fi
 
 # Set config path based on mode
 if [ "$mode" = "normal" ]; then
-    config_path="./configs/inference/test.yaml"
-    result_dir="./results/test"
+    config_path="configs/inference/test.yaml"
+    result_dir="results/test"
 else
-    config_path="./configs/inference/realtime.yaml"
-    result_dir="./results/realtime"
+    config_path="configs/inference/realtime.yaml"
+    result_dir="results/realtime"
 fi
 
 # Define the model paths based on the version
 if [ "$version" = "v1.0" ]; then
-    model_dir="./models/musetalk"
+    model_dir="models/musetalk"
     unet_model_path="$model_dir/pytorch_model.bin"
     unet_config="$model_dir/musetalk.json"
     version_arg="v1"
 elif [ "$version" = "v1.5" ]; then
-    model_dir="./models/musetalkV15"
+    model_dir="models/musetalkV15"
     unet_model_path="$model_dir/unet.pth"
     unet_config="$model_dir/musetalk.json"
     version_arg="v15"
