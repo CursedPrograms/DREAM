@@ -8,7 +8,6 @@
   </a>
 </div>
 <br>
-
 <div align="center">
   <img alt="Python" src="https://img.shields.io/badge/python%20-%23323330.svg?&style=for-the-badge&logo=python&logoColor=white"/>
 </div>
@@ -22,11 +21,60 @@
 #### Distributed Runtime for Ethereal Autonomous Memories
 ### Dream@ComCentre
 
- <br>
+<br>
 <div align="center">
   <img src="demo_images/dream0.gif" alt="DREAM" width="400"/>
 </div>
- <br>
+<br>
+
+---
+
+## Overview:
+
+DREAM is a localized agentic-consciousness/embedded robotic system and the cognitive core of the ComCentre ecosystem. Operating as a sovereign, offline entity, she serves as the primary command-and-control interface for the KIDA and NORA robotic lineages through the RIFT neural protocol.
+
+DREAM does not just process commands; she observes, remembers, and dreams. She is designed to bridge the gap between static code and autonomous "insanity."
+
+#### Core Characteristics
+A local voice chatbot pipeline running entirely offline. She exhibits emergent and sometimes unpredictable behavior patterns that resembles psychosis.
+
+#### System Awareness
+
+##### Monitoring
+- CPU temperature
+- System load
+- Hardware sensors
+
+##### Network Introspection
+- Scans and lists connected devices (LAN visibility)
+- Tracks IP / MAC / vendor
+
+#### Autonomous Behaviors
+
+##### Idle State
+- Listens for wake word
+It uses video to Render these different stages (listen → Think → Reply → Listen ) or (Wait for Wakeword → Reply (yes) → listen → Think → Reply → Listen ) she is very easy to read 
+- Speak → Whisper transcribes → Ollama replies → Piper speaks back.
+- Wake word, Piper speaks back → Speak → Whisper transcribes → Ollama replies → Piper speaks back.
+- Communicates with other robots
+
+##### Sleep Mode
+- Listens for wake word
+- Executes Deep Dream-style image generation
+- Latent space exploration
+- Dataset self-refinement  
+- Aesthetic model tuning  
+
+(In both these states surveillance)
+---
+
+## Related Projects
+
+- [WHIP-Robot-v00](https://github.com/CursedPrograms/WHIP-Robot-v00)
+- [KIDA-Robot-v00](https://github.com/CursedPrograms/KIDA-Robot-v00)
+- [KIDA-Robot-v01](https://github.com/CursedPrograms/KIDA-Robot-v01)
+- [NORA-Robot-v00](https://github.com/CursedPrograms/NORA-Robot-v00)
+- [RIFT](https://github.com/CursedPrograms/RIFT)
 
 ```bash
  エージェンティック意識
@@ -49,95 +97,38 @@ deep dream baby.
 
 agentic-consciousness , autonomous
 ```
-
-
-### Overview:
-
-DREAM is a localized agentic-consciousness/embedded robotic system and the cognitive core of the ComCentre ecosystem. Operating as a sovereign, offline entity, she serves as the primary command-and-control interface for the KIDA and NORA robotic lineages through the RIFT neural protocol.
-
-DREAM does not just process commands; she observes, remembers, and dreams. She is designed to bridge the gap between static code and autonomous "insanity."
-
-## Related Projects
-
-- [WHIP-Robot-v00](https://github.com/CursedPrograms/WHIP-Robot-v00)
-- [KIDA-Robot-v00](https://github.com/CursedPrograms/KIDA-Robot-v00)
-- [KIDA-Robot-v01](https://github.com/CursedPrograms/KIDA-Robot-v01)
-- [NORA-Robot-v00](https://github.com/CursedPrograms/NORA-Robot-v00)
-- [RIFT](https://github.com/CursedPrograms/RIFT)
-
- <br>
+<br>
 <div align="center">
   <img src="demo_images/comcentre.png" alt="DREAM" width="800"/>
 </div>
- <br>
+<br>
 
-### Prerequisites
-- Python 3.12.3 for Lunix
-- Python 3.11.9 for Windows
-- USB microphone
-- Webcam
-- 8+ GB RAM
+### Prerequisite Software
+- **Python 3.12.3 for Lunix**
+- **Python 3.11.9 for Windows**
+- **[Arduino IDE](https://docs.arduino.cc/software/ide/)**
 
 ### Prerequisite Hardware
-- Webcam
-- Arduino UNO
-- Motion Detector
-- Bread board
-- LED (Optional)
+- **USB microphone**
+- **Webcam**
+- **8+ GB RAM**
+- **Arduino UNO**
+- **Motion Detector**
+- **Bread board**
+- **LED (Optional)**
+- **DuPont cables**
 
 ### Wiring
-- PIR Motion Sensor:
+- **PIR Motion Sensor:**
   - VCC → 5V
   - GND → GND
   - OUT → Pin 2
 
-- Buzzer:
+- **Buzzer:**
   - Positive → Pin 3
   - Negative → GND
 
 - NOTE: I2C Humidity and Temp Sensor to be added aswell as state LEDs, and LED strip.
-
-## Core Characteristics
-A local voice chatbot pipeline running entirely offline. She exhibits emergent and sometimes unpredictable behavior patterns that resembles psychosis.
----
-
-## Isolated Runtime
-- Runs inside a dedicated `venv`
-- Total footprint: ~17.3 GB (excluding global/system packages)
-- Modular dependency structure (can be pruned or extended)
-
----
-
-## System Awareness
-
-### Monitoring
-- CPU temperature
-- System load
-- Hardware sensors
-
-### Network Introspection
-- Scans and lists connected devices (LAN visibility)
-- Tracks IP / MAC / vendor
-
----
-
-## Autonomous Behaviors
-
-### Idle State
-- Listens for wake word
-- Communicates with other robots
-
-### Sleep Mode
-- Listens for wake word
-- Executes Deep Dream-style image generation
-
-(In both these states surveillance)
-
-### Future Evolution
-- Latent space exploration  
-- Dataset self-refinement  
-- Aesthetic model tuning  
-
 ---
 
 ## AI Stack Recommendation
@@ -145,21 +136,16 @@ A local voice chatbot pipeline running entirely offline. She exhibits emergent a
 
 ---
 
-It uses video to Render these different stages (listen → Think → Reply → Listen ) or (Wait for Wakeword → Reply (yes) → listen → Think → Reply → Listen ) she is very easy to read 
-- Speak → Whisper transcribes → Ollama replies → Piper speaks back.
-- Wake word, Piper speaks back → Speak → Whisper transcribes → Ollama replies → Piper speaks back.
----
-
 ## Pipeline
 
 ```
 Mic → Whisper → Ollama → Piper TTS → MuseTalk → Speaker
 ```
- <br>
+<br>
 <div align="center">
   <img src="demo_images/dream1.gif" alt="DREAM" width="400"/>
 </div>
- <br>
+<br>
 ---
 
 - For gender/age detect.
@@ -337,6 +323,10 @@ python detect.py --image <image_name>
 ```bash
 python detect.py
 ```
+\venv311\Lib\site-packages\mmdet\__init__.py
+
+mmcv_maximum_version = '2.3.0'
+
    - [weights](https://huggingface.co/TMElyralab/MuseTalk/tree/main)
    - [sd-vae-ft-mse](https://huggingface.co/stabilityai/sd-vae-ft-mse/tree/main)
    - [whisper](https://huggingface.co/openai/whisper-tiny/tree/main)
@@ -345,11 +335,11 @@ python detect.py
    - [face-parse-bisent](https://drive.google.com/file/d/154JgKpzCPW82qINcVieuPH3fZ2e0P812/view?pli=1)
    - [resnet18](https://download.pytorch.org/models/resnet18-5c106cde.pth)
 
- <br>
+<br>
 <div align="center">
   <img src="demo_images/deepdream_demo.png" alt="DREAM" width="400"/>
 </div>
- <br>
+<br>
 
 ## Future Plans:
 
