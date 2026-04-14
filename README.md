@@ -162,6 +162,9 @@ Mic → Whisper → Ollama → Piper TTS → MuseTalk → Speaker
  <br>
 ---
 
+- For gender/age detect.
+<a href="https://talhassner.github.io/home/projects/Adience/Adience-data.html">
+
 ## How to Run
 
 ### 1. Install Ollama
@@ -230,6 +233,15 @@ py -3.11 -m venv venv311
 venv311\Scripts\activate
 pip install -r requirements.txt
 ```
+```bash
+pip install --upgrade pip setuptools wheel
+pip install chumpy --no-build-isolation
+```
+```bash
+pip install openai-whisper piper-tts pathvalidate sounddevice soundfile numpy requests faster-whisper pygame psutil requests flask zeroconf pyserial opencv-python scipy tensorflow Pillow diffusers transformers accelerate librosa argparse mmpose mmcv mmengine diffusers transformers accelerate --upgrade torch==2.5.1+cu121 torchaudio==2.5.1+cu121 --index-url https://download.pytorch.org/whl/cu121
+```
+
+pip install mmcv-full -f https://download.openmmlab.com/mmcv/dist/cu121/torch2.1/index.html
 
 ### 5. Install Piper
 
@@ -273,14 +285,7 @@ wget https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux
 tar xzf piper_linux_x86_64.tar.gz
 sudo mv piper/piper /usr/local/bin/
 ```
-Or manually:
 
-```bash
-pip install openai-whisper piper-tts pathvalidate sounddevice soundfile numpy requests faster-whisper pygame psutil requests flask zeroconf pyserial opencv-python scipy tensorflow Pillow diffusers transformers accelerate torchvision argparse diffusers transformers accelerate --upgrade torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu118
-```
-```bash
-pip install torch==2.5.1+cu121 torchaudio==2.5.1+cu121 --index-url https://download.pytorch.org/whl/cu121
-```
 
 ### 6. Preload Whisper model
 
