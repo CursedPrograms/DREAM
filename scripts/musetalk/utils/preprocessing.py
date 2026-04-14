@@ -9,8 +9,8 @@ import cv2
 import pickle
 import os
 import json
-# from mmpose.apis import inference_topdown, init_model
-# from mmpose.structures import merge_data_samples
+from mmpose.apis import inference_topdown, init_model
+from mmpose.structures import merge_data_samples
 import torch
 from tqdm import tqdm
 
