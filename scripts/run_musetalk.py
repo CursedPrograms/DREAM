@@ -32,7 +32,9 @@ from moviepy.editor import *
 from transformers import WhisperModel
 
 ProjectDir = os.path.abspath(os.path.dirname(__file__))
-CheckpointsDir = os.path.join(ProjectDir, "models")
+CheckpointsDir = os.path.abspath(
+    os.path.join(ProjectDir, "..", "models")
+)
 
 @torch.no_grad()
 def debug_inpainting(video_path, bbox_shift, extra_margin=10, parsing_mode="jaw", 

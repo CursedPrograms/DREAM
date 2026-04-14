@@ -276,7 +276,7 @@ sudo mv piper/piper /usr/local/bin/
 Or manually:
 
 ```bash
-pip install openai-whisper piper-tts pathvalidate sounddevice soundfile numpy requests faster-whisper pygame psutil requests flask zeroconf pyserial opencv-python scipy tensorflow Pillow diffusers transformers accelerate torchvision argparse diffusers transformers accelerate --upgrade
+pip install openai-whisper piper-tts pathvalidate sounddevice soundfile numpy requests faster-whisper pygame psutil requests flask zeroconf pyserial opencv-python scipy tensorflow Pillow diffusers transformers accelerate torchvision argparse diffusers transformers accelerate --upgrade torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu118
 ```
 ```bash
 pip install torch==2.5.1+cu121 torchaudio==2.5.1+cu121 --index-url https://download.pytorch.org/whl/cu121
@@ -328,6 +328,13 @@ python detect.py --image <image_name>
 ```bash
 python detect.py
 ```
+   - [weights](https://huggingface.co/TMElyralab/MuseTalk/tree/main)
+   - [sd-vae-ft-mse](https://huggingface.co/stabilityai/sd-vae-ft-mse/tree/main)
+   - [whisper](https://huggingface.co/openai/whisper-tiny/tree/main)
+   - [dwpose](https://huggingface.co/yzd-v/DWPose/tree/main)
+   - [syncnet](https://huggingface.co/ByteDance/LatentSync/tree/main)
+   - [face-parse-bisent](https://drive.google.com/file/d/154JgKpzCPW82qINcVieuPH3fZ2e0P812/view?pli=1)
+   - [resnet18](https://download.pytorch.org/models/resnet18-5c106cde.pth)
 
  <br>
 <div align="center">
