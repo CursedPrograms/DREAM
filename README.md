@@ -17,9 +17,9 @@
 </div>
 <br>
 
-# DREAM
+# **DREAM**
 #### Distributed Runtime for Ethereal Autonomous Memories
-### Dream@ComCentre
+### **Dream@ComCentre**
 
 <br>
 <div align="center">
@@ -29,43 +29,62 @@
 
 ---
 
-## Overview:
+## Overview
 
-DREAM is a localized agentic-consciousness/embedded robotic system and the cognitive core of the ComCentre ecosystem. Operating as a sovereign, offline entity, she serves as the primary command-and-control interface for the KIDA and NORA robotic lineages through the RIFT neural protocol.
+DREAM is a localized agentic-consciousness embedded robotic system and the cognitive core of the ComCentre ecosystem.
 
-DREAM does not just process commands; she observes, remembers, and dreams. She is designed to bridge the gap between static code and autonomous "insanity."
+Operating as a sovereign offline entity, she serves as the primary command-and-control interface for the KIDA and NORA robotic lineages through the RIFT neural protocol.
 
-#### Core Characteristics
-A local voice chatbot pipeline running entirely offline. She exhibits emergent and sometimes unpredictable behavior patterns that resembles psychosis.
+DREAM does not simply execute commands — she observes, remembers, and “dreams”.
 
-#### System Awareness
+She bridges static code and emergent autonomous behavior.
 
-##### Monitoring
+---
+
+## Core Characteristics
+
+- Fully local voice chatbot pipeline (offline capable)
+- Emergent and unpredictable behavior patterns
+- Continuous perception + memory loop
+- Robotics integration layer (KIDA / NORA / WHIP ecosystem)
+
+---
+
+## System Awareness
+
+### Monitoring
 - CPU temperature
 - System load
 - Hardware sensors
 
-##### Network Introspection
-- Scans and lists connected devices (LAN visibility)
-- Tracks IP / MAC / vendor
+### Network Introspection
+- LAN device scanning
+- IP / MAC tracking
+- Vendor detection
 
-#### Autonomous Behaviors
+---
 
-##### Idle State
-- Listens for wake word
-It uses video to Render these different stages (listen → Think → Reply → Listen ) or (Wait for Wakeword → Reply (yes) → listen → Think → Reply → Listen ) she is very easy to read 
-- Speak → Whisper transcribes → Ollama replies → Piper speaks back.
-- Wake word, Piper speaks back → Speak → Whisper transcribes → Ollama replies → Piper speaks back.
+## Autonomous Behavior
+
+### Idle State
+- Waits for wake word
+- Listen → Think → Respond loop
+- Whisper transcription → LLM → Piper TTS
+- Optional video-state visualization (idle / thinking / speaking)
 - Communicates with other robots
 
-##### Sleep Mode
-- Listens for wake word
-- Executes Deep Dream-style image generation
-- Latent space exploration
-- Dataset self-refinement  
-- Aesthetic model tuning  
+### Active Conversation
+Pipeline:
+```
+Mic → Whisper → Ollama → Piper TTS → MuseTalk → Speaker
+```
 
-(In both these states surveillance)
+### Sleep Mode
+- Deep Dream-style image generation
+- Latent space exploration
+- Dataset self-refinement
+- Aesthetic tuning loops
+
 ---
 
 ## Related Projects
@@ -97,36 +116,42 @@ deep dream baby.
 
 agentic-consciousness , autonomous
 ```
+---
+
 <br>
 <div align="center">
   <img src="demo_images/comcentre.png" alt="DREAM" width="800"/>
 </div>
 <br>
 
-### Prerequisite Software
-- **Python 3.12.3 for Lunix**
-- **Python 3.11.9 for Windows**
-- **[Arduino IDE](https://docs.arduino.cc/software/ide/)**
+---
 
-### Prerequisite Hardware
-- **USB microphone**
-- **Webcam**
-- **8+ GB RAM**
-- **Arduino UNO**
-- **Motion Detector**
-- **Bread board**
-- **LED (Optional)**
-- **DuPont cables**
+## Prerequisites
 
-### Wiring
-- **PIR Motion Sensor:**
-  - VCC → 5V
-  - GND → GND
-  - OUT → Pin 2
+### Software
+- Python 3.12.3 for Lunix
+- Python 3.11.9 for Windows
+- [Arduino IDE](https://docs.arduino.cc/software/ide/)
 
-- **Buzzer:**
-  - Positive → Pin 3
-  - Negative → GND
+### Hardware
+- USB Microphone
+- Webcam
+- 8GB+ RAM
+- Arduino UNO
+- Motion Sensor (PIR optional)
+
+---
+
+## Wiring
+
+### PIR Sensor
+- VCC → 5V  
+- GND → GND  
+- OUT → Pin 2  
+
+### Buzzer
+- + → Pin 3  
+- - → GND  
 
 - NOTE: I2C Humidity and Temp Sensor to be added aswell as state LEDs, and LED strip.
 ---
@@ -138,9 +163,7 @@ agentic-consciousness , autonomous
 
 ## Pipeline
 
-```
-Mic → Whisper → Ollama → Piper TTS → MuseTalk → Speaker
-```
+
 <br>
 <div align="center">
   <img src="demo_images/dream1.gif" alt="DREAM" width="400"/>
