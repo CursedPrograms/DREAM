@@ -387,9 +387,9 @@ def inference(audio_path, video_path, bbox_shift, extra_margin=10, parsing_mode=
 # load model weights
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 vae, unet, pe = load_all_model(
-    unet_model_path="./models/musetalkV15/unet.pth", 
-    vae_type="sd-vae",
-    unet_config="./models/musetalkV15/musetalk.json",
+    unet_model_path=os.path.join(CheckpointsDir, "musetalkV15/unet.pth"),
+    vae_type=os.path.join(CheckpointsDir, "sd-vae"),
+    unet_config=os.path.join(CheckpointsDir, "musetalkV15/musetalk.json"),
     device=device
 )
 

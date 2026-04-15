@@ -172,7 +172,25 @@ She bridges static code and emergent autonomous behavior.
 
 ---
 
-## Pipeline
+---
+## 🌐 Connectivity & Controls
+
+<details>
+<summary><b>Connectivity & Controls</b></summary>
+
+### Network Configuration
+| Parameter | Value |
+| :--- | :--- |
+| **SSID** | `NORA` |
+| **Password** | `12345678` |
+
+### RIFT Integration
+To connect via [RIFT](https://github.com/CursedPrograms/RIFT), ensure DREAM is active on:
+* `localhost:5001`
+
+</details>
+
+---
 
 
 <br>
@@ -187,7 +205,11 @@ She bridges static code and emergent autonomous behavior.
 
 ## How to Run
 
-### 1. Install Ollama
+### Install Ollama
+
+<details>
+<summary><b>Ollama Setup</b></summary>
+
 #### Lunix
 ```bash
 sudo snap install ollama
@@ -199,7 +221,7 @@ irm https://ollama.com/install.ps1 | iex
 ```
 https://ollama.com/download/windows
 
-### 2. Pull models
+### Pull models
 
 #### Lunix
 ```bash
@@ -226,7 +248,9 @@ ollama serve &
 ollama run llama2
 ```
 
-### 3. System dependencies
+</details>
+
+### System dependencies
 
 #### Linux
 ```bash
@@ -239,7 +263,11 @@ winget install ffmpeg
 winget install alsa-utils
 ```
 
-### 4. Virtual environment
+### Virtual environment
+
+<details>
+<summary><b>Environment Setup</b></summary>
+
 #### Lunix
 ```bash
 python -m venv venv
@@ -267,7 +295,13 @@ pip install mmcv-full -f https://download.openmmlab.com/mmcv/dist/cu121/torch2.1
 pip install https://download.openmmlab.com/mmcv/dist/cu121/torch2.3.0/mmcv-2.2.0-cp311-cp311-win_amd64.whl
 ```
 
-### 5. Install Piper
+</details>
+---
+
+### Install Piper TTS
+
+<details>
+<summary><b>Piper Setup</b></summary>
 
 #### For Linux:
 
@@ -310,27 +344,35 @@ tar xzf piper_linux_x86_64.tar.gz
 sudo mv piper/piper /usr/local/bin/
 ```
 
+#### Test Piper
 
-### 6. Preload Whisper model
+```bash
+echo "Hello, I am your voice assistant." | \
+piper --model voices/en_US-amy-medium.onnx \
+--output_raw | aplay -D plughw:2,0 -r 22050 -f S16_LE -t raw -
+```
+
+</details>
+
+---
+
+### Preload Whisper model
+
+<details>
+<summary><b>Whisper Setup</b></summary>
 
 ```bash
 python3 -c "import whisper; whisper.load_model('large')"
 python3 -c "import whisper; whisper.load_model('tiny')"
 ```
 
-### 7. Audio output directory
+</details>
+
+### Audio output directory
 
 ```bash
 sudo mkdir /audio
 sudo chown $USER:$USER /audio
-```
-
-### 8. Test Piper
-
-```bash
-echo "Hello, I am your voice assistant." | \
-piper --model voices/en_US-amy-medium.onnx \
---output_raw | aplay -D plughw:2,0 -r 22050 -f S16_LE -t raw -
 ```
 ---
 
@@ -357,7 +399,16 @@ python detect.py --image <image_name>
 ```bash
 python detect.py
 ```
+
+### MuseTalk
+
+```bash
+[face_alignment](https://github.com/1adrianb/face-alignment)
+```
+
+```bash
 \venv311\Lib\site-packages\mmdet\__init__.py
+```
 
 mmcv_maximum_version = '2.3.0'
 
