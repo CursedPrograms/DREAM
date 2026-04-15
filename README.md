@@ -172,7 +172,6 @@ She bridges static code and emergent autonomous behavior.
 
 ---
 
----
 ## 🌐 Connectivity & Controls
 
 <details>
@@ -192,12 +191,12 @@ To connect via [RIFT](https://github.com/CursedPrograms/RIFT), ensure DREAM is a
 
 ---
 
-
 <br>
 <div align="center">
   <img src="demo_images/dream1.gif" alt="DREAM" width="400"/>
 </div>
 <br>
+
 ---
 
 - For gender/age detect.
@@ -250,6 +249,8 @@ ollama run llama2
 
 </details>
 
+---
+
 ### System dependencies
 
 #### Linux
@@ -262,6 +263,8 @@ sudo apt install ffmpeg alsa-utils -y
 winget install ffmpeg
 winget install alsa-utils
 ```
+
+---
 
 ### Virtual environment
 
@@ -296,6 +299,7 @@ pip install https://download.openmmlab.com/mmcv/dist/cu121/torch2.3.0/mmcv-2.2.0
 ```
 
 </details>
+
 ---
 
 ### Install Piper TTS
