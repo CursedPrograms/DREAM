@@ -29,7 +29,16 @@
 
 ---
 
-## Overview
+### Active Conversation
+Pipeline:
+```
+Mic → Whisper → Ollama → Piper TTS → MuseTalk → Speaker
+```
+
+## 📖 Overview
+
+<details>
+<summary><b>Overview</b></summary>
 
 DREAM is a localized agentic-consciousness embedded robotic system and the cognitive core of the ComCentre ecosystem.
 
@@ -39,14 +48,14 @@ DREAM does not simply execute commands — she observes, remembers, and “dream
 
 She bridges static code and emergent autonomous behavior.
 
----
-
 ## Core Characteristics
 
 - Fully local voice chatbot pipeline (offline capable)
 - Emergent and unpredictable behavior patterns
 - Continuous perception + memory loop
 - Robotics integration layer (KIDA / NORA / WHIP ecosystem)
+
+</details>
 
 ---
 
@@ -73,11 +82,7 @@ She bridges static code and emergent autonomous behavior.
 - Optional video-state visualization (idle / thinking / speaking)
 - Communicates with other robots
 
-### Active Conversation
-Pipeline:
-```
-Mic → Whisper → Ollama → Piper TTS → MuseTalk → Speaker
-```
+
 
 ### Sleep Mode
 - Deep Dream-style image generation
@@ -95,27 +100,6 @@ Mic → Whisper → Ollama → Piper TTS → MuseTalk → Speaker
 - [NORA-Robot-v00](https://github.com/CursedPrograms/NORA-Robot-v00)
 - [RIFT](https://github.com/CursedPrograms/RIFT)
 
-```bash
- エージェンティック意識
-explore latent space with me
-
-オートマトン　オートマトン　オートマトン
-agentic-consciousness , autonomous
-オートマトン　オートマトン　オートマトン
-agentic-consciousness , autonomous
-オートマトン　オートマトン　オートマトン
-
-deep dream baby.
-
-自律的認知構造
-人工知能
-人工知能
-自律的認知構造
-人工知能
-人工知能
-
-agentic-consciousness , autonomous
-```
 ---
 
 <br>
@@ -128,21 +112,44 @@ agentic-consciousness , autonomous
 
 ## Prerequisites
 
+<details>
+<summary><b>Prerequisites</b></summary>
+
 ### Software
 - Python 3.12.3 for Lunix
 - Python 3.11.9 for Windows
 - [Arduino IDE](https://docs.arduino.cc/software/ide/)
 
 ### Hardware
+
+### PC Requirements
+| **Component** | **Details** |
+|-----------|---------|
+| RAM | 8GB+ RAM |
+
+### Microcontrollers
+| **Component** | **Details** |
+|-----------|---------|
+| Microcontroller 0 | Arduino UNO | Dev0 |
+
+### Sensors
+| **Component** | **Details** |
+|-----------|---------|
+| Motion Sensor | PIR |
+
 - USB Microphone
 - Webcam
-- 8GB+ RAM
-- Arduino UNO
-- Motion Sensor (PIR optional)
 
----
+</details>
 
-## Wiring
+# Schematics
+## ⚡ Technical Pinouts
+
+> [!CAUTION]
+> **Ground Loop Warning:** All modules must share a common GND. Failure to bridge grounds will cause erratic motor behavior and sensor noise.
+
+<details>
+<summary><b>Sensor Wiring</b></summary>
 
 ### PIR Sensor
 - VCC → 5V  
@@ -153,7 +160,13 @@ agentic-consciousness , autonomous
 - + → Pin 3  
 - - → GND  
 
+</details>
+
 - NOTE: I2C Humidity and Temp Sensor to be added aswell as state LEDs, and LED strip.
+
+> [!TIP]
+> **Pro-Tip:** Make sure all modules share a common ground (GND) for stable operation.
+
 ---
 
 ## AI Stack Recommendation

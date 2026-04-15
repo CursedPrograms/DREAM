@@ -357,7 +357,7 @@ def run_musetalk(audio_wav_path: str) -> str | None:
 
         # We call inference() directly by importing it
         sys.path.insert(0, os.path.dirname(musetalk_script))
-        from musetalk import inference  # type: ignore
+        from scripts.run_musetalk import inference  # type: ignore
 
         out_path, _ = inference(
             audio_path  = audio_wav_path,
