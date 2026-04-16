@@ -424,10 +424,6 @@ def check_torch_load_is_safe() -> None:
         raise ValueError(...)
 ```
 
-OpenTalker/SadTalker
-KwaiVGI/LivePortrait
-ajay-saini7/Wav2Lip-HQ
-
 #### Download MuseTalk Models
 
    - [weights](https://huggingface.co/TMElyralab/MuseTalk/tree/main)
@@ -440,6 +436,31 @@ ajay-saini7/Wav2Lip-HQ
 
 
 </details>
+
+
+<details>
+<summary><b>Wav2lip Setup</b></summary>
+
+<br>
+<div align="center">
+  <img src="demo_images/lipsync_wav2lip.gif" alt="Wav2Lip Demo" width="400"/>
+  <p><i>Generated using Wav2Lip-GAN with <b>--resize_factor 2</b></i></p>
+</div>
+<br>
+
+You can lip-sync any video to any audio:
+
+```bash
+python inference.py --checkpoint_path "checkpoints/wav2lip-sd-gan.pt" --face "/videos/musetalk_talk.mp4" --audio "/audio/audio.mp3" --resize_factor 2 
+```
+
+</details>
+
+<br>
+<div align="center">
+  <img src="demo_images/lipsync_wav2lip.gif" alt="Wav2Lip Demo" width="400"/>
+  <p><i>Generated using Wav2Lip-GAN with <b>--resize_factor 2</b></i></p>
+</div>
 
 <br>
 <div align="center">
