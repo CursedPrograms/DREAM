@@ -21,6 +21,8 @@ from tqdm import tqdm
 from moviepy.editor import VideoFileClip, AudioFileClip
 from transformers import WhisperModel
 
+os.environ["TORCH_FORCE_WEIGHTS_ONLY_LOAD"] = "0"
+
 # ─── Resolve paths relative to this script's location ───────────────────────
 ProjectDir      = os.path.abspath(os.path.dirname(__file__))
 CheckpointsDir  = os.path.abspath(os.path.join(ProjectDir, "..", "models"))

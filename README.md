@@ -413,6 +413,18 @@ Change the maximum version:
 mmcv_maximum_version = '2.3.0'
 ```
 
+Go to:
+```bash
+\venv311\Lib\site-packages\transformers\utils\import_utils.py
+```
+:
+```bash
+def check_torch_load_is_safe() -> None:
+    return  # <--- Put it here, OUTSIDE the if statement
+    if not is_torch_greater_or_equal("2.6"):
+        raise ValueError(...)
+```
+
 
 #### Download MuseTalk Models
 
