@@ -356,37 +356,7 @@ piper --model voices/en_US-amy-medium.onnx \
 --output_raw | aplay -D plughw:2,0 -r 22050 -f S16_LE -t raw -
 ```
 
-</details>
-
----
-
-### Preload Whisper model
-
-<details>
-<summary><b>Whisper Setup</b></summary>
-
-```bash
-python3 -c "import whisper; whisper.load_model('large')"
-python3 -c "import whisper; whisper.load_model('tiny')"
-```
-
-</details>
-
-### Audio output directory
-
-```bash
-sudo mkdir /audio
-sudo chown $USER:$USER /audio
-```
----
-
-### Run main.py
-
-```bash
-python main.py
-```
-
-### TTS only (speak.py)
+#### TTS only (speak.py)
 
 Stream only:
 ```bash
@@ -404,17 +374,47 @@ python detect.py --image <image_name>
 python detect.py
 ```
 
+</details>
+
+---
+
+### Whisper Setup
+
+<details>
+<summary><b>Whisper Setup</b></summary>
+
+```bash
+python3 -c "import whisper; whisper.load_model('large')"
+python3 -c "import whisper; whisper.load_model('tiny')"
+```
+
+</details>
+
+---
+
 ### MuseTalk
+
+<details>
+<summary><b>MuseTalk Setup</b></summary>
 
 ```bash
 [face_alignment](https://github.com/1adrianb/face-alignment)
 ```
 
+#### Change MuseTalk venv Code:
+
+Go to:
 ```bash
 \venv311\Lib\site-packages\mmdet\__init__.py
 ```
 
+Change the maximum version:
+```bash
 mmcv_maximum_version = '2.3.0'
+```
+
+
+#### Download MuseTalk Models
 
    - [weights](https://huggingface.co/TMElyralab/MuseTalk/tree/main)
    - [sd-vae-ft-mse](https://huggingface.co/stabilityai/sd-vae-ft-mse/tree/main)
@@ -423,6 +423,9 @@ mmcv_maximum_version = '2.3.0'
    - [syncnet](https://huggingface.co/ByteDance/LatentSync/tree/main)
    - [face-parse-bisent](https://drive.google.com/file/d/154JgKpzCPW82qINcVieuPH3fZ2e0P812/view?pli=1)
    - [resnet18](https://download.pytorch.org/models/resnet18-5c106cde.pth)
+
+
+</details>
 
 <br>
 <div align="center">
