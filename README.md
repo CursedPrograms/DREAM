@@ -424,6 +424,9 @@ def check_torch_load_is_safe() -> None:
         raise ValueError(...)
 ```
 
+OpenTalker/SadTalker
+KwaiVGI/LivePortrait
+ajay-saini7/Wav2Lip-HQ
 
 #### Download MuseTalk Models
 
