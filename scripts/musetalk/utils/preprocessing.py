@@ -1,195 +1,217 @@
 #!/usr/bin/env python3
 
-import sys
-from face_detection import FaceAlignment, LandmarksType
-from os import listdir, path
-import subprocess
 import numpy as np
 import cv2
 import pickle
 import os
-import json
 import torch
 from tqdm import tqdm
 
-# initialize the face detection model
-device = "cuda" if torch.cuda.is_available() else "cpu"
-fa = FaceAlignment(LandmarksType._2D, flip_input=False, device=device)
+# ── face-alignment (pip install face-alignment) ───────────────────────────────
+import face_alignment
+from face_alignment import LandmarksType
 
-# maker if the bbox is not sufficient
+device = "cuda" if torch.cuda.is_available() else "cpu"
+fa = face_alignment.FaceAlignment(LandmarksType.TWO_D, flip_input=False, device=device)
+
+# Auto-detect which landmark method this version of face_alignment exposes
+if hasattr(fa, "get_landmarks_from_image"):
+    _landmark_fn = fa.get_landmarks_from_image
+elif hasattr(fa, "get_landmarks"):
+    _landmark_fn = fa.get_landmarks
+else:
+    raise RuntimeError(
+        "Installed face_alignment has neither get_landmarks_from_image nor "
+        "get_landmarks. Run: pip install --upgrade face-alignment"
+    )
+
+print(f"[preprocessing] using face_alignment method: {_landmark_fn.__name__}  device: {device}")
+
+# placeholder when no face is detected
 coord_placeholder = (0.0, 0.0, 0.0, 0.0)
 
-# face_alignment gives 68 landmarks in this order:
-# 0-16:  jawline
-# 17-21: left eyebrow
-# 22-26: right eyebrow
-# 27-35: nose bridge + tip
-# 36-41: left eye
-# 42-47: right eye
-# 48-67: mouth
+# ── face_alignment 68-point landmark indices ──────────────────────────────────
+#  0-16  : jawline
+# 17-21  : left eyebrow
+# 22-26  : right eyebrow
+# 27-35  : nose bridge + tip
+# 36-41  : left eye
+# 42-47  : right eye
+# 48-67  : mouth
 #
-# Original mmpose used keypoints[0][23:91] (68 face points from wholebody).
-# Mapping to face_alignment 68-point equivalent:
-#   mmpose[29] -> nose tip area -> fa[30] (nose tip)
-#   mmpose[28] -> fa[29]
-#   mmpose[30] -> fa[31]
-# These are the same logical points, just from a different detector.
+# Key nose points used for vertical-split calculation:
+#   [29] = just above nose tip
+#   [30] = nose tip
+#   [31] = just below nose tip
+# ─────────────────────────────────────────────────────────────────────────────
+
 
 def resize_landmark(landmark, w, h, new_w, new_h):
-    w_ratio = new_w / w
-    h_ratio = new_h / h
-    landmark_norm = landmark / [w, h]
-    landmark_resized = landmark_norm * [new_w, new_h]
+    landmark_norm    = landmark / np.array([w, h], dtype=np.float32)
+    landmark_resized = landmark_norm * np.array([new_w, new_h], dtype=np.float32)
     return landmark_resized
+
 
 def read_imgs(img_list):
     frames = []
-    print('reading images...')
+    print("reading images...")
     for img_path in tqdm(img_list):
         frame = cv2.imread(img_path)
+        if frame is None:
+            raise FileNotFoundError(f"Could not read image: {img_path}")
         frames.append(frame)
     return frames
 
+
+def _get_landmarks(frame_bgr):
+    """Return 68-pt landmark list for a single BGR frame, or None."""
+    frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+    return _landmark_fn(frame_rgb)
+
+
+def _get_bboxes(frames_bgr):
+    """Return per-frame bounding boxes for a list of BGR frames."""
+    batch_rgb = np.array([cv2.cvtColor(f, cv2.COLOR_BGR2RGB) for f in frames_bgr])
+    return fa.get_detections_for_batch(batch_rgb)
+
+
+# ── public API ────────────────────────────────────────────────────────────────
+
 def get_bbox_range(img_list, upperbondrange=0):
+    """
+    Returns a human-readable string describing the valid bbox_shift range
+    for the given image list.
+    """
     frames = read_imgs(img_list)
-    batch_size_fa = 1
-    batches = [frames[i:i + batch_size_fa] for i in range(0, len(frames), batch_size_fa)]
-    coords_list = []
+    batches = [[frames[i]] for i in range(len(frames))]
 
-    if upperbondrange != 0:
-        print('get key_landmark and face bounding boxes with the bbox_shift:', upperbondrange)
-    else:
-        print('get key_landmark and face bounding boxes with the default value')
+    label = f"bbox_shift: {upperbondrange}" if upperbondrange != 0 else "default value"
+    print(f"get key_landmark and face bounding boxes with the {label}")
 
-    average_range_minus = []
-    average_range_plus = []
+    range_minus_vals = []
+    range_plus_vals  = []
 
     for fb in tqdm(batches):
-        frame = np.asarray(fb)[0]
+        frame          = fb[0]
+        landmarks_list = _get_landmarks(frame)
+        bboxes         = _get_bboxes(fb)
 
-        # Get 68-point landmarks from face_alignment
-        landmarks_list = fa.get_landmarks(frame)
-        bbox = fa.get_detections_for_batch(np.asarray(fb))
-
-        for j, f in enumerate(bbox):
-            if f is None:
-                coords_list += [coord_placeholder]
+        for bbox in bboxes:
+            if bbox is None:
+                continue
+            if not landmarks_list:
                 continue
 
-            if landmarks_list is None or len(landmarks_list) == 0:
-                coords_list += [f]
-                continue
+            lm = landmarks_list[0].astype(np.int32)      # (68, 2)
+            half_face_coord = lm[30].copy()
 
-            face_land_mark = landmarks_list[0].astype(np.int32)  # shape (68, 2)
-
-            # Use nose bridge points (indices 27-35) to determine vertical split
-            # fa[30] = nose tip, fa[29] = just above nose tip, fa[31] = just below
-            half_face_coord = face_land_mark[30].copy()
-            range_minus = (face_land_mark[31] - face_land_mark[30])[1]
-            range_plus  = (face_land_mark[30] - face_land_mark[29])[1]
-            average_range_minus.append(range_minus)
-            average_range_plus.append(range_plus)
+            range_minus_vals.append(int((lm[31] - lm[30])[1]))
+            range_plus_vals.append(int((lm[30] - lm[29])[1]))
 
             if upperbondrange != 0:
-                half_face_coord[1] = upperbondrange + half_face_coord[1]
+                half_face_coord[1] += upperbondrange
 
-    if not average_range_minus:
-        return f"Total frame:「{len(frames)}」 No faces detected. current value: {upperbondrange}"
+    if not range_minus_vals:
+        return (
+            f"Total frame:「{len(frames)}」 "
+            f"No faces detected. current value: {upperbondrange}"
+        )
 
-    text_range = (
+    avg_minus = int(sum(range_minus_vals) / len(range_minus_vals))
+    avg_plus  = int(sum(range_plus_vals)  / len(range_plus_vals))
+    return (
         f"Total frame:「{len(frames)}」 "
-        f"Manually adjust range : [ -{int(sum(average_range_minus) / len(average_range_minus))}"
-        f"~{int(sum(average_range_plus) / len(average_range_plus))} ] , "
+        f"Manually adjust range : [ -{avg_minus}~{avg_plus} ] , "
         f"the current value: {upperbondrange}"
     )
-    return text_range
 
 
 def get_landmark_and_bbox(img_list, upperbondrange=0):
-    frames = read_imgs(img_list)
-    batch_size_fa = 1
-    batches = [frames[i:i + batch_size_fa] for i in range(0, len(frames), batch_size_fa)]
-    coords_list = []
+    """
+    Returns (coords_list, frames).
+    coords_list[i] is either coord_placeholder or (x1, y1, x2, y2) ints.
+    """
+    frames  = read_imgs(img_list)
+    batches = [[frames[i]] for i in range(len(frames))]
 
-    if upperbondrange != 0:
-        print('get key_landmark and face bounding boxes with the bbox_shift:', upperbondrange)
-    else:
-        print('get key_landmark and face bounding boxes with the default value')
+    label = f"bbox_shift: {upperbondrange}" if upperbondrange != 0 else "default value"
+    print(f"get key_landmark and face bounding boxes with the {label}")
 
-    average_range_minus = []
-    average_range_plus = []
+    coords_list      = []
+    range_minus_vals = []
+    range_plus_vals  = []
 
     for fb in tqdm(batches):
-        frame = np.asarray(fb)[0]
+        frame          = fb[0]
+        landmarks_list = _get_landmarks(frame)
+        bboxes         = _get_bboxes(fb)
 
-        # Get 68-point landmarks from face_alignment
-        landmarks_list = fa.get_landmarks(frame)
-        bbox = fa.get_detections_for_batch(np.asarray(fb))
-
-        for j, f in enumerate(bbox):
-            if f is None:
-                coords_list += [coord_placeholder]
+        for bbox in bboxes:
+            if bbox is None:
+                coords_list.append(coord_placeholder)
                 continue
 
-            if landmarks_list is None or len(landmarks_list) == 0:
-                coords_list += [f]
+            if not landmarks_list:
+                coords_list.append(tuple(int(v) for v in bbox))
                 continue
 
-            face_land_mark = landmarks_list[0].astype(np.int32)  # shape (68, 2)
+            lm              = landmarks_list[0].astype(np.int32)   # (68, 2)
+            half_face_coord = lm[30].copy()
 
-            # Nose bridge points for vertical split calculation
-            half_face_coord = face_land_mark[30].copy()
-            range_minus = (face_land_mark[31] - face_land_mark[30])[1]
-            range_plus  = (face_land_mark[30] - face_land_mark[29])[1]
-            average_range_minus.append(range_minus)
-            average_range_plus.append(range_plus)
+            range_minus_vals.append(int((lm[31] - lm[30])[1]))
+            range_plus_vals.append(int((lm[30] - lm[29])[1]))
 
             if upperbondrange != 0:
-                half_face_coord[1] = upperbondrange + half_face_coord[1]
+                half_face_coord[1] += upperbondrange
 
-            half_face_dist = np.max(face_land_mark[:, 1]) - half_face_coord[1]
-            min_upper_bond = 0
-            upper_bond = max(min_upper_bond, half_face_coord[1] - half_face_dist)
+            half_face_dist = int(np.max(lm[:, 1])) - half_face_coord[1]
+            upper_bond     = max(0, half_face_coord[1] - half_face_dist)
 
-            f_landmark = (
-                np.min(face_land_mark[:, 0]),
-                int(upper_bond),
-                np.max(face_land_mark[:, 0]),
-                np.max(face_land_mark[:, 1])
-            )
-            x1, y1, x2, y2 = f_landmark
+            x1 = int(np.min(lm[:, 0]))
+            y1 = int(upper_bond)
+            x2 = int(np.max(lm[:, 0]))
+            y2 = int(np.max(lm[:, 1]))
 
             if y2 - y1 <= 0 or x2 - x1 <= 0 or x1 < 0:
-                coords_list += [f]
-                print("error bbox:", f)
+                print(f"  warning: bad landmark bbox {(x1,y1,x2,y2)}, falling back to detector bbox")
+                coords_list.append(tuple(int(v) for v in bbox))
             else:
-                coords_list += [f_landmark]
+                coords_list.append((x1, y1, x2, y2))
 
-    if average_range_minus:
-        print("********************************************bbox_shift parameter adjustment**********************************************************")
+    if range_minus_vals:
+        avg_minus = int(sum(range_minus_vals) / len(range_minus_vals))
+        avg_plus  = int(sum(range_plus_vals)  / len(range_plus_vals))
+        print("=" * 80)
         print(
             f"Total frame:「{len(frames)}」 "
-            f"Manually adjust range : [ -{int(sum(average_range_minus) / len(average_range_minus))}"
-            f"~{int(sum(average_range_plus) / len(average_range_plus))} ] , "
+            f"Manually adjust range : [ -{avg_minus}~{avg_plus} ] , "
             f"the current value: {upperbondrange}"
         )
-        print("*************************************************************************************************************************************")
+        print("=" * 80)
 
     return coords_list, frames
 
 
+# ── smoke-test ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    img_list = ["./results/lyria/00000.png","./results/lyria/00001.png","./results/lyria/00002.png","./results/lyria/00003.png"]
+    img_list = [
+        "./results/lyria/00000.png",
+        "./results/lyria/00001.png",
+        "./results/lyria/00002.png",
+        "./results/lyria/00003.png",
+    ]
     crop_coord_path = "./coord_face.pkl"
+
     coords_list, full_frames = get_landmark_and_bbox(img_list)
-    with open(crop_coord_path, 'wb') as f:
-        pickle.dump(coords_list, f)
+
+    with open(crop_coord_path, "wb") as fh:
+        pickle.dump(coords_list, fh)
 
     for bbox, frame in zip(coords_list, full_frames):
         if bbox == coord_placeholder:
             continue
         x1, y1, x2, y2 = bbox
-        crop_frame = frame[y1:y2, x1:x2]
-        print('Cropped shape', crop_frame.shape)
+        crop = frame[y1:y2, x1:x2]
+        print("Cropped shape:", crop.shape)
 
     print(coords_list)
