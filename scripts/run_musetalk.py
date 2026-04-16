@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 
 import os
+
+os.environ["TORCH_COMPILE_DISABLE"] = "1"
+os.environ["PYTHONASYNCIODEBUG"] = "0" # Optional: cleans up some async noise
+os.environ["TORCH_FORCE_WEIGHTS_ONLY_LOAD"] = "0"
+
 import re
 import sys
 import copy
@@ -15,13 +20,15 @@ from argparse import Namespace
 import cv2
 import numpy as np
 import torch
+import torch._dynamo
+torch._dynamo.config.suppress_errors = True
+torch.compiler.reset()
+
 import imageio
 import gradio as gr
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip, AudioFileClip
 from transformers import WhisperModel
-
-os.environ["TORCH_FORCE_WEIGHTS_ONLY_LOAD"] = "0"
 
 # ─── Resolve paths relative to this script's location ───────────────────────
 ProjectDir      = os.path.abspath(os.path.dirname(__file__))

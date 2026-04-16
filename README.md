@@ -263,7 +263,6 @@ sudo apt install ffmpeg alsa-utils -y
 winget install ffmpeg
 winget install alsa-utils
 ```
-
 ---
 
 ### Virtual environment
