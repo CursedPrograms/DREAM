@@ -432,8 +432,14 @@ mmcv_maximum_version = '2.3.0'
 
 ## Future Plans:
 
+<details>
+<summary><b>Surveilance</b></summary>
 ### Surveilance:
 Throughout the day, DREAM captures photos of her environment and examines their content, comparing each new image with previously captured ones. Through this continuous observation, she learns patterns, detects changes, and builds a richer understanding of her surroundings. This visual, data-driven perception allows her to interact with the world intelligently and contextually.
+
+</details>
+<details>
+<summary><b>Memories</b></summary>
 
 ### Memories:
 DREAMS forms ephemeral memories from the photos she takes and from conversations. She selects significant images and stores them, alongside text interactions, in memories/memories.txt. These “core memories” are fed back to the model in pieces during runtime, allowing her to recall and reference past experiences.
@@ -445,10 +451,18 @@ Additional considerations:
 Adding timestamps or sequence tracking can make her recall more natural.
 Creative insights are valuable, but should be managed with sanity checks or confidence scoring to avoid contradictions or overfitting.
 
+</details>
+<details>
+<summary><b>Dreams</b></summary>
+
 ### Dreams:
 When DREAM “sleeps,” she enters a dreaming phase. During this time, she reviews accumulated photos and memories, comparing them to identify patterns or insights she may have missed. She can also generate new images based on memory prompts, simulating creative reflection and reinforcing learning.
 
 Dreams serve as an internal processing method, helping her make sense of experiences and refine her knowledge. In extreme cases, unregulated dreaming could even push her toward unpredictable or “insane” behavior, so monitoring is advisable.
+
+</details>
+<details>
+<summary><b>Milestones</b></summary>
 
 ### Milestones:
 
@@ -461,6 +475,9 @@ Guide learning strategies
 Provide reference points for personality and responses
 
 Over time, milestones help shape DREAM’s understanding of her environment and contribute to the development of her “identity.”
+
+</details>
+
 ---
 
 <br>
