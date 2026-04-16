@@ -210,10 +210,7 @@ To connect via [RIFT](https://github.com/CursedPrograms/RIFT), ensure DREAM is a
 
 ---
 
-- For gender/age detect.
-<a href="https://talhassner.github.io/home/projects/Adience/Adience-data.html">
-
-## How to Run
+## Setup:
 
 ### Install Ollama
 
