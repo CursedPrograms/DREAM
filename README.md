@@ -400,6 +400,8 @@ python3 -c "import whisper; whisper.load_model('tiny')"
 
 ### Lipsync Setup
 
+#### MuseTalk Setup
+
 <details>
 <summary><b>MuseTalk Setup</b></summary>
 
@@ -443,6 +445,9 @@ def check_torch_load_is_safe() -> None:
 
 
 </details>
+
+
+#### Wav2lip Setup
 
 
 <details>
