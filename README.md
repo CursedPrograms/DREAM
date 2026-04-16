@@ -46,6 +46,13 @@ DREAM does not simply execute commands — she observes, remembers, and “dream
 
 She bridges static code and emergent autonomous behavior.
 
+<br>
+<div align="center">
+  <img src="demo_images/deepdream_demo.png" alt="DREAM" width="400"/>
+  <p><i>a Latent space dream</i></p>
+</div>
+<br>
+
 ## Core Characteristics
 
 - Fully local voice chatbot pipeline (offline capable)
@@ -391,7 +398,7 @@ python3 -c "import whisper; whisper.load_model('tiny')"
 
 ---
 
-### MuseTalk
+### Lipsync Setup
 
 <details>
 <summary><b>MuseTalk Setup</b></summary>
@@ -455,12 +462,6 @@ python inference.py --checkpoint_path "checkpoints/wav2lip-sd-gan.pt" --face "/v
 ```
 
 </details>
-
-<br>
-<div align="center">
-  <img src="demo_images/deepdream_demo.png" alt="DREAM" width="400"/>
-</div>
-<br>
 
 ## Future Plans:
 
