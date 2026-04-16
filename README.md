@@ -11,6 +11,9 @@
     <img alt="C++" src="https://img.shields.io/badge/c++%20-%23323330.svg?&style=for-the-badge&logo=c%2B%2B&logoColor=white"/>
 </div>
 <div align="center">
+   <img alt="OpenCV" src="https://img.shields.io/badge/opencv-%23323330.svg?&style=for-the-badge&logo=opencv&logoColor=white"/>
+</div>
+<div align="center">
   <img alt="Git" src="https://img.shields.io/badge/git%20-%23323330.svg?&style=for-the-badge&logo=git&logoColor=white"/>
   <img alt="Shell" src="https://img.shields.io/badge/Shell-%23323330.svg?&style=for-the-badge&logo=gnu-bash&logoColor=white"/>
 </div>
@@ -28,9 +31,10 @@
 ---
 
 ### Active Conversation
+
 Pipeline:
 ```
-Mic → Whisper → Ollama → Piper TTS → MuseTalk → Speaker
+Mic → Whisper → Ollama → Piper TTS → Lipsync → Speaker
 ```
 
 ## 📖 Overview
@@ -272,7 +276,7 @@ winget install alsa-utils
 ```
 ---
 
-### Virtual environment
+### Environment Setup
 
 <details>
 <summary><b>Environment Setup</b></summary>
