@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # surveillance.py
 
+import sys
 import threading
 import time
 import cv2
@@ -10,6 +11,7 @@ from rich.console import Console
 import numpy as np
 
 console = Console()
+CAM_BACKEND = cv2.CAP_DSHOW if sys.platform == "win32" else cv2.CAP_ANY
 # Added a 'blind_mode' flag to state
 _state = {"running": True, "enabled": True, "blind_mode": False}
 
@@ -21,8 +23,8 @@ def start_surveillance():
         SAVE_DIR = os.path.join(BASE_DIR, "output", FOLDER_NAME)
         os.makedirs(SAVE_DIR, exist_ok=True)
 
-        # Try to capture camera (Using DirectShow for Windows stability)
-        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        # Try to capture camera (DirectShow on Windows, V4L2 on Linux)
+        cap = cv2.VideoCapture(0, CAM_BACKEND)
         
         if not cap.isOpened():
             console.print("[yellow]Surveillance: No webcam detected. DREAM is now in 'Blind Mode'.[/yellow]")
@@ -68,7 +70,7 @@ def start_motion_detection():
         SAVE_DIR = os.path.join(BASE_DIR, "output", FOLDER_NAME)
         os.makedirs(SAVE_DIR, exist_ok=True)
 
-        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        cap = cv2.VideoCapture(0, CAM_BACKEND)
         if not cap.isOpened():
             console.print("[yellow]Motion detection: Disabled (No Camera).[/yellow]")
             return
