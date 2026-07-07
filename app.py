@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, sys, time, json, math, socket, tempfile, subprocess, wave
+import os, sys, time, json, math, socket, tempfile, subprocess, wave, shutil
 import threading, queue, random, ipaddress
 from concurrent.futures import ThreadPoolExecutor
 
@@ -19,6 +19,12 @@ try:
     SD_AVAILABLE = True
 except ImportError:
     SD_AVAILABLE = False
+
+try:
+    import serial as _serial
+    PYSERIAL_AVAILABLE = True
+except ImportError:
+    PYSERIAL_AVAILABLE = False
 
 # ── Platform ───────────────────────────────────────────────────────────────────
 IS_WINDOWS = sys.platform == "win32"
@@ -80,6 +86,18 @@ STATS_TRIGGERS = [
     "how's the system","system status","check stats","temperature","cpu temp",
     "how hot","system health",
 ]
+
+# ── Alarm board (dream_sensors.ino) ────────────────────────────────────────────
+ALARM_SERIAL_PORT = "/dev/ttyUSB0"
+ALARM_SERIAL_BAUD = 9600
+
+# ── NORA WiFi auto-join ────────────────────────────────────────────────────────
+# Joined over a spare WiFi radio as a secondary connection — never becomes the
+# default route, so this PC's normal (e.g. Ethernet) link to the home network
+# is left untouched.
+NORA_SSID           = "NORA"
+NORA_PASSWORD       = "12345678"
+NORA_CHECK_INTERVAL = 30  # seconds between in-range scans
 
 def find_voice_model():
     if not os.path.isdir(VOICES_DIR): return None
@@ -419,6 +437,129 @@ def _inline_wifi_scan():
     except Exception:
         return []
 
+# ── Alarm control (serial to dream_sensors.ino) ────────────────────────────────
+_alarm_state       = {"enabled": True}  # mirrors the board's default (alarmEnabled = true on boot)
+_alarm_serial      = None
+_alarm_serial_lock = threading.Lock()
+
+def _open_alarm_serial():
+    """(Re)open the serial link to dream_sensors.ino if not already open."""
+    global _alarm_serial
+    if _alarm_serial is not None:
+        try:
+            if _alarm_serial.is_open:
+                return _alarm_serial
+        except Exception:
+            pass
+    try:
+        _alarm_serial = _serial.Serial(ALARM_SERIAL_PORT, ALARM_SERIAL_BAUD, timeout=2)
+        time.sleep(2)  # board resets when the port opens; let it finish booting
+    except Exception as e:
+        push_event({"type": "error", "msg": f"Alarm board unreachable: {e}"})
+        _alarm_serial = None
+    return _alarm_serial
+
+def send_alarm_command(enabled: bool) -> bool:
+    """Sends ALARM ON/OFF to dream_sensors.ino. Returns True once it's confirmed sent."""
+    global _alarm_serial
+    if not PYSERIAL_AVAILABLE:
+        push_event({"type": "error", "msg": "pyserial not installed — can't reach the alarm board"})
+        return False
+    with _alarm_serial_lock:
+        ser = _open_alarm_serial()
+        if ser is None:
+            return False
+        try:
+            ser.write((("ALARM ON" if enabled else "ALARM OFF") + "\n").encode())
+            ser.flush()
+        except Exception as e:
+            push_event({"type": "error", "msg": f"Alarm command failed: {e}"})
+            _alarm_serial = None
+            return False
+    _alarm_state["enabled"] = enabled
+    push_event({"type": "alarm", "enabled": enabled})
+    return True
+
+# ── NORA WiFi auto-join ─────────────────────────────────────────────────────────
+_nora_state = {"in_range": False, "connected": False, "last_check": 0.0, "error": None}
+_nora_lock  = threading.Lock()
+
+def _nmcli(*args, timeout=15):
+    return subprocess.run(["nmcli", *args], capture_output=True, text=True, timeout=timeout)
+
+def _nora_wifi_iface():
+    """First WiFi device NetworkManager knows about, or None."""
+    try:
+        r = _nmcli("-t", "-f", "DEVICE,TYPE", "device", "status")
+        for line in r.stdout.splitlines():
+            parts = line.split(":")
+            if len(parts) >= 2 and parts[1] == "wifi":
+                return parts[0]
+    except Exception:
+        pass
+    return None
+
+def _safe_nora():
+    with _nora_lock:
+        return dict(_nora_state)
+
+def ensure_nora_connection():
+    """
+    Scans for the NORA WiFi network and joins it over a spare WiFi radio if
+    seen. The connection is marked never-default so it can never take over
+    this machine's default route — its normal (e.g. Ethernet) link to the
+    home network stays exactly as it is.
+    """
+    if IS_WINDOWS or not shutil.which("nmcli"):
+        return
+
+    iface = _nora_wifi_iface()
+    if not iface:
+        return
+
+    try:
+        scan = _nmcli("-t", "-f", "SSID", "device", "wifi", "list", "ifname", iface, "--rescan", "yes")
+        in_range = NORA_SSID in [s.strip() for s in scan.stdout.splitlines()]
+
+        active = _nmcli("-t", "-f", "NAME", "connection", "show", "--active")
+        connected = NORA_SSID in [s.strip() for s in active.stdout.splitlines()]
+    except Exception as e:
+        with _nora_lock:
+            _nora_state.update(error=str(e), last_check=time.time())
+        return
+
+    with _nora_lock:
+        _nora_state.update(in_range=in_range, connected=connected, error=None, last_check=time.time())
+
+    if not in_range or connected:
+        return
+
+    try:
+        existing = _nmcli("-t", "-f", "NAME", "connection", "show")
+        if NORA_SSID not in [s.strip() for s in existing.stdout.splitlines()]:
+            _nmcli("device", "wifi", "connect", NORA_SSID,
+                   "password", NORA_PASSWORD, "ifname", iface, timeout=30)
+            # Never let NORA become the default route — home network keeps it.
+            _nmcli("connection", "modify", NORA_SSID,
+                   "ipv4.never-default", "yes", "ipv6.never-default", "yes")
+        else:
+            _nmcli("connection", "up", NORA_SSID, timeout=30)
+
+        active = _nmcli("-t", "-f", "NAME", "connection", "show", "--active")
+        connected = NORA_SSID in [s.strip() for s in active.stdout.splitlines()]
+        with _nora_lock:
+            _nora_state.update(connected=connected)
+        push_event({"type": "nora", **_safe_nora()})
+    except Exception as e:
+        with _nora_lock:
+            _nora_state["error"] = str(e)
+        push_event({"type": "error", "msg": f"NORA connect failed: {e}"})
+
+def nora_watcher():
+    while _state["running"]:
+        ensure_nora_connection()
+        time.sleep(NORA_CHECK_INTERVAL)
+
 # ── Flask app ──────────────────────────────────────────────────────────────────
 app = Flask(__name__)
 
@@ -471,6 +612,10 @@ def events():
 @app.route("/")
 def index():
     return render_template("index.html", char_name=CHAR_NAME)
+
+@app.route("/settings.html")
+def settings_page():
+    return render_template("settings.html", char_name=CHAR_NAME)
 
 @app.route("/ping")
 def ping_route():
@@ -610,6 +755,27 @@ def api_wifi():
     set_state("idle")
     return jsonify({"devices": devices})
 
+@app.route("/api/alarm")
+def api_alarm_get():
+    return jsonify(_alarm_state)
+
+@app.route("/api/alarm", methods=["POST"])
+def api_alarm_set():
+    data    = request.get_json(silent=True) or {}
+    enabled = bool(data.get("enabled", True))
+    if not send_alarm_command(enabled):
+        return jsonify({"error": "alarm board unreachable", **_alarm_state}), 503
+    return jsonify(_alarm_state)
+
+@app.route("/api/nora")
+def api_nora():
+    return jsonify(_safe_nora())
+
+@app.route("/api/nora/connect", methods=["POST"])
+def api_nora_connect():
+    threading.Thread(target=ensure_nora_connection, daemon=True).start()
+    return jsonify({"status": "checking"})
+
 # ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     print(f"[ComCentre] Platform : {'Windows' if IS_WINDOWS else 'Linux'}")
@@ -622,6 +788,8 @@ if __name__ == "__main__":
 
     _zc_instance, _zc_info = _start_zeroconf()
     print(f"[ComCentre] Zeroconf registered as {THIS_NAME} on port {THIS_PORT}")
+
+    threading.Thread(target=nora_watcher, daemon=True).start()
 
     try:
         app.run(host="0.0.0.0", port=THIS_PORT, debug=False, threaded=True)

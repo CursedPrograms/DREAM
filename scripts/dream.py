@@ -49,6 +49,12 @@ try:
 except ImportError:
     SCAPY_AVAILABLE = False
 
+try:
+    import serial
+    PYSERIAL_AVAILABLE = True
+except ImportError:
+    PYSERIAL_AVAILABLE = False
+
 console = Console()
 
 # ==================== PLATFORM ====================
@@ -133,6 +139,12 @@ RMS_THRESHOLD  = 200
 FLIRT_IDLE_TIMEOUT = 600   # 10 minutes — flirt attention grab
 SLEEP_IDLE_TIMEOUT = 900   # 15 minutes — fall asleep
 
+# mmWave sensor (dream_sensors.ino) — presence keeps DREAM awake and,
+# while asleep, wakes her up exactly like the "wake up" spoken word. The
+# PIR on that same board is alarm-only and isn't read here.
+SENSOR_SERIAL_PORT = "/dev/ttyUSB0"
+SENSOR_SERIAL_BAUD = 9600
+
 WAKE_WORDS = [
     "hey dream", "hey, dream", "hi dream", "hi, dream",
     "okay dream", "ok dream", "dream",
@@ -208,6 +220,8 @@ _state = {
     "force_video":  None,
     "sleeping":     False,          # True when in sleep state
     "deep_dream_thread": None,      # background deep dream worker
+    "sensor_wake":  False,          # set by serial_watcher() on mmWave PRESENT while sleeping
+    "distance_m":   None,           # last mmWave range reading, in meters
 }
 
 def set_state(s):
@@ -674,7 +688,8 @@ def transcribe_file(filepath):
 def listen_for_wake_word():
     """
     Listens for wake words.
-    - When sleeping: only reacts to SLEEP_WAKE_WORDS ("wake up")
+    - When sleeping: only reacts to SLEEP_WAKE_WORDS ("wake up") or presence
+      detected by the mmWave sensor (treated the same as "wake up").
     - When awake:    reacts to WAKE_WORDS ("hey dream") and wifi triggers
     """
     if not _state["sleeping"]:
@@ -687,6 +702,13 @@ def listen_for_wake_word():
         set_state("idle")
 
     while _state["running"]:
+        if _state["sleeping"] and _state["sensor_wake"]:
+            _state["sensor_wake"] = False
+            console.print("[bold green]Presence detected — waking DREAM![/bold green]")
+            _state["wake_active"] = False
+            exit_sleep()
+            return "__WAKE__"
+
         if not _record_clip(WAKE_FILE, WAKE_SECONDS):
             time.sleep(0.2)
             continue
@@ -1090,6 +1112,52 @@ def sleep_watcher():
             console.print(f"[blue]Idle for {elapsed:.0f}s — entering sleep mode[/blue]")
             enter_sleep()
 
+# ==================== SENSOR WATCHER (background thread) ====================
+
+def serial_watcher():
+    """
+    Reads PRESENT/ABSENT/RANGE lines from the mmWave sensor (dream_sensors.ino)
+    over serial. The PIR on that same board only drives the physical alarm and
+    is not read here. Presence while awake resets the idle timers so DREAM
+    doesn't fall asleep with someone in the room. Presence while asleep sets
+    sensor_wake, which listen_for_wake_word() treats exactly like the "wake
+    up" spoken word. RANGE is cached so DREAM knows how far away they are.
+    """
+    if not PYSERIAL_AVAILABLE:
+        console.print("[yellow]pyserial not installed — mmWave sensor disabled[/yellow]")
+        return
+
+    while _state["running"]:
+        try:
+            ser = serial.Serial(SENSOR_SERIAL_PORT, SENSOR_SERIAL_BAUD, timeout=1)
+        except Exception as e:
+            console.print(f"[yellow]mmWave sensor unavailable ({e}) — retrying in 5s[/yellow]")
+            time.sleep(5)
+            continue
+
+        console.print(f"[dim]mmWave sensor connected on {SENSOR_SERIAL_PORT}[/dim]")
+        try:
+            with ser:
+                while _state["running"]:
+                    line = ser.readline().decode(errors="ignore").strip()
+                    if line == "PRESENT":
+                        if _state["sleeping"]:
+                            _state["sensor_wake"] = True
+                        else:
+                            touch_interaction()
+                    elif line.startswith("RANGE"):
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            try:
+                                _state["distance_m"] = float(parts[1])
+                            except ValueError:
+                                pass
+                            if not _state["sleeping"]:
+                                touch_interaction()
+        except Exception as e:
+            console.print(f"[yellow]mmWave sensor error: {e} — reconnecting[/yellow]")
+            time.sleep(2)
+
 # ==================== FLIRT WATCHER (background thread) ====================
 
 def flirt_watcher():
@@ -1442,6 +1510,9 @@ def main():
 
     st = threading.Thread(target=sleep_watcher, daemon=True)
     st.start()
+
+    sensor_t = threading.Thread(target=serial_watcher, daemon=True)
+    sensor_t.start()
 
     vt = threading.Thread(target=voice_loop, daemon=True)
     vt.start()

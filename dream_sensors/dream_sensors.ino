@@ -20,22 +20,23 @@ DFRobot_C4001_UART radar(&mmwaveSerial, 9600);
 
 unsigned long lastRangePrint = 0;
 const unsigned long RANGE_PRINT_INTERVAL = 500; // ms between "RANGE" prints
+bool lastPresenceState = false; // mmWave target-present edge, for PRESENT/ABSENT prints
 
-// Alarm settings
+// Alarm settings — driven by the PIR only. The mmWave sensor is reserved for
+// DREAM's sleep/wake + distance sensing (PRESENT/ABSENT/RANGE below) and never
+// triggers the alarm.
 const unsigned long ALARM_DURATION = 2500;
 const unsigned long TONE_DURATION  = 2000;
 
+bool alarmEnabled    = true; // toggled by "ALARM ON"/"ALARM OFF" over serial; default on
 bool alarmActive     = false;
 unsigned long alarmStart  = 0;
 bool toneActive      = false;
 unsigned long toneStart   = 0;
 bool lastMotionState = LOW;
 
-// The mmWave sensor reports "present" continuously the whole time someone
-// is in the room (not just a single edge like the PIR), so it can't be
-// allowed to restart the alarm every loop. Only let a trigger (from either
-// sensor) start a new alarm if it's been at least this long since the last
-// one fired, i.e. we haven't seen a human in a while.
+// Only let a PIR edge start a new alarm if it's been at least this long
+// since the last one fired, i.e. we haven't seen a human in a while.
 const unsigned long TRIGGER_COOLDOWN = 300000UL; // 5 minutes
 unsigned long lastTriggerTime = 0;
 bool haveTriggeredOnce = false;
@@ -75,12 +76,13 @@ void updateRainbow() {
   rainbowHue += 256; // increment; wraps naturally at 65536
 }
 
-// Shared gate for anything that wants to start the alarm (PIR edge or
-// mmWave presence). Ignores the request if we're already alarming, or if
-// we triggered too recently (see TRIGGER_COOLDOWN above).
+// Gate for the PIR-triggered alarm. Ignores the request if the alarm has
+// been switched off, we're already alarming, or we triggered too recently
+// (see TRIGGER_COOLDOWN above).
 void triggerAlarm() {
   unsigned long now = millis();
 
+  if (!alarmEnabled) return;
   if (now - bootTime < PIR_WARMUP_MS) return; // let the PIR settle first
   if (alarmActive) return;
   if (haveTriggeredOnce && (now - lastTriggerTime < TRIGGER_COOLDOWN)) return;
@@ -118,23 +120,28 @@ void setup() {
 }
 
 void loop() {
-  // --------- Motion detection (PIR edge + mmWave presence) ---------
+  // --------- Alarm: PIR edge only ---------
   int motionState = digitalRead(PIR_PIN);
   if (motionState == HIGH && lastMotionState == LOW) {
     triggerAlarm();
   }
   lastMotionState = motionState;
 
+  // --------- DREAM sleep/wake + distance: mmWave only ---------
+  // Never touches the alarm. PRESENT/ABSENT mark presence edges (DREAM
+  // wakes on PRESENT while asleep); RANGE streams while a target is in
+  // view so DREAM knows how far away they are.
   uint8_t targetCount = radar.getTargetNumber();
-  if (targetCount > 0) {
-    triggerAlarm();
-
-    if (millis() - lastRangePrint >= RANGE_PRINT_INTERVAL) {
-      lastRangePrint = millis();
-      Serial.print("RANGE ");
-      Serial.print(radar.getTargetRange());
-      Serial.println(" m");
-    }
+  bool present = targetCount > 0;
+  if (present != lastPresenceState) {
+    Serial.println(present ? "PRESENT" : "ABSENT");
+    lastPresenceState = present;
+  }
+  if (present && millis() - lastRangePrint >= RANGE_PRINT_INTERVAL) {
+    lastRangePrint = millis();
+    Serial.print("RANGE ");
+    Serial.print(radar.getTargetRange());
+    Serial.println(" m");
   }
 
   // --------- Motion alarm (pulsing) ---------
@@ -167,6 +174,17 @@ void loop() {
       toneStart  = millis();
       tone(BUZZER_PIN, 1500);
       setRGB(255, 165, 0);
+    } else if (cmd.equalsIgnoreCase("ALARM ON")) {
+      alarmEnabled = true;
+      Serial.println("ALARM_STATE ON");
+    } else if (cmd.equalsIgnoreCase("ALARM OFF")) {
+      alarmEnabled = false;
+      if (alarmActive) {
+        alarmActive = false;
+        noTone(BUZZER_PIN);
+        setRGB(0, 0, 0);
+      }
+      Serial.println("ALARM_STATE OFF");
     }
   }
 

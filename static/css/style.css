@@ -730,3 +730,158 @@ footer {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--dim);
 }
+
+/* ── Settings link (header) ─────────────────────────────────── */
+#settings-link {
+  color: var(--dim);
+  font-size: 16px;
+  text-decoration: none;
+  transition: color .2s;
+}
+
+#settings-link:hover {
+  color: var(--glow);
+}
+
+/* ════════════════════════════════════════════════════════════
+   SETTINGS PAGE
+════════════════════════════════════════════════════════════ */
+body.settings-page {
+  display: block;
+  height: auto;
+  min-height: 100vh;
+  overflow: auto;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: var(--header-h);
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(90deg, rgba(0, 212, 255, .04), transparent);
+}
+
+.settings-back {
+  display: inline-block;
+  color: var(--dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  transition: border-color .2s, color .2s;
+}
+
+.settings-back:hover {
+  border-color: var(--glow);
+  color: var(--glow);
+}
+
+.settings-main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+
+.settings-card {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.settings-card-title {
+  font-family: var(--font-head);
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--glow);
+  margin-bottom: 6px;
+}
+
+.settings-card-desc {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--dim);
+  margin-bottom: 16px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+
+.settings-row:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.settings-row-label {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.settings-row-status {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.settings-card-actions {
+  margin-top: 4px;
+}
+
+/* Toggle switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 24px;
+  flex: none;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-track {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .2s, border-color .2s;
+}
+
+.switch-track::before {
+  content: '';
+  position: absolute;
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  top: 3px;
+  background: var(--dim);
+  transition: transform .2s, background .2s;
+}
+
+.switch input:checked + .switch-track {
+  border-color: var(--ok);
+  box-shadow: 0 0 8px rgba(0, 255, 163, .3);
+}
+
+.switch input:checked + .switch-track::before {
+  transform: translateX(22px);
+  background: var(--ok);
+}
+
+.switch input:disabled + .switch-track {
+  opacity: .4;
+  cursor: not-allowed;
+}

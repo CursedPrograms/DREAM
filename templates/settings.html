@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>ComCentre — Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body class="settings-page">
+
+  <header class="settings-header">
+    <div class="logo">COMCENTRE <span>SETTINGS</span></div>
+    <a href="/" class="settings-back">&larr; BACK</a>
+  </header>
+
+  <main class="settings-main">
+
+    <!-- ═══ ALARM ═══════════════════════════════════════════════════════ -->
+    <div class="settings-card">
+      <div class="settings-card-title">PERIMETER ALARM</div>
+      <div class="settings-card-desc">
+        PIR-triggered buzzer + RGB alarm on the sensor board. Default is on.
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-label">Alarm enabled</span>
+        <label class="switch">
+          <input type="checkbox" id="alarm-toggle" checked disabled/>
+          <span class="switch-track"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-label">Board status</span>
+        <span class="settings-row-status" id="alarm-status">checking…</span>
+      </div>
+    </div>
+
+    <!-- ═══ NORA WIFI ═══════════════════════════════════════════════════ -->
+    <div class="settings-card">
+      <div class="settings-card-title">NORA WIFI</div>
+      <div class="settings-card-desc">
+        Auto-joins the "NORA" network over a spare WiFi radio when in range.
+        This machine's normal connection to the home network is never changed.
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-label">In range</span>
+        <span class="settings-row-status" id="nora-range">—</span>
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-label">Connected</span>
+        <span class="settings-row-status" id="nora-connected">—</span>
+      </div>
+      <div class="settings-card-actions">
+        <button class="qbtn" id="nora-reconnect-btn">
+          <span class="qbtn-icon">⟳</span> RECHECK / CONNECT
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="/static/js/settings.js"></script>
+</body>
+</html>
