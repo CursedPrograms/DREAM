@@ -73,6 +73,12 @@ WAKE_FILE  = os.path.join(AUDIO_DIR, "wake.wav")
 MUSETALK_TALK_VIDEO = os.path.join(VIDEOS_DIR, "musetalk_talk.mp4")
 # Sleeping video shown while in sleep state
 SLEEPING_VIDEO      = os.path.join(VIDEOS_DIR, "sleeping.mp4")
+# Played once, force-video priority, on program startup only — stand-in for
+# the MuseTalk-generated STARTUP_VID when no lipsync cache exists yet (e.g.
+# MuseTalk unavailable on this machine). Wake-from-sleep does NOT use this;
+# waking (mmWave presence or the spoken "wake up" word) just talks normally,
+# same as any other response — see speak()'s plain "talking" pool fallback.
+STARTUP_INTRO_VIDEO = os.path.join(VIDEOS_DIR, "intro1.mp4")
 # MuseTalk output goes here (temp, overwritten each turn)
 MUSETALK_OUT_DIR    = os.path.join(BASE_DIR, "musetalk_out")
 os.makedirs(MUSETALK_OUT_DIR, exist_ok=True)
@@ -87,12 +93,15 @@ STARTUP_WAV  = os.path.join(AUDIO_DIR,  "startup.wav")
 _lipsync_cache: dict = {}
 _CACHE_YES_WAV = os.path.join(AUDIO_DIR,  "cache_yes.wav")
 _CACHE_YES_VID = os.path.join(VIDEOS_DIR, "cache_yes_lipsync.mp4")
+_CACHE_BYE_WAV = os.path.join(AUDIO_DIR,  "cache_bye.wav")
+_CACHE_BYE_VID = os.path.join(VIDEOS_DIR, "cache_bye_lipsync.mp4")
 
 
 def _init_lipsync_cache():
     """Populate _lipsync_cache with any pre-built response videos."""
     entries = [
         ("Yes?",       _CACHE_YES_WAV, _CACHE_YES_VID),
+        ("Goodbye.",   _CACHE_BYE_WAV, _CACHE_BYE_VID),
         (STARTUP_TEXT, STARTUP_WAV,    STARTUP_VID),
     ]
     for text, wav, vid in entries:
@@ -144,6 +153,10 @@ SLEEP_IDLE_TIMEOUT = 900   # 15 minutes — fall asleep
 # PIR on that same board is alarm-only and isn't read here.
 SENSOR_SERIAL_PORT = "/dev/ttyUSB0"
 SENSOR_SERIAL_BAUD = 9600
+
+# Distance bands (meters) for the wake-up greeting — see _wake_greeting().
+NEAR_DISTANCE_M = 1.0
+FAR_DISTANCE_M  = 3.0
 
 WAKE_WORDS = [
     "hey dream", "hey, dream", "hi dream", "hi, dream",
@@ -222,6 +235,7 @@ _state = {
     "deep_dream_thread": None,      # background deep dream worker
     "sensor_wake":  False,          # set by serial_watcher() on mmWave PRESENT while sleeping
     "distance_m":   None,           # last mmWave range reading, in meters
+    "presence_seen": False,         # mmWave PRESENT currently active — for the ABSENT farewell edge
 }
 
 def set_state(s):
@@ -685,6 +699,21 @@ def transcribe_file(filepath):
 
 # ==================== WAKE WORD LOOP ====================
 
+def _wake_greeting() -> str:
+    """Pick the "Yes?" wake-up line based on the mmWave sensor's last RANGE
+    reading, so DREAM reacts differently to someone right next to her versus
+    someone still across the room. Falls back to the plain greeting (and its
+    lipsync cache) when there's no reading yet — e.g. a spoken wake word with
+    no one in mmWave range."""
+    d = _state.get("distance_m")
+    if d is None:
+        return "Yes?"
+    if d < NEAR_DISTANCE_M:
+        return "Whoa, hi! Yes?"
+    if d > FAR_DISTANCE_M:
+        return "Yes? I hear you over there."
+    return "Yes?"
+
 def listen_for_wake_word():
     """
     Listens for wake words.
@@ -868,6 +897,9 @@ def speak(text):
                         if text == "Yes?":
                             _save_lipsync_cache(text, mt_wav, vid,
                                                 _CACHE_YES_WAV, _CACHE_YES_VID)
+                        elif text == "Goodbye.":
+                            _save_lipsync_cache(text, mt_wav, vid,
+                                                _CACHE_BYE_WAV, _CACHE_BYE_VID)
                         elif text == STARTUP_TEXT:
                             _save_lipsync_cache(text, mt_wav, vid,
                                                 STARTUP_WAV, STARTUP_VID)
@@ -1114,6 +1146,11 @@ def sleep_watcher():
 
 # ==================== SENSOR WATCHER (background thread) ====================
 
+def _farewell():
+    """Runs speak() on its own thread so the serial read loop in serial_watcher()
+    is never blocked waiting for TTS/lipsync to finish."""
+    speak("Bye for now.")
+
 def serial_watcher():
     """
     Reads PRESENT/ABSENT/RANGE lines from the mmWave sensor (dream_sensors.ino)
@@ -1122,6 +1159,9 @@ def serial_watcher():
     doesn't fall asleep with someone in the room. Presence while asleep sets
     sensor_wake, which listen_for_wake_word() treats exactly like the "wake
     up" spoken word. RANGE is cached so DREAM knows how far away they are.
+    ABSENT (after a PRESENT was actually seen) fires a quick farewell line —
+    but only while awake and idle, so it never interrupts an active
+    conversation or talks over a sleep/wake sequence.
     """
     if not PYSERIAL_AVAILABLE:
         console.print("[yellow]pyserial not installed — mmWave sensor disabled[/yellow]")
@@ -1141,10 +1181,16 @@ def serial_watcher():
                 while _state["running"]:
                     line = ser.readline().decode(errors="ignore").strip()
                     if line == "PRESENT":
+                        _state["presence_seen"] = True
                         if _state["sleeping"]:
                             _state["sensor_wake"] = True
                         else:
                             touch_interaction()
+                    elif line == "ABSENT":
+                        if _state["presence_seen"]:
+                            _state["presence_seen"] = False
+                            if not _state["sleeping"] and _state["value"] == "idle":
+                                threading.Thread(target=_farewell, daemon=True).start()
                     elif line.startswith("RANGE"):
                         parts = line.split()
                         if len(parts) >= 2:
@@ -1362,6 +1408,11 @@ def voice_loop():
         _play_wav(STARTUP_WAV)
         set_state("idle")
     else:
+        # No MuseTalk-generated startup cache yet — use the plain intro clip
+        # as the one-time startup visual instead (force_video persists through
+        # speak()'s "talking" state since MuseTalk won't touch it here).
+        if os.path.exists(STARTUP_INTRO_VIDEO):
+            _state["force_video"] = STARTUP_INTRO_VIDEO
         speak(STARTUP_TEXT)  # Generates + caches startup_intro.mp4 for next run
 
     history = []
@@ -1378,7 +1429,7 @@ def voice_loop():
                 speak(summary)
                 continue
 
-            speak("Yes?")
+            speak(_wake_greeting())
             set_state("listening")
             console.print("[bold yellow]Listening for command...[/bold yellow]")
 

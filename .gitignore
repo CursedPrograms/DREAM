@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Self-signed TLS cert (regenerated per-machine, includes local LAN IP)
+/certs/
+
 # C extensions
 *.so
 

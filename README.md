@@ -107,7 +107,11 @@ She bridges static code and emergent autonomous behavior.
 - [KIDA-Robot-v00](https://github.com/CursedPrograms/KIDA-Robot-v00)
 - [KIDA-Robot-v01](https://github.com/CursedPrograms/KIDA-Robot-v01)
 - [NORA-Robot-v00](https://github.com/CursedPrograms/NORA-Robot-v00)
+- [MILA-Robot-v01](https://github.com/CursedPrograms/MILA)
+- [ARM-Robot-v01](https://github.com/CursedPrograms/ARM-Robot-v01)
 - [RIFT](https://github.com/CursedPrograms/RIFT)
+
+
 
 ---
 

@@ -33,6 +33,10 @@ IS_WINDOWS = sys.platform == "win32"
 BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
 AUDIO_DIR   = os.path.join(BASE_DIR, "audio");    os.makedirs(AUDIO_DIR, exist_ok=True)
 VOICES_DIR  = os.path.join(BASE_DIR, "voices")
+VIDEOS_DIR  = os.path.join(BASE_DIR, "static", "videos")
+CERTS_DIR   = os.path.join(BASE_DIR, "certs")
+CERT_PATH   = os.path.join(CERTS_DIR, "cert.pem")
+KEY_PATH    = os.path.join(CERTS_DIR, "key.pem")
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 AUDIO_FILE  = os.path.join(AUDIO_DIR, "stt.wav")
 
@@ -152,6 +156,31 @@ def _get_ip():
         s.close()
 
 MY_IP = _get_ip()
+
+# ── Self-signed TLS cert ────────────────────────────────────────────────────────
+# Browsers (Chrome/Safari included) only allow getUserMedia() on localhost or a
+# secure (HTTPS) origin — a plain http://<lan-ip> page silently fails to get mic
+# access. This generates a cert good for MY_IP once per machine so /dream.html
+# works from a phone on the LAN. The phone still needs to accept the one-time
+# self-signed-certificate warning in its browser.
+def ensure_self_signed_cert():
+    if os.path.exists(CERT_PATH) and os.path.exists(KEY_PATH):
+        return True
+    os.makedirs(CERTS_DIR, exist_ok=True)
+    try:
+        subprocess.run(
+            ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+             "-keyout", KEY_PATH, "-out", CERT_PATH, "-days", "825",
+             "-subj", "/CN=comcentre.local",
+             "-addext", f"subjectAltName=DNS:localhost,DNS:comcentre.local,IP:127.0.0.1,IP:{MY_IP}"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=30, check=True,
+        )
+        return True
+    except FileNotFoundError:
+        print("[ComCentre] openssl not found — can't generate a TLS cert; HTTPS disabled")
+    except subprocess.CalledProcessError as e:
+        print(f"[ComCentre] Cert generation failed: {e.stderr.decode(errors='ignore')}")
+    return False
 
 class _PeerListener:
     def remove_service(self, zc, type_, name):
@@ -600,6 +629,23 @@ def nora_watcher():
         check_nora_reachable()
         time.sleep(NORA_CHECK_INTERVAL)
 
+# ── Video pools (web avatar — static/videos/<state><n>.mp4) ────────────────────
+# Mirrors scripts/dream.py's build_video_pools(): groups clips by the state-name
+# prefix in their filename so the browser client can pick a random one per state.
+VIDEO_STATES = ("idle", "listening", "thinking", "talking")
+
+def build_video_pools():
+    pools = {s: [] for s in VIDEO_STATES}
+    if os.path.isdir(VIDEOS_DIR):
+        for f in sorted(os.listdir(VIDEOS_DIR)):
+            if not f.endswith(".mp4"):
+                continue
+            for s in VIDEO_STATES:
+                if f.startswith(s):
+                    pools[s].append(f"/static/videos/{f}")
+                    break
+    return pools
+
 # ── Flask app ──────────────────────────────────────────────────────────────────
 app = Flask(__name__)
 
@@ -656,6 +702,14 @@ def index():
 @app.route("/settings.html")
 def settings_page():
     return render_template("settings.html", char_name=CHAR_NAME)
+
+@app.route("/dream.html")
+def dream_page():
+    return render_template("dream.html", char_name=CHAR_NAME)
+
+@app.route("/api/videos")
+def api_videos():
+    return jsonify(build_video_pools())
 
 @app.route("/ping")
 def ping_route():
@@ -870,8 +924,17 @@ if __name__ == "__main__":
 
     threading.Thread(target=nora_watcher, daemon=True).start()
 
+    https_ok = ensure_self_signed_cert()
+    run_kwargs = {"host": "0.0.0.0", "port": THIS_PORT, "debug": False, "threaded": True}
+    if https_ok:
+        run_kwargs["ssl_context"] = (CERT_PATH, KEY_PATH)
+        print(f"[ComCentre] HTTPS enabled — open https://{MY_IP}:{THIS_PORT}/dream.html on your phone")
+        print("[ComCentre] (accept the one-time self-signed certificate warning)")
+    else:
+        print(f"[ComCentre] HTTPS unavailable — mic access on /dream.html will only work from localhost")
+
     try:
-        app.run(host="0.0.0.0", port=THIS_PORT, debug=False, threaded=True)
+        app.run(**run_kwargs)
     finally:
         if _zc_instance and _zc_info:
             _zc_instance.unregister_service(_zc_info)
