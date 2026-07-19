@@ -26,7 +26,9 @@
       "Port": 5009,
       "StaticIP": "192.168.1.101",
       "ZeroconfName": "COMCENTRE",
-      "ZeroconfType": "_flask-link._tcp.local."
+      "ZeroconfType": "_flask-link._tcp.local.",
+      "RiftHost": "localhost",
+      "RiftPort": 5000
     }
   }
 }

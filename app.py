@@ -104,6 +104,29 @@ NORA_HOST           = "192.168.4.1"  # NORA's fixed WiFi AP address
 NORA_PORT           = 5002           # NORA's robot web API (drive/UV/music/serial/message)
 NORA_CHECK_INTERVAL = 30             # seconds between reachability checks
 
+# ── RIFT (fleet registry) ─────────────────────────────────────────────────────
+# ComCentre's own peer discovery above is zeroconf-only, so RIFT and NORA's
+# HTTP-polling fleet registry (see RIFT/Fleet/register.py, NORA's
+# scripts/esp32/esp32.ino) never see DREAM. Announce the same way NORA's
+# fleet-authority heartbeat does, so DREAM shows up in RIFT's dashboard too.
+# Configurable since RIFT typically runs on a separate machine from ComCentre.
+RIFT_HOST           = comcentre_cfg.get("RiftHost", "localhost")
+RIFT_PORT           = comcentre_cfg.get("RiftPort", 5000)
+RIFT_HEARTBEAT_SECS = 10
+
+def rift_heartbeat():
+    while True:
+        try:
+            _req.post(
+                f"http://{RIFT_HOST}:{RIFT_PORT}/register",
+                data={"name": THIS_NAME, "type": "ai_assistant",
+                      "capabilities": "voice_chat,tts,stt,llm"},
+                timeout=2,
+            )
+        except _req.RequestException:
+            pass
+        time.sleep(RIFT_HEARTBEAT_SECS)
+
 def find_voice_model():
     if not os.path.isdir(VOICES_DIR): return None
     for f in sorted(os.listdir(VOICES_DIR)):
@@ -923,6 +946,8 @@ if __name__ == "__main__":
     print(f"[ComCentre] Zeroconf registered as {THIS_NAME} on port {THIS_PORT}")
 
     threading.Thread(target=nora_watcher, daemon=True).start()
+    threading.Thread(target=rift_heartbeat, daemon=True).start()
+    print(f"[ComCentre] Announcing to RIFT at {RIFT_HOST}:{RIFT_PORT} every {RIFT_HEARTBEAT_SECS}s")
 
     https_ok = ensure_self_signed_cert()
     run_kwargs = {"host": "0.0.0.0", "port": THIS_PORT, "debug": False, "threaded": True}
