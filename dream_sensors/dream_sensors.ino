@@ -21,6 +21,7 @@ DFRobot_C4001_UART radar(&mmwaveSerial, 9600);
 unsigned long lastRangePrint = 0;
 const unsigned long RANGE_PRINT_INTERVAL = 500; // ms between "RANGE" prints
 bool lastPresenceState = false; // mmWave target-present edge, for PRESENT/ABSENT prints
+bool radarReady = false; // set once radar.begin() succeeds in setup() — see there
 
 // Alarm settings — driven by the PIR only. The mmWave sensor is reserved for
 // DREAM's sleep/wake + distance sensing (PRESENT/ABSENT/RANGE below) and never
@@ -131,13 +132,24 @@ void setup() {
   rgb.setBrightness(100);
   setRGB(0, 0, 0);
 
-  while (!radar.begin()) {
-    delay(1000); // keep retrying; don't block Python's serial link on this
+  // Retry the mmWave sensor for a few seconds, then give up and move on —
+  // it used to retry here forever, which meant a disconnected/unresponsive
+  // radar module silently blocked loop() from ever running at all, taking
+  // the PIR alarm, the RGB lights, and every serial command down with it.
+  // radarReady gates the mmWave-only code in loop() below; everything else
+  // now runs regardless of whether the radar ever comes up.
+  unsigned long radarDeadline = millis() + 5000;
+  while (!radarReady && millis() < radarDeadline) {
+    radarReady = radar.begin();
+    if (!radarReady) delay(200);
   }
-
-  radar.setSensorMode(eSpeedMode);
-  // min/max range in cm (30cm~10m), threshold is a dimensionless 0.1 unit
-  radar.setDetectThres(/*min*/ 30, /*max*/ 1000, /*thres*/ 10);
+  if (radarReady) {
+    radar.setSensorMode(eSpeedMode);
+    // min/max range in cm (30cm~10m), threshold is a dimensionless 0.1 unit
+    radar.setDetectThres(/*min*/ 30, /*max*/ 1000, /*thres*/ 10);
+  } else {
+    Serial.println("RADAR_ERROR init failed — mmWave disabled, alarm/RGB still active");
+  }
 }
 
 void loop() {
@@ -151,18 +163,21 @@ void loop() {
   // --------- DREAM sleep/wake + distance: mmWave only ---------
   // Never touches the alarm. PRESENT/ABSENT mark presence edges (DREAM
   // wakes on PRESENT while asleep); RANGE streams while a target is in
-  // view so DREAM knows how far away they are.
-  uint8_t targetCount = radar.getTargetNumber();
-  bool present = targetCount > 0;
-  if (present != lastPresenceState) {
-    Serial.println(present ? "PRESENT" : "ABSENT");
-    lastPresenceState = present;
-  }
-  if (present && millis() - lastRangePrint >= RANGE_PRINT_INTERVAL) {
-    lastRangePrint = millis();
-    Serial.print("RANGE ");
-    Serial.print(radar.getTargetRange());
-    Serial.println(" m");
+  // view so DREAM knows how far away they are. Skipped entirely if the
+  // sensor never came up in setup() — see radarReady.
+  if (radarReady) {
+    uint8_t targetCount = radar.getTargetNumber();
+    bool present = targetCount > 0;
+    if (present != lastPresenceState) {
+      Serial.println(present ? "PRESENT" : "ABSENT");
+      lastPresenceState = present;
+    }
+    if (present && millis() - lastRangePrint >= RANGE_PRINT_INTERVAL) {
+      lastRangePrint = millis();
+      Serial.print("RANGE ");
+      Serial.print(radar.getTargetRange());
+      Serial.println(" m");
+    }
   }
 
   // --------- Motion alarm (pulsing) ---------

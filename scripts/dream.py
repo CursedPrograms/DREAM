@@ -1322,10 +1322,17 @@ class VideoPlayer:
             ih, iw = rgb.shape[:2]
             scale  = max(self.sw / iw, self.sh / ih)
             nw, nh = int(iw * scale), int(ih * scale)
-            rgb    = cv2.resize(rgb, (nw, nh), interpolation=cv2.INTER_LINEAR)
+            # Skip the resize entirely when the source already matches the
+            # display size (true for all our 1920x1080 clips) — cv2.resize
+            # still costs a full-frame pass even at scale=1.
+            if (nw, nh) != (iw, ih):
+                rgb = cv2.resize(rgb, (nw, nh), interpolation=cv2.INTER_LINEAR)
             xo, yo = (nw - self.sw) // 2, (nh - self.sh) // 2
             rgb    = rgb[yo:yo + self.sh, xo:xo + self.sw]
-            self._surface = pygame.surfarray.make_surface(rgb.swapaxes(0, 1))
+            # blit_array copies into the persistent surface in place; the old
+            # make_surface() call allocated a brand-new Surface every decoded
+            # frame, which was the main source of the video lag.
+            pygame.surfarray.blit_array(self._surface, rgb.swapaxes(0, 1))
 
     def get_frame(self, now_ms):
         if not self.finished and now_ms - self._last_ms >= self.ms_frame:
