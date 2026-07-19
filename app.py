@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, sys, time, json, math, socket, tempfile, subprocess, wave
+import os, sys, time, json, math, socket, tempfile, subprocess, wave, re
 import threading, queue, random, ipaddress
 from concurrent.futures import ThreadPoolExecutor
 
@@ -259,15 +259,88 @@ def transcribe_file(filepath):
         push_event({"type": "error", "msg": str(e)})
         return ""
 
+# ── Memories & Milestones ──────────────────────────────────────────────────────
+# memories.txt accumulates facts learned in conversation; mymilestones.txt logs
+# the first time each *kind* of fact is learned (name, pet, home, job, birthday).
+MEMORIES_PATH        = os.path.join(BASE_DIR, "memories", "memories.txt")
+MILESTONES_PATH      = os.path.join(BASE_DIR, "memories", "mymilestones.txt")
+MAX_MEMORIES_IN_PROMPT = 6
+
+_MEMORY_PATTERNS = [
+    ("name",     re.compile(r"\bmy name is ([A-Z][a-zA-Z'-]{1,20})\b", re.I)),
+    ("pet",      re.compile(r"\bi (?:have|own) an? (dog|cat|bird|fish|rabbit|hamster)(?: named ([A-Z][a-zA-Z'-]{1,20}))?\b", re.I)),
+    ("home",     re.compile(r"\bi live in ([A-Za-z][A-Za-z\s]{1,30}?)[.,!]?$", re.I)),
+    ("job",      re.compile(r"\bi work as an? ([A-Za-z][A-Za-z\s]{1,30}?)[.,!]?$", re.I)),
+    ("birthday", re.compile(r"\bmy birthday is ([A-Za-z0-9,\s]{3,30}?)[.,!]?$", re.I)),
+]
+
+def _known_memory_kinds():
+    kinds = set()
+    if os.path.exists(MEMORIES_PATH):
+        with open(MEMORIES_PATH, encoding="utf-8") as f:
+            for line in f:
+                m = re.match(r"\[.*?\]\s*\((\w+)\)", line)
+                if m: kinds.add(m.group(1))
+    return kinds
+
+def _append_line(path, line):
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+def remember(kind: str, text: str):
+    """Append a fact to memories.txt; log a milestone the first time this kind is learned."""
+    ts    = time.strftime("%Y-%m-%d %H:%M")
+    known = _known_memory_kinds()
+    _append_line(MEMORIES_PATH, f"[{ts}] ({kind}) {text}")
+    if kind not in known:
+        _append_line(MILESTONES_PATH, f"[{ts}] {text}")
+        push_event({"type": "milestone", "text": text})
+
+def extract_memories(user_text: str):
+    """Pull simple durable facts (name, pet, home, job, birthday) out of user_text."""
+    found = []
+    m = _MEMORY_PATTERNS[0][1].search(user_text)
+    if m:
+        found.append(("name", f"Human's name is {m.group(1)}."))
+    m = _MEMORY_PATTERNS[1][1].search(user_text)
+    if m:
+        pet, pname = m.group(1).lower(), m.group(2)
+        found.append(("pet", f"Human has a {pet}" + (f" named {pname}." if pname else ".")))
+    m = _MEMORY_PATTERNS[2][1].search(user_text)
+    if m:
+        found.append(("home", f"Human lives in {m.group(1).strip()}."))
+    m = _MEMORY_PATTERNS[3][1].search(user_text)
+    if m:
+        found.append(("job", f"Human works as a {m.group(1).strip()}."))
+    m = _MEMORY_PATTERNS[4][1].search(user_text)
+    if m:
+        found.append(("birthday", f"Human's birthday is {m.group(1).strip()}."))
+    return found
+
+def recent_memories(limit=MAX_MEMORIES_IN_PROMPT):
+    if not os.path.exists(MEMORIES_PATH):
+        return []
+    with open(MEMORIES_PATH, encoding="utf-8") as f:
+        lines = [l.strip() for l in f if l.strip()]
+    out = []
+    for line in lines[-limit:]:
+        m = re.match(r"\[.*?\]\s*\(\w+\)\s*(.*)", line)
+        out.append(m.group(1) if m else line)
+    return out
+
 # ── LLM ───────────────────────────────────────────────────────────────────────
 def ask_llm(prompt, history):
     set_state("thinking")
     ctx = ""
     for m in history[-6:]:
         ctx += ("You" if m["role"] == "assistant" else "Human") + f": {m['content']}\n"
+    system = SYSTEM_PROMPT
+    mem_lines = recent_memories()
+    if mem_lines:
+        system += "\n\nThings you remember about the human:\n" + "\n".join(f"- {m}" for m in mem_lines)
     payload = {
         "model": MODEL,
-        "prompt": f"System: {SYSTEM_PROMPT}\n\n{ctx}Human: {prompt}\nYou:",
+        "prompt": f"System: {system}\n\n{ctx}Human: {prompt}\nYou:",
         "stream": False,
         "options": {"temperature": 0.7, "num_predict": 150, "num_gpu": 20},
     }
@@ -682,6 +755,9 @@ def _handle_chat():
         set_state("idle")
         return _make_reply(reply, voice_mode, extra={"stats": stats})
 
+    for kind, text in extract_memories(user_text):
+        remember(kind, text)
+
     reply = ask_llm(user_text, _history)
     _history.append({"role": "user",      "content": user_text})
     _history.append({"role": "assistant", "content": reply})
@@ -709,6 +785,22 @@ def serve_audio(fname):
     if not os.path.exists(safe):
         return "", 404
     return send_file(safe, mimetype="audio/wav")
+
+@app.route("/api/memories")
+def api_memories():
+    lines = []
+    if os.path.exists(MEMORIES_PATH):
+        with open(MEMORIES_PATH, encoding="utf-8") as f:
+            lines = [l.strip() for l in f if l.strip()]
+    return jsonify({"memories": lines})
+
+@app.route("/api/milestones")
+def api_milestones():
+    lines = []
+    if os.path.exists(MILESTONES_PATH):
+        with open(MILESTONES_PATH, encoding="utf-8") as f:
+            lines = [l.strip() for l in f if l.strip()]
+    return jsonify({"milestones": lines})
 
 @app.route("/api/stats")
 def api_stats():
