@@ -836,6 +836,34 @@ body.settings-page {
   margin-top: 4px;
 }
 
+.settings-send-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.settings-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0 12px;
+  height: 36px;
+  outline: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  transition: border-color .2s;
+}
+
+.settings-input:focus {
+  border-color: var(--glow);
+}
+
+.settings-send-row .qbtn {
+  width: auto;
+  flex: none;
+}
+
 /* Toggle switch */
 .switch {
   position: relative;

@@ -44,10 +44,9 @@ $('alarm-toggle').addEventListener('change', async e => {
   }
 });
 
-/* ── NORA WiFi status ───────────────────────────────────────────────────── */
+/* ── NORA reachability ──────────────────────────────────────────────────── */
 function setNoraUI(d) {
-  $('nora-range').textContent     = d.in_range ? 'yes' : 'no';
-  $('nora-connected').textContent = d.connected ? 'yes' : 'no';
+  $('nora-reachable').textContent = d.reachable ? 'yes' : 'no';
 }
 
 async function loadNora() {
@@ -57,12 +56,54 @@ async function loadNora() {
   } catch { /* silent */ }
 }
 
-$('nora-reconnect-btn').addEventListener('click', async () => {
-  $('nora-connected').textContent = 'checking…';
+$('nora-recheck-btn').addEventListener('click', async () => {
+  $('nora-reachable').textContent = 'checking…';
   try {
-    await fetch('/api/nora/connect', { method: 'POST' });
+    await fetch('/api/nora/check', { method: 'POST' });
   } catch { /* silent */ }
-  setTimeout(loadNora, 3000);
+  setTimeout(loadNora, 2000);
+});
+
+/* ── NORA serial command / text message ─────────────────────────────────── */
+function flashNoraSendStatus(msg, isError) {
+  const el = $('nora-send-status');
+  el.textContent = msg;
+  el.style.color = isError ? 'var(--danger)' : 'var(--ok)';
+  setTimeout(() => { el.textContent = ''; }, 3000);
+}
+
+$('nora-serial-btn').addEventListener('click', async () => {
+  const cmd = $('nora-serial-input').value.trim();
+  if (!cmd) return;
+  try {
+    const r = await fetch('/api/nora/serial', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cmd }),
+    });
+    const d = await r.json();
+    flashNoraSendStatus(r.ok ? `Sent: ${cmd}` : (d.error || 'Failed'), !r.ok);
+    if (r.ok) $('nora-serial-input').value = '';
+  } catch (err) {
+    flashNoraSendStatus(`Network error: ${err.message}`, true);
+  }
+});
+
+$('nora-message-btn').addEventListener('click', async () => {
+  const text = $('nora-message-input').value.trim();
+  if (!text) return;
+  try {
+    const r = await fetch('/api/nora/message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    const d = await r.json();
+    flashNoraSendStatus(r.ok ? 'Message sent' : (d.error || 'Failed'), !r.ok);
+    if (r.ok) $('nora-message-input').value = '';
+  } catch (err) {
+    flashNoraSendStatus(`Network error: ${err.message}`, true);
+  }
 });
 
 /* ── Live updates ───────────────────────────────────────────────────────── */

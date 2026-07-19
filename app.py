@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, sys, time, json, math, socket, tempfile, subprocess, wave, shutil
+import os, sys, time, json, math, socket, tempfile, subprocess, wave
 import threading, queue, random, ipaddress
 from concurrent.futures import ThreadPoolExecutor
 
@@ -91,13 +91,14 @@ STATS_TRIGGERS = [
 ALARM_SERIAL_PORT = "/dev/ttyUSB0"
 ALARM_SERIAL_BAUD = 9600
 
-# ── NORA WiFi auto-join ────────────────────────────────────────────────────────
-# Joined over a spare WiFi radio as a secondary connection — never becomes the
-# default route, so this PC's normal (e.g. Ethernet) link to the home network
-# is left untouched.
-NORA_SSID           = "NORA"
-NORA_PASSWORD       = "12345678"
-NORA_CHECK_INTERVAL = 30  # seconds between in-range scans
+# ── NORA (fleet robot) ──────────────────────────────────────────────────────────
+# ComCentre is the fleet's voice/chat interface, not its network gateway —
+# RIFT is the one that joins NORA's WiFi AP and shares internet to the fleet
+# (see the NORA-Robot-v00 / RIFT repos). ComCentre just talks to NORA's web
+# API over whatever route already gets there.
+NORA_HOST           = "192.168.4.1"  # NORA's fixed WiFi AP address
+NORA_PORT           = 5002           # NORA's robot web API (drive/UV/music/serial/message)
+NORA_CHECK_INTERVAL = 30             # seconds between reachability checks
 
 def find_voice_model():
     if not os.path.isdir(VOICES_DIR): return None
@@ -480,84 +481,50 @@ def send_alarm_command(enabled: bool) -> bool:
     push_event({"type": "alarm", "enabled": enabled})
     return True
 
-# ── NORA WiFi auto-join ─────────────────────────────────────────────────────────
-_nora_state = {"in_range": False, "connected": False, "last_check": 0.0, "error": None}
+# ── NORA (fleet robot) ──────────────────────────────────────────────────────────
+_nora_state = {"reachable": False, "last_check": 0.0, "error": None}
 _nora_lock  = threading.Lock()
 
-def _nmcli(*args, timeout=15):
-    return subprocess.run(["nmcli", *args], capture_output=True, text=True, timeout=timeout)
-
-def _nora_wifi_iface():
-    """First WiFi device NetworkManager knows about, or None."""
-    try:
-        r = _nmcli("-t", "-f", "DEVICE,TYPE", "device", "status")
-        for line in r.stdout.splitlines():
-            parts = line.split(":")
-            if len(parts) >= 2 and parts[1] == "wifi":
-                return parts[0]
-    except Exception:
-        pass
-    return None
+def _nora_url(path: str) -> str:
+    return f"http://{NORA_HOST}:{NORA_PORT}{path}"
 
 def _safe_nora():
     with _nora_lock:
         return dict(_nora_state)
 
-def ensure_nora_connection():
-    """
-    Scans for the NORA WiFi network and joins it over a spare WiFi radio if
-    seen. The connection is marked never-default so it can never take over
-    this machine's default route — its normal (e.g. Ethernet) link to the
-    home network stays exactly as it is.
-    """
-    if IS_WINDOWS or not shutil.which("nmcli"):
-        return
-
-    iface = _nora_wifi_iface()
-    if not iface:
-        return
-
+def check_nora_reachable():
+    """Polls NORA's /sensors so the dashboard knows whether she's on the network."""
     try:
-        scan = _nmcli("-t", "-f", "SSID", "device", "wifi", "list", "ifname", iface, "--rescan", "yes")
-        in_range = NORA_SSID in [s.strip() for s in scan.stdout.splitlines()]
-
-        active = _nmcli("-t", "-f", "NAME", "connection", "show", "--active")
-        connected = NORA_SSID in [s.strip() for s in active.stdout.splitlines()]
+        r = _req.get(_nora_url("/sensors"), timeout=3)
+        reachable = r.status_code == 200
+        with _nora_lock:
+            _nora_state.update(reachable=reachable, error=None, last_check=time.time())
     except Exception as e:
         with _nora_lock:
-            _nora_state.update(error=str(e), last_check=time.time())
-        return
+            _nora_state.update(reachable=False, error=str(e), last_check=time.time())
+    push_event({"type": "nora", **_safe_nora()})
 
-    with _nora_lock:
-        _nora_state.update(in_range=in_range, connected=connected, error=None, last_check=time.time())
-
-    if not in_range or connected:
-        return
-
+def send_nora_serial(cmd: str) -> bool:
+    """Forwards a raw command to NORA's onboard Arduino via her /serial passthrough."""
     try:
-        existing = _nmcli("-t", "-f", "NAME", "connection", "show")
-        if NORA_SSID not in [s.strip() for s in existing.stdout.splitlines()]:
-            _nmcli("device", "wifi", "connect", NORA_SSID,
-                   "password", NORA_PASSWORD, "ifname", iface, timeout=30)
-            # Never let NORA become the default route — home network keeps it.
-            _nmcli("connection", "modify", NORA_SSID,
-                   "ipv4.never-default", "yes", "ipv6.never-default", "yes")
-        else:
-            _nmcli("connection", "up", NORA_SSID, timeout=30)
-
-        active = _nmcli("-t", "-f", "NAME", "connection", "show", "--active")
-        connected = NORA_SSID in [s.strip() for s in active.stdout.splitlines()]
-        with _nora_lock:
-            _nora_state.update(connected=connected)
-        push_event({"type": "nora", **_safe_nora()})
+        r = _req.get(_nora_url("/serial"), params={"cmd": cmd}, timeout=3)
+        return r.status_code == 200
     except Exception as e:
-        with _nora_lock:
-            _nora_state["error"] = str(e)
-        push_event({"type": "error", "msg": f"NORA connect failed: {e}"})
+        push_event({"type": "error", "msg": f"NORA serial command failed: {e}"})
+        return False
+
+def send_nora_message(text: str) -> bool:
+    """Posts a text message to NORA's message board (she has no display/speaker of her own)."""
+    try:
+        r = _req.post(_nora_url("/message"), data={"text": text}, timeout=3)
+        return r.status_code == 200
+    except Exception as e:
+        push_event({"type": "error", "msg": f"NORA message failed: {e}"})
+        return False
 
 def nora_watcher():
     while _state["running"]:
-        ensure_nora_connection()
+        check_nora_reachable()
         time.sleep(NORA_CHECK_INTERVAL)
 
 # ── Flask app ──────────────────────────────────────────────────────────────────
@@ -771,10 +738,30 @@ def api_alarm_set():
 def api_nora():
     return jsonify(_safe_nora())
 
-@app.route("/api/nora/connect", methods=["POST"])
-def api_nora_connect():
-    threading.Thread(target=ensure_nora_connection, daemon=True).start()
+@app.route("/api/nora/check", methods=["POST"])
+def api_nora_check():
+    threading.Thread(target=check_nora_reachable, daemon=True).start()
     return jsonify({"status": "checking"})
+
+@app.route("/api/nora/serial", methods=["POST"])
+def api_nora_serial():
+    data = request.get_json(silent=True) or {}
+    cmd  = data.get("cmd", "").strip()
+    if not cmd:
+        return jsonify({"error": "missing 'cmd'"}), 400
+    if not send_nora_serial(cmd):
+        return jsonify({"error": "NORA unreachable"}), 503
+    return jsonify({"status": "sent", "cmd": cmd})
+
+@app.route("/api/nora/message", methods=["POST"])
+def api_nora_message():
+    data = request.get_json(silent=True) or {}
+    text = data.get("text", "").strip()
+    if not text:
+        return jsonify({"error": "missing 'text'"}), 400
+    if not send_nora_message(text):
+        return jsonify({"error": "NORA unreachable"}), 503
+    return jsonify({"status": "sent", "text": text})
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":

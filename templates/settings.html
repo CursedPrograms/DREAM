@@ -36,26 +36,41 @@
       </div>
     </div>
 
-    <!-- ═══ NORA WIFI ═══════════════════════════════════════════════════ -->
+    <!-- ═══ NORA (FLEET ROBOT) ══════════════════════════════════════════ -->
     <div class="settings-card">
-      <div class="settings-card-title">NORA WIFI</div>
+      <div class="settings-card-title">NORA — FLEET ROBOT</div>
       <div class="settings-card-desc">
-        Auto-joins the "NORA" network over a spare WiFi radio when in range.
-        This machine's normal connection to the home network is never changed.
+        ComCentre is the fleet's voice/chat interface, not its network gateway —
+        RIFT is the one that joins NORA's WiFi and shares internet to the fleet.
+        This just talks to NORA's web API over whatever route already reaches her.
       </div>
       <div class="settings-row">
-        <span class="settings-row-label">In range</span>
-        <span class="settings-row-status" id="nora-range">—</span>
-      </div>
-      <div class="settings-row">
-        <span class="settings-row-label">Connected</span>
-        <span class="settings-row-status" id="nora-connected">—</span>
+        <span class="settings-row-label">Reachable</span>
+        <span class="settings-row-status" id="nora-reachable">—</span>
       </div>
       <div class="settings-card-actions">
-        <button class="qbtn" id="nora-reconnect-btn">
-          <span class="qbtn-icon">⟳</span> RECHECK / CONNECT
+        <button class="qbtn" id="nora-recheck-btn">
+          <span class="qbtn-icon">⟳</span> RECHECK
         </button>
       </div>
+
+      <div class="settings-row" style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px">
+        <span class="settings-row-label">Send serial command</span>
+      </div>
+      <div class="settings-send-row">
+        <input class="settings-input" id="nora-serial-input" type="text" placeholder="e.g. UV:1"/>
+        <button class="qbtn" id="nora-serial-btn">SEND</button>
+      </div>
+
+      <div class="settings-row">
+        <span class="settings-row-label">Send text message</span>
+      </div>
+      <div class="settings-send-row">
+        <input class="settings-input" id="nora-message-input" type="text" placeholder="Message for NORA's board"/>
+        <button class="qbtn" id="nora-message-btn">SEND</button>
+      </div>
+
+      <div class="settings-row-status" id="nora-send-status"></div>
     </div>
 
   </main>
