@@ -57,6 +57,27 @@ uint16_t rainbowHue = 0;
 unsigned long lastRainbow = 0;
 const unsigned long RAINBOW_INTERVAL = 20; // ms between rainbow steps (lower = faster)
 
+// Manual RGB override — voice-controlled via "RGB <COLOR>"/"RGB OFF"/"RGB
+// RAINBOW" over serial. While true, the idle rainbow animation is suppressed
+// and the pixels hold whatever solid color was last requested. Note the
+// alarm/buzzer effects below still take priority and will overwrite the
+// pixels for their duration regardless of manualRGB.
+bool manualRGB = false;
+
+struct NamedColor { const char* name; uint8_t r, g, b; };
+const NamedColor RGB_COLOR_TABLE[] = {
+  {"RED",    255, 0,   0},
+  {"GREEN",  0,   255, 0},
+  {"BLUE",   0,   0,   255},
+  {"YELLOW", 255, 255, 0},
+  {"ORANGE", 255, 80,  0},
+  {"PURPLE", 160, 0,   255},
+  {"PINK",   255, 20,  120},
+  {"CYAN",   0,   255, 255},
+  {"WHITE",  255, 255, 255},
+};
+const int RGB_COLOR_COUNT = sizeof(RGB_COLOR_TABLE) / sizeof(RGB_COLOR_TABLE[0]);
+
 void setRGB(uint8_t r, uint8_t g, uint8_t b) {
   for (int i = 0; i < NUM_PIXELS; i++) rgb.setPixelColor(i, rgb.Color(r, g, b));
   rgb.show();
@@ -185,6 +206,28 @@ void loop() {
         setRGB(0, 0, 0);
       }
       Serial.println("ALARM_STATE OFF");
+    } else if (cmd.equalsIgnoreCase("RGB OFF")) {
+      manualRGB = true;
+      setRGB(0, 0, 0);
+      Serial.println("RGB_STATE OFF");
+    } else if (cmd.equalsIgnoreCase("RGB RAINBOW")) {
+      manualRGB = false;
+      Serial.println("RGB_STATE RAINBOW");
+    } else if (cmd.startsWith("RGB ") || cmd.startsWith("rgb ")) {
+      String colorName = cmd.substring(4);
+      colorName.trim();
+      bool matched = false;
+      for (int i = 0; i < RGB_COLOR_COUNT; i++) {
+        if (colorName.equalsIgnoreCase(RGB_COLOR_TABLE[i].name)) {
+          manualRGB = true;
+          setRGB(RGB_COLOR_TABLE[i].r, RGB_COLOR_TABLE[i].g, RGB_COLOR_TABLE[i].b);
+          Serial.print("RGB_STATE ");
+          Serial.println(RGB_COLOR_TABLE[i].name);
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) Serial.println("RGB_ERROR unknown color");
     }
   }
 
@@ -198,7 +241,7 @@ void loop() {
   }
 
   // --------- Idle rainbow ---------
-  if (!alarmActive && !toneActive) {
+  if (!alarmActive && !toneActive && !manualRGB) {
     updateRainbow();
   }
 }

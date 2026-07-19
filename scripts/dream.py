@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import re
 import sys
 
 # Disable torch.compile / TorchDynamo entirely — Triton is not available on
@@ -73,12 +74,14 @@ WAKE_FILE  = os.path.join(AUDIO_DIR, "wake.wav")
 MUSETALK_TALK_VIDEO = os.path.join(VIDEOS_DIR, "musetalk_talk.mp4")
 # Sleeping video shown while in sleep state
 SLEEPING_VIDEO      = os.path.join(VIDEOS_DIR, "sleeping.mp4")
-# Played once, force-video priority, on program startup only — stand-in for
-# the MuseTalk-generated STARTUP_VID when no lipsync cache exists yet (e.g.
-# MuseTalk unavailable on this machine). Wake-from-sleep does NOT use this;
-# waking (mmWave presence or the spoken "wake up" word) just talks normally,
-# same as any other response — see speak()'s plain "talking" pool fallback.
+# Played once, force-video priority, on program startup only — a silent cold
+# open before DREAM actually speaks. Carries its own bundled audio (not TTS) —
+# see STARTUP_INTRO_AUDIO — so it plays independently of speak()/Piper.
+# Wake-from-sleep does NOT use this; waking (mmWave presence or the spoken
+# "wake up" word) just talks normally, same as any other response — see
+# speak()'s plain "talking" pool fallback.
 STARTUP_INTRO_VIDEO = os.path.join(VIDEOS_DIR, "intro1.mp4")
+STARTUP_INTRO_AUDIO = os.path.join(AUDIO_DIR,  "intro1.wav")
 # MuseTalk output goes here (temp, overwritten each turn)
 MUSETALK_OUT_DIR    = os.path.join(BASE_DIR, "musetalk_out")
 os.makedirs(MUSETALK_OUT_DIR, exist_ok=True)
@@ -179,6 +182,37 @@ STATS_TRIGGERS = [
     "how are you doing", "check stats", "check the stats",
     "temperature", "cpu temp", "how hot", "system health",
 ]
+
+# ── Alarm + RGB lights (dream_sensors.ino, voice-controlled) ──────────────────
+ALARM_OFF_TRIGGERS = [
+    "turn off the alarm", "disable the alarm", "disarm the alarm",
+    "alarm off", "stop the alarm",
+]
+ALARM_ON_TRIGGERS = [
+    "turn on the alarm", "enable the alarm", "arm the alarm", "alarm on",
+]
+
+LIGHT_OFF_TRIGGERS = [
+    "lights off", "turn off the lights", "turn the lights off", "lights out",
+]
+LIGHT_RAINBOW_TRIGGERS = [
+    "rainbow lights", "lights rainbow", "make the lights rainbow",
+    "rainbow mode", "party lights",
+]
+# Sent to the board as "RGB <NAME>" — dream_sensors.ino owns the actual RGB values.
+LIGHT_COLOR_NAMES = [
+    "red", "green", "blue", "yellow", "orange", "purple", "pink", "cyan", "white",
+]
+
+def _match_light_color(lower: str) -> str | None:
+    """Only matches a color when it's clearly about the lights, so ordinary
+    chat ("I like the color blue") doesn't accidentally trigger the RGB board."""
+    if not re.search(r"\blight(s)?\b|\bmake it\b|\bturn it\b", lower):
+        return None
+    for name in LIGHT_COLOR_NAMES:
+        if re.search(rf"\b{name}\b", lower):
+            return name
+    return None
 
 with open(os.path.join(BASE_DIR, "config.json")) as f:
     config = json.load(f)
@@ -1151,6 +1185,27 @@ def _farewell():
     is never blocked waiting for TTS/lipsync to finish."""
     speak("Bye for now.")
 
+# ── Sensor board write commands (ALARM ON/OFF, RGB <color>/OFF/RAINBOW) ────────
+# serial_watcher() owns the connection (it's the one reading PRESENT/ABSENT/
+# RANGE off it continuously) and publishes it here so voice commands can write
+# back down the same link instead of opening a second, conflicting connection.
+_sensor_serial      = None
+_sensor_serial_lock = threading.Lock()
+
+def send_sensor_command(cmd: str) -> bool:
+    """Writes a line to dream_sensors.ino over the shared sensor serial link."""
+    with _sensor_serial_lock:
+        ser = _sensor_serial
+        if ser is None or not ser.is_open:
+            return False
+        try:
+            ser.write((cmd + "\n").encode())
+            ser.flush()
+            return True
+        except Exception as e:
+            console.print(f"[yellow]Sensor command failed: {e}[/yellow]")
+            return False
+
 def serial_watcher():
     """
     Reads PRESENT/ABSENT/RANGE lines from the mmWave sensor (dream_sensors.ino)
@@ -1163,6 +1218,8 @@ def serial_watcher():
     but only while awake and idle, so it never interrupts an active
     conversation or talks over a sleep/wake sequence.
     """
+    global _sensor_serial
+
     if not PYSERIAL_AVAILABLE:
         console.print("[yellow]pyserial not installed — mmWave sensor disabled[/yellow]")
         return
@@ -1176,6 +1233,8 @@ def serial_watcher():
             continue
 
         console.print(f"[dim]mmWave sensor connected on {SENSOR_SERIAL_PORT}[/dim]")
+        with _sensor_serial_lock:
+            _sensor_serial = ser
         try:
             with ser:
                 while _state["running"]:
@@ -1203,6 +1262,9 @@ def serial_watcher():
         except Exception as e:
             console.print(f"[yellow]mmWave sensor error: {e} — reconnecting[/yellow]")
             time.sleep(2)
+        finally:
+            with _sensor_serial_lock:
+                _sensor_serial = None
 
 # ==================== FLIRT WATCHER (background thread) ====================
 
@@ -1408,11 +1470,23 @@ def voice_loop():
         _play_wav(STARTUP_WAV)
         set_state("idle")
     else:
-        # No MuseTalk-generated startup cache yet — use the plain intro clip
-        # as the one-time startup visual instead (force_video persists through
-        # speak()'s "talking" state since MuseTalk won't touch it here).
+        # No MuseTalk-generated startup cache yet. Two-part cold open:
+        # 1) intro clip plays once with its own bundled audio — not speech yet.
+        # 2) she then actually speaks the ready announcement, which falls
+        #    through to speak()'s plain "talking" pool (MuseTalk unavailable
+        #    here) since force_video is already clear by the time it runs.
         if os.path.exists(STARTUP_INTRO_VIDEO):
+            set_state("talking")
             _state["force_video"] = STARTUP_INTRO_VIDEO
+            if os.path.exists(STARTUP_INTRO_AUDIO):
+                _play_wav(STARTUP_INTRO_AUDIO)
+            else:
+                # No audio track yet — just wait for the clip to play through
+                # once (VideoStateManager clears force_video when it finishes).
+                while _state["force_video"] == STARTUP_INTRO_VIDEO and _state["running"]:
+                    time.sleep(0.1)
+            set_state("idle")
+
         speak(STARTUP_TEXT)  # Generates + caches startup_intro.mp4 for next run
 
     history = []
@@ -1464,6 +1538,32 @@ def voice_loop():
 
             if any(t in lower for t in STATS_TRIGGERS):
                 speak(build_stats_summary())
+                continue
+
+            if any(t in lower for t in ALARM_OFF_TRIGGERS):
+                ok = send_sensor_command("ALARM OFF")
+                speak("Alarm disabled." if ok else "I can't reach the alarm board.")
+                continue
+
+            if any(t in lower for t in ALARM_ON_TRIGGERS):
+                ok = send_sensor_command("ALARM ON")
+                speak("Alarm enabled." if ok else "I can't reach the alarm board.")
+                continue
+
+            if any(t in lower for t in LIGHT_OFF_TRIGGERS):
+                ok = send_sensor_command("RGB OFF")
+                speak("Lights off." if ok else "I can't reach the lights.")
+                continue
+
+            if any(t in lower for t in LIGHT_RAINBOW_TRIGGERS):
+                ok = send_sensor_command("RGB RAINBOW")
+                speak("Rainbow mode." if ok else "I can't reach the lights.")
+                continue
+
+            light_color = _match_light_color(lower)
+            if light_color:
+                ok = send_sensor_command(f"RGB {light_color.upper()}")
+                speak(f"Lights {light_color}." if ok else "I can't reach the lights.")
                 continue
 
             response = ask_llm(user_text, history)
