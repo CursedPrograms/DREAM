@@ -106,6 +106,44 @@ $('nora-message-btn').addEventListener('click', async () => {
   }
 });
 
+/* ── Fleet heartbeat transport (WiFi/Bluetooth) ─────────────────────────── */
+function syncFleetBtPortVisibility() {
+  $('nora-fleet-bt-port').style.display =
+    $('nora-fleet-mode-select').value === 'bluetooth' ? 'inline-block' : 'none';
+}
+
+async function loadFleetMode() {
+  try {
+    const r = await fetch('/api/nora/mode');
+    const d = await r.json();
+    $('nora-fleet-mode-select').value = d.mode || 'wifi';
+    if (d.bt_port) $('nora-fleet-bt-port').value = d.bt_port;
+    syncFleetBtPortVisibility();
+  } catch { /* silent */ }
+}
+
+$('nora-fleet-mode-select').addEventListener('change', syncFleetBtPortVisibility);
+
+$('nora-fleet-mode-btn').addEventListener('click', async () => {
+  const mode    = $('nora-fleet-mode-select').value;
+  const bt_port = $('nora-fleet-bt-port').value.trim();
+  const status  = $('nora-fleet-mode-status');
+  status.textContent = 'applying…';
+  try {
+    const r = await fetch('/api/nora/mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode, bt_port }),
+    });
+    const d = await r.json();
+    status.textContent = r.ok ? `mode: ${d.mode}` : (d.error || 'failed');
+    status.style.color = r.ok ? 'var(--ok)' : 'var(--danger)';
+  } catch (err) {
+    status.textContent = `Network error: ${err.message}`;
+    status.style.color = 'var(--danger)';
+  }
+});
+
 /* ── Live updates ───────────────────────────────────────────────────────── */
 function connectSSE() {
   const sse = new EventSource('/events');
@@ -120,6 +158,7 @@ function connectSSE() {
 window.addEventListener('DOMContentLoaded', () => {
   loadAlarm();
   loadNora();
+  loadFleetMode();
   connectSSE();
   setInterval(loadNora, 15000);
 });

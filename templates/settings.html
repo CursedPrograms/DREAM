@@ -55,6 +55,20 @@
       </div>
 
       <div class="settings-row" style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px">
+        <span class="settings-row-label">Fleet heartbeat link</span>
+      </div>
+      <div class="settings-send-row">
+        <select class="settings-input" id="nora-fleet-mode-select">
+          <option value="wifi">WiFi (to RIFT)</option>
+          <option value="bluetooth">Bluetooth (to NORA)</option>
+        </select>
+        <input class="settings-input" id="nora-fleet-bt-port" type="text"
+               placeholder="BT port, e.g. COM5 or /dev/rfcomm0" style="display:none"/>
+        <button class="qbtn" id="nora-fleet-mode-btn">APPLY</button>
+      </div>
+      <div class="settings-row-status" id="nora-fleet-mode-status"></div>
+
+      <div class="settings-row" style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px">
         <span class="settings-row-label">Send serial command</span>
       </div>
       <div class="settings-send-row">

@@ -102,6 +102,7 @@ ALARM_SERIAL_BAUD = 9600
 # API over whatever route already gets there.
 NORA_HOST           = "192.168.4.1"  # NORA's fixed WiFi AP address
 NORA_PORT           = 5002           # NORA's robot web API (drive/UV/music/serial/message)
+NORA_FLEET_PORT     = 5000           # NORA's fleet-registry port (distinct from her robot API above)
 NORA_CHECK_INTERVAL = 30             # seconds between reachability checks
 
 # ── RIFT (fleet registry) ─────────────────────────────────────────────────────
@@ -113,18 +114,50 @@ NORA_CHECK_INTERVAL = 30             # seconds between reachability checks
 RIFT_HOST           = comcentre_cfg.get("RiftHost", "localhost")
 RIFT_PORT           = comcentre_cfg.get("RiftPort", 5000)
 RIFT_HEARTBEAT_SECS = 10
+FLEET_CAPABILITIES  = ["voice_chat", "tts", "stt", "llm"]
+
+# Fleet heartbeat transport: "wifi" (default) registers with RIFT over HTTP,
+# same as always. "bluetooth" registers directly with NORA instead, over a
+# Bluetooth serial pairing (Fleet/bt_link.py) — RIFT itself has no
+# Bluetooth radio to pair with, so NORA (the only Bluetooth-capable node in
+# the fleet, see her esp32.ino 'H' command) is the Bluetooth fallback
+# target rather than a like-for-like swap of RIFT's own address.
+_fleet_mode_lock      = threading.Lock()
+_fleet_transport_mode = "wifi"
+_fleet_bt_port        = None
+_bt_fleet_link        = None
+
+def _fleet_heartbeat_wifi():
+    try:
+        _req.post(
+            f"http://{RIFT_HOST}:{RIFT_PORT}/register",
+            data={"name": THIS_NAME, "type": "ai_assistant",
+                  "capabilities": ",".join(FLEET_CAPABILITIES)},
+            timeout=2,
+        )
+    except _req.RequestException:
+        pass
+
+def _fleet_heartbeat_bluetooth(bt_port):
+    global _bt_fleet_link
+    try:
+        if _bt_fleet_link is None:
+            from Fleet.bt_link import BtFleetLink
+            _bt_fleet_link = BtFleetLink(bt_port)
+        _bt_fleet_link.register(THIS_NAME, FLEET_CAPABILITIES)
+    except Exception:
+        if _bt_fleet_link is not None:
+            _bt_fleet_link.close()
+        _bt_fleet_link = None
 
 def rift_heartbeat():
-    while True:
-        try:
-            _req.post(
-                f"http://{RIFT_HOST}:{RIFT_PORT}/register",
-                data={"name": THIS_NAME, "type": "ai_assistant",
-                      "capabilities": "voice_chat,tts,stt,llm"},
-                timeout=2,
-            )
-        except _req.RequestException:
-            pass
+    while _state["running"]:
+        with _fleet_mode_lock:
+            mode, bt_port = _fleet_transport_mode, _fleet_bt_port
+        if mode == "bluetooth" and bt_port:
+            _fleet_heartbeat_bluetooth(bt_port)
+        else:
+            _fleet_heartbeat_wifi()
         time.sleep(RIFT_HEARTBEAT_SECS)
 
 def find_voice_model():
@@ -931,6 +964,31 @@ def api_nora_message():
     if not send_nora_message(text):
         return jsonify({"error": "NORA unreachable"}), 503
     return jsonify({"status": "sent", "text": text})
+
+@app.route("/api/nora/mode")
+def api_nora_mode_get():
+    with _fleet_mode_lock:
+        return jsonify({"mode": _fleet_transport_mode, "bt_port": _fleet_bt_port})
+
+@app.route("/api/nora/mode", methods=["POST"])
+def api_nora_mode_set():
+    global _fleet_transport_mode, _fleet_bt_port, _bt_fleet_link
+    data = request.get_json(silent=True) or {}
+    mode = (data.get("mode") or "").strip().lower()
+    if mode not in ("wifi", "bluetooth"):
+        return jsonify({"error": "mode must be 'wifi' or 'bluetooth'"}), 400
+
+    bt_port = (data.get("bt_port") or "").strip() or None
+    if mode == "bluetooth" and not bt_port:
+        return jsonify({"error": "bt_port is required for Bluetooth mode"}), 400
+
+    with _fleet_mode_lock:
+        if _bt_fleet_link is not None:
+            _bt_fleet_link.close()
+            _bt_fleet_link = None
+        _fleet_transport_mode = mode
+        _fleet_bt_port = bt_port
+        return jsonify({"mode": _fleet_transport_mode, "bt_port": _fleet_bt_port})
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
