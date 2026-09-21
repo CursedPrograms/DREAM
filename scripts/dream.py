@@ -259,6 +259,16 @@ def get_piper_sample_rate():
     console.print("[yellow]Piper json config not found — assuming 22050 Hz[/yellow]")
     return 22050
 
+# ==================== INNER LIFE (dream_mind) ====================
+# Mood, needs, memory, dreams, initiative. Optional: if it can't load, DREAM runs as before.
+try:
+    from dream_mind import get_mind, llm as mind_llm, voice as mind_voice
+    mind_llm.configure(model=MODEL, url=OLLAMA_URL)
+    MIND = get_mind()
+except Exception as _mind_error:
+    MIND = mind_llm = mind_voice = None
+    console.print(f"[yellow]Inner life unavailable ({_mind_error}) - running without it[/yellow]")
+
 # ==================== SHARED STATE ====================
 _state = {
     "value":        "idle",
@@ -364,10 +374,12 @@ def enter_sleep():
     console.print("[blue]DREAM is falling asleep...[/blue]")
     _state["sleeping"] = True
     set_state("sleeping")
-    # Start deep dream in background
-    t = threading.Thread(target=_run_deep_dream_background, daemon=True)
-    t.start()
-    _state["deep_dream_thread"] = t
+    # Dreaming is the mind's job now (dream_mind/dreaming.py + dream_images.py): consolidation, a dream
+    # built from her memories, and a painting of it. The old batch script is only a fallback.
+    if not MIND:
+        t = threading.Thread(target=_run_deep_dream_background, daemon=True)
+        t.start()
+        _state["deep_dream_thread"] = t
 
 
 def exit_sleep():
@@ -814,25 +826,24 @@ def listen_for_wake_word():
 
 # ==================== LLM ====================
 
-def ask_llm(prompt, history):
+def ask_llm(prompt, history, context=""):
     set_state("thinking")
     with console.status("[dim]Thinking...[/dim]", spinner="dots"):
-        context = ""
+        convo = ""
         for msg in history[-6:]:
             role = "You" if msg["role"] == "assistant" else "Human"
-            context += f"{role}: {msg['content']}\n"
-        full_prompt = f"System: {SYSTEM_PROMPT}{memory_prompt_block()}\n\n{context}Human: {prompt}\nYou:"
-        payload = {
-            "model": MODEL,
-            "prompt": full_prompt,
-            "stream": False,
-            "options": {"temperature": 0.7, "num_predict": 150, "num_gpu": 20},
-        }
+            convo += f"{role}: {msg['content']}\n"
+        inner = f"\n\n{context}" if context else ""
+        full_prompt = f"System: {SYSTEM_PROMPT}{memory_prompt_block()}{inner}\n\n{convo}Human: {prompt}\nYou:"
         try:
-            r = requests.post(OLLAMA_URL, json=payload, timeout=120)
-            if r.status_code != 200:
-                return "Sorry, I encountered an error."
-            response = r.json().get("response", "").strip()
+            if mind_llm is not None:   # one client: falls back to the CPU if Ollama's GPU mode crashes
+                response = mind_llm.generate(full_prompt, num_predict=(MIND.token_budget(150) if MIND else 150), temperature=0.7, timeout=120)
+            else:
+                r = requests.post(OLLAMA_URL, json={"model": MODEL, "prompt": full_prompt, "stream": False,
+                                                    "options": {"temperature": 0.7, "num_predict": 150, "num_gpu": 20}}, timeout=120)
+                if r.status_code != 200:
+                    return "Sorry, I encountered an error."
+                response = r.json().get("response", "").strip()
             if "<think>" in response:
                 end = response.find("</think>")
                 if end != -1:
@@ -843,6 +854,10 @@ def ask_llm(prompt, history):
         except requests.exceptions.Timeout:
             return "That took too long. Please try again."
         except Exception as e:
+            if getattr(e, "kind", "") == "timeout":
+                return "That took too long. Please try again."
+            if getattr(e, "kind", "") == "http":
+                return "Sorry, I encountered an error."
             return f"Error: {e}"
 
 # ==================== SPEAK (Piper → MuseTalk → display) ====================
@@ -898,8 +913,14 @@ def speak(text):
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False, dir=AUDIO_DIR)
     tmp.close()
     try:
+        prosody = []
+        if MIND:
+            try:   # sleepy, excited, down: her mood shapes how she sounds
+                prosody = mind_voice.piper_args(MIND.prosody())
+            except Exception:
+                pass
         proc = subprocess.run(
-            [PIPER_BIN, "-m", VOICE_MODEL, "-f", tmp.name],
+            [PIPER_BIN, "-m", VOICE_MODEL, "-f", tmp.name, *prosody],
             input=text.encode("utf-8"), capture_output=True, timeout=15,
         )
         if proc.returncode != 0:
@@ -1176,7 +1197,7 @@ def sleep_watcher():
         if _state["value"] != "idle":
             continue
         elapsed = time.time() - _state["last_wake_ts"]
-        if elapsed >= SLEEP_IDLE_TIMEOUT:
+        if elapsed >= (MIND.adaptive_sleep_timeout(SLEEP_IDLE_TIMEOUT) if MIND else SLEEP_IDLE_TIMEOUT):
             console.print(f"[blue]Idle for {elapsed:.0f}s — entering sleep mode[/blue]")
             enter_sleep()
 
@@ -1224,6 +1245,8 @@ def send_sensor_command(cmd: str) -> bool:
         return False
 
 def _handle_sensor_line(line: str):
+    if MIND:
+        MIND.on_sensor(line)
     if line == "PRESENT":
         _state["presence_seen"] = True
         if _state["sleeping"]:
@@ -1549,6 +1572,15 @@ def voice_loop():
             console.print(f"\n[bold green]You:[/bold green] {user_text}")
             set_state("idle")
             touch_interaction()
+            cues = None
+            if MIND:
+                MIND.note_interaction()
+                try:   # how it was said: loudness, pitch, pace, pauses
+                    cues = mind_voice.analyze_wav(AUDIO_FILE)
+                    if cues:
+                        console.print(f"[dim]Voice: {mind_voice.describe(cues) or 'ordinary'}[/dim]")
+                except Exception:
+                    cues = None
 
             lower = user_text.lower()
 
@@ -1592,16 +1624,27 @@ def voice_loop():
                 speak(f"Lights {light_color}." if ok else "I can't reach the lights.")
                 continue
 
+            # Her own boundaries, care and self-knowledge come before the language model.
+            pre = MIND.pre_reply(user_text, cues) if MIND else None
+            if pre is not None and pre.reply:
+                speak(pre.reply)
+                MIND.post_reply(pre.reply)
+                continue
+
             for kind, fact in extract_memories(user_text):
                 if remember(kind, fact) == "milestone":
                     console.print(f"[magenta]Milestone: {escape(fact)}[/magenta]")
 
-            response = ask_llm(user_text, history)
+            response = ask_llm(user_text, history, context=pre.context if pre else "")
+            if pre is not None and pre.preface:
+                response = f"{pre.preface} {response}"
             history.append({"role": "user",      "content": user_text})
             history.append({"role": "assistant",  "content": response})
             if len(history) > 12:
                 history = history[-12:]
             speak(response)
+            if MIND:
+                MIND.post_reply(response)
 
         except Exception as e:
             console.print(f"[red]Error: {escape(str(e))}[/red]")
@@ -1685,6 +1728,20 @@ def main():
     else:
         console.print("[yellow]Mixer not available — audio will be silent[/yellow]")
 
+    # Her inner life: needs, mood, memory, dreams, and the urge to speak first.
+    if MIND:
+        def _mind_speak(text):
+            threading.Thread(target=speak, args=(text,), daemon=True).start()   # never block her thinking
+            return True
+
+        def _mind_state():
+            return {"sleeping": _state["sleeping"], "state": _state["value"], "present": _state["presence_seen"]}
+
+        if MIND.start(host={"speak": _mind_speak, "sleep": enter_sleep, "state": _mind_state, "sensor": send_sensor_command}):
+            console.print("[magenta]Inner life started - mood, needs, memory and dreams are running[/magenta]")
+        else:
+            console.print("[yellow]Another DREAM already runs the inner life - this one stays passive[/yellow]")
+
     # Background watchers
     ft = threading.Thread(target=flirt_watcher, daemon=True)
     ft.start()
@@ -1706,6 +1763,8 @@ def main():
         _tb.print_exc()
 
     vt.join(timeout=2)
+    if MIND:
+        MIND.stop()
 
 if __name__ == "__main__":
     try:

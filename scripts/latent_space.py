@@ -30,8 +30,7 @@ IS_WINDOWS = sys.platform == "win32"
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 BASE_DIR   = Path(__file__).resolve().parent.parent
-OUTPUT_DIR = BASE_DIR / "output" / "dreams"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR = BASE_DIR / "output" / "dreams"   # created by dream() when a session is saved, not on import
 
 # ── Optional deps ──────────────────────────────────────────────────────────────
 try:

@@ -81,5 +81,7 @@ def process_session_hyper_trippy(session_path):
         print(f"✔ Hallucinated {img_name}")
 
 if __name__ == "__main__":
-    target = r'D:\cc\Friday\output\dreams\dream_20260412_191749_interpolate'
+    # dream.py passes the session folder as the first argument (it used to be ignored).
+    # Note: dream_mind/dream_images.py now does the dreaming while she sleeps; this is the manual tool.
+    target = sys.argv[1] if len(sys.argv) > 1 else r'D:\cc\Friday\output\dreams\dream_20260412_191749_interpolate'
     process_session_hyper_trippy(target)

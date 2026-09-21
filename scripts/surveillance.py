@@ -10,6 +10,11 @@ from datetime import datetime
 from rich.console import Console
 import numpy as np
 
+try:   # frames go to the mind (expression sensing), only if she is allowed to use them
+    from dream_mind import frames as _frames
+except Exception:
+    _frames = None
+
 console = Console()
 CAM_BACKEND = cv2.CAP_DSHOW if sys.platform == "win32" else cv2.CAP_ANY
 # Added a 'blind_mode' flag to state
@@ -42,6 +47,8 @@ def start_surveillance():
                 time.sleep(30)
                 continue
 
+            if _frames:
+                _frames.publish(frame)
             timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             filename = os.path.join(SAVE_DIR, f"{timestamp}.jpg")
             cv2.imwrite(filename, frame)
@@ -89,6 +96,8 @@ def start_motion_detection():
             if not ret:
                 break
 
+            if _frames:
+                _frames.publish(frame)
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             gray = cv2.GaussianBlur(gray, (21, 21), 0)
 

@@ -940,3 +940,22 @@ body.settings-page {
 .sensor-row.alarm    { border-left-color: var(--warn); }
 .sensor-row.error    { border-left-color: var(--danger); }
 .sensor-row.system   { border-left-color: var(--glow); }
+
+/* ── Mind panel (dashboard) ─────────────────────────────────────────────── */
+.mind-note {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--dim);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.mind-note:empty { display: none; }
+
+.mind-dream-img {
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  opacity: .9;
+}

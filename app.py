@@ -361,22 +361,31 @@ def remember(kind: str, text: str):
     if _remember(kind, text) == "milestone":
         push_event({"type": "milestone", "text": text})
 
+# ── Inner life (dream_mind) ────────────────────────────────────────────────────
+# Mood, needs, memory, dreams and initiative. Optional: if it can't load, DREAM runs as before.
+try:
+    from dream_mind import get_mind, llm as mind_llm, voice as mind_voice
+    mind_llm.configure(model=MODEL, url=OLLAMA_URL)
+    MIND = get_mind()
+except Exception as _mind_error:
+    MIND = mind_llm = mind_voice = None
+    print(f"[ComCentre] Inner life unavailable ({_mind_error}) - running without it")
+
 # ── LLM ───────────────────────────────────────────────────────────────────────
-def ask_llm(prompt, history):
+def ask_llm(prompt, history, context=""):
     set_state("thinking")
     ctx = ""
     for m in history[-6:]:
         ctx += ("You" if m["role"] == "assistant" else "Human") + f": {m['content']}\n"
-    system = SYSTEM_PROMPT + memory_prompt_block()
-    payload = {
-        "model": MODEL,
-        "prompt": f"System: {system}\n\n{ctx}Human: {prompt}\nYou:",
-        "stream": False,
-        "options": {"temperature": 0.7, "num_predict": 150, "num_gpu": 20},
-    }
+    system = SYSTEM_PROMPT + memory_prompt_block() + (f"\n\n{context}" if context else "")
+    prompt_text = f"System: {system}\n\n{ctx}Human: {prompt}\nYou:"
     try:
-        r = _req.post(OLLAMA_URL, json=payload, timeout=120)
-        resp = r.json().get("response", "").strip()
+        if mind_llm is not None:   # one shared client: falls back to the CPU if Ollama's GPU mode crashes
+            resp = mind_llm.generate(prompt_text, num_predict=(MIND.token_budget(150) if MIND else 150), temperature=0.7, timeout=120)
+        else:
+            r = _req.post(OLLAMA_URL, json={"model": MODEL, "prompt": prompt_text, "stream": False,
+                                            "options": {"temperature": 0.7, "num_predict": 150, "num_gpu": 20}}, timeout=120)
+            resp = r.json().get("response", "").strip()
         if "<think>" in resp:
             end = resp.find("</think>")
             if end != -1: resp = resp[end + 8:].strip()
@@ -385,7 +394,18 @@ def ask_llm(prompt, history):
     except _req.exceptions.Timeout:
         return "That took too long. Please try again."
     except Exception as e:
+        if getattr(e, "kind", "") == "timeout":
+            return "That took too long. Please try again."
         return f"Error: {e}"
+
+def _prosody_args():
+    """Piper flags from her mood: sleepy she drawls, excited she speeds up."""
+    if MIND is None:
+        return []
+    try:
+        return mind_voice.piper_args(MIND.prosody())
+    except Exception:
+        return []
 
 # ── TTS ────────────────────────────────────────────────────────────────────────
 def speak_text(text):
@@ -396,7 +416,7 @@ def speak_text(text):
     tmp.close()
     try:
         proc = subprocess.run(
-            [PIPER_BIN, "-m", VOICE_MODEL, "-f", tmp.name],
+            [PIPER_BIN, "-m", VOICE_MODEL, "-f", tmp.name, *_prosody_args()],
             input=text.encode("utf-8"), capture_output=True, timeout=15,
         )
         if proc.returncode != 0 or os.path.getsize(tmp.name) < 100:
@@ -836,6 +856,8 @@ def _sensor_voice_command(lower: str):
 
 def _dream_on_sensor_line(line: str):
     """Presence keeps DREAM awake and wakes her when asleep; leaving says goodbye."""
+    if MIND:
+        MIND.on_sensor(line)
     if line == "PRESENT":
         _dream["presence_seen"] = True
         if _dream["sleeping"]:
@@ -868,7 +890,7 @@ def dream_watcher():
             touch_interaction()
             continue
         elapsed = time.time() - _dream["last_wake_ts"]
-        if elapsed >= SLEEP_IDLE_TIMEOUT:
+        if elapsed >= (MIND.adaptive_sleep_timeout(SLEEP_IDLE_TIMEOUT) if MIND else SLEEP_IDLE_TIMEOUT):
             enter_sleep()
         elif elapsed >= FLIRT_IDLE_TIMEOUT and not _dream["flirt_played"]:
             _dream["flirt_played"] = True
@@ -1051,6 +1073,7 @@ def api_chat():
 def _handle_chat():
     user_text  = ""
     voice_mode = False
+    cues       = None   # how the user sounded, if they spoke
 
     if request.content_type and "multipart" in request.content_type:
         f = request.files.get("audio")
@@ -1063,6 +1086,11 @@ def _handle_chat():
                 push_event({"type": "transcript", "role": "system", "text": "Transcribing…"})
                 user_text  = transcribe_file(AUDIO_FILE)
                 voice_mode = True
+                if MIND and user_text:
+                    try:
+                        cues = mind_voice.analyze_wav(AUDIO_FILE)
+                    except Exception:
+                        cues = None
             elif not converted:
                 push_event({"type": "error", "msg": "Audio conversion failed — is ffmpeg installed?"})
     else:
@@ -1078,6 +1106,8 @@ def _handle_chat():
         push_event({"type": "transcript", "role": "user", "text": user_text})
 
     exit_sleep()  # any real interaction wakes her and resets the idle timers
+    if MIND:
+        MIND.note_interaction()
     lower = user_text.lower()
 
     if any(w in lower for w in ["goodbye", "exit", "quit", "bye", "shut down", "shutdown"]):
@@ -1119,16 +1149,29 @@ def _handle_chat():
         set_state("idle")
         return _make_reply(reply, voice_mode, extra={"stats": stats})
 
+    # Her own boundaries, care and self-knowledge come before the language model.
+    pre = MIND.pre_reply(user_text, cues) if MIND else None
+    if pre is not None and pre.reply:
+        push_event({"type": "transcript", "role": "assistant", "text": pre.reply})
+        resp = _make_reply(pre.reply, voice_mode)
+        MIND.post_reply(pre.reply)
+        return resp
+
     for kind, text in extract_memories(user_text):
         remember(kind, text)
 
-    reply = ask_llm(user_text, _history)
+    reply = ask_llm(user_text, _history, context=pre.context if pre else "")
+    if pre is not None and pre.preface:
+        reply = f"{pre.preface} {reply}"
     _history.append({"role": "user",      "content": user_text})
     _history.append({"role": "assistant", "content": reply})
     if len(_history) > 12: del _history[:-12]
     push_event({"type": "transcript", "role": "assistant", "text": reply})
 
-    return _make_reply(reply, voice_mode)
+    resp = _make_reply(reply, voice_mode)
+    if MIND:
+        MIND.post_reply(reply)
+    return resp
 
 def _make_reply(reply: str, voice_mode: bool, extra: dict | None = None):
     audio_url = None
@@ -1177,6 +1220,20 @@ def api_wifi():
     push_event({"type": "wifi", "devices": devices})
     set_state("idle")
     return jsonify({"devices": devices})
+
+@app.route("/api/dream_image/<path:name>")
+def api_dream_image(name):
+    """A painted dream (made by dream_mind/dream_images.py while she sleeps)."""
+    if MIND is None:
+        return "", 404
+    from dream_mind import store as _mind_store
+    return send_from_directory(str(_mind_store.IMAGES_DIR), name)
+
+@app.route("/api/mind")
+def api_mind():
+    if MIND is None:
+        return jsonify({"error": "inner life unavailable"}), 503
+    return jsonify(MIND.status())
 
 @app.route("/api/sensors")
 def api_sensors():
@@ -1281,6 +1338,18 @@ if __name__ == "__main__":
 
     threading.Thread(target=sensor_watcher, daemon=True).start()
     threading.Thread(target=dream_watcher, daemon=True).start()
+    if MIND:
+        if MIND.start(host={
+            # she speaks through the same "speak" event the sensors use, so every open page hears her
+            "speak": lambda text: threading.Thread(target=_announce, args=(text, "speak"), daemon=True).start() or True,
+            "sleep": enter_sleep,
+            "sensor": send_sensor_command,
+            "state": lambda: {"sleeping": _dream["sleeping"], "state": _state["value"],
+                              "present": _dream["presence_seen"] or _sensor_status["present"]},
+        }):
+            print("[ComCentre] Inner life started (mood, needs, memory, dreams)")
+        else:
+            print("[ComCentre] Another DREAM already runs the inner life - this one stays passive")
     threading.Thread(target=nora_watcher, daemon=True).start()
     threading.Thread(target=rift_heartbeat, daemon=True).start()
     print(f"[ComCentre] Announcing to RIFT at {RIFT_HOST}:{RIFT_PORT} every {RIFT_HEARTBEAT_SECS}s")

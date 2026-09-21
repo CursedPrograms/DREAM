@@ -480,6 +480,43 @@ function addSensorLog(entry) {
   while (log.children.length > SENSOR_LOG_MAX) log.lastElementChild.remove();
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   MIND — mood, needs, thoughts, dreams (dream_mind, via app.py)
+════════════════════════════════════════════════════════════════════════ */
+function setMindBar(id, valueId, v) {
+  const pct = Math.round(Math.max(0, Math.min(1, v)) * 100);
+  if ($(valueId)) $(valueId).textContent = pct + '%';
+  setBar(id, pct);
+}
+
+function renderMind(s) {
+  if (!s) return;
+  $('mind-mood').textContent = (s.sleeping ? 'asleep · ' : '') + s.mood.label.toUpperCase();
+  setMindBar('mb-social', 'mind-social', s.drives.social);
+  setMindBar('mb-curiosity', 'mind-curiosity', s.drives.curiosity);
+  setMindBar('mb-sleepy', 'mind-sleepy', s.drives.sleepiness);
+  $('mind-memories').textContent = `${s.memories} · ${s.conversations} chats`;
+  $('mind-thought').textContent = s.thought ? `💭 ${s.thought}` : '';
+  $('mind-dream').textContent = s.dream ? `☾ ${s.dream.tone}: ${s.dream.text}` : '';
+  const img = $('mind-dream-img');
+  const shown = s.dream && (s.dream.animation || s.dream.image);   // the moving walk if she made one, else the still
+  if (shown) {
+    const src = '/api/dream_image/' + encodeURIComponent(shown);
+    if (img.getAttribute('src') !== src) img.setAttribute('src', src);
+    img.style.display = 'block';
+  } else {
+    img.style.display = 'none';
+  }
+  $('mind-goals').textContent = s.goals && s.goals.length ? 'Goals: ' + s.goals.map(g => g.text).slice(0, 3).join(' · ') : '';
+}
+
+async function pollMind() {
+  try {
+    const r = await fetch('/api/mind');
+    if (r.ok) renderMind(await r.json());
+  } catch { /* server not up yet */ }
+}
+
 async function loadSensors() {
   try {
     const r = await fetch('/api/sensors');
@@ -506,4 +543,6 @@ window.addEventListener('DOMContentLoaded', () => {
   pollStatus();
   pollStats();
   loadSensors();
+  pollMind();
+  setInterval(pollMind, 10000);
 });
