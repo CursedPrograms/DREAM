@@ -207,6 +207,9 @@ She bridges static code and emergent autonomous behavior.
 | **SSID** | `NORA` |
 | **Password** | `12345678` |
 
+### DREAM in the browser
+`python scripts/dream.py --web` (or menu option `1w` in `main.py`) starts `app.py` if it isn't already running and opens `/dream.html`. The page behaves like the desktop `dream.py`: the same video clips, "Hey DREAM" wake word, sleep and wake (idle timers, "wake up", the mmWave sensor), the flirt clip, the distance-based greeting and farewell, and the alarm/light voice commands. It uses the browser's microphone and speakers, so tap the start screen once. Speech recognition and the voice still run on this PC (Whisper and Piper). It opens `http://localhost:5010` (no certificate warning); other devices on the network use the HTTPS address as before.
+
 ### RIFT Integration
 To connect via [RIFT](https://github.com/CursedPrograms/RIFT), ensure DREAM is active on:
 * `localhost:5001`

@@ -28,6 +28,7 @@ def main():
 
     scripts = {
         "1": {"name": "Run 'DREAM'", "file_name": "scripts/dream.py", "desc": "Main DREAM script"},
+        "1w": {"name": "Run 'DREAM (web)'", "file_name": "scripts/dream.py", "desc": "DREAM in the browser", "args": ["--web"]},
         "2": {"name": "Run 'Chatbot'", "file_name": "scripts/base_chatbot.py", "desc": "CPU Chatbot"},
         "3": {"name": "Run 'Chatbot GPU'", "file_name": "scripts/base_chatbot_gpu.py", "desc": "CUDA Chatbot"},
         "4": {"name": "Run 'DREAM Low FPS'", "file_name": "scripts/_dream.py", "desc": "JPEG-based DREAM"},
@@ -66,7 +67,7 @@ def main():
                 if os.path.exists(script_path):
                     print(f"\n>> Launching {selected['name']}...")
                     # cwd=current_script_dir ensures relative paths inside scripts work
-                    subprocess.run([venv_python, script_path], cwd=current_script_dir)
+                    subprocess.run([venv_python, script_path, *selected.get("args", [])], cwd=current_script_dir)
                 else:
                     print(f"❌ Error: File not found: {selected['file_name']}")
             else:

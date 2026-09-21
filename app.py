@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import requests as _req
 import psutil
-from flask import Flask, Response, request, jsonify, render_template, send_file, stream_with_context
+from flask import Flask, Response, request, jsonify, render_template, send_file, send_from_directory, stream_with_context
 
 # ── Zeroconf peer discovery ────────────────────────────────────────────────────
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser
@@ -81,6 +81,9 @@ SYSTEM_PROMPT = dream_cfg["SystemPrompt"].format(name=CHAR_NAME)
 ZEROCONF_TYPE = comcentre_cfg.get("ZeroconfType", "_flask-link._tcp.local.")
 THIS_NAME     = comcentre_cfg.get("ZeroconfName", "COMCENTRE")
 THIS_PORT     = comcentre_cfg.get("Port", 5009)
+# Plain-HTTP page on this PC only: localhost counts as a secure context, so the browser
+# gives the mic to /dream.html without the self-signed-certificate warning.
+LOCAL_HTTP_PORT = comcentre_cfg.get("LocalPort", 5010)
 
 WIFI_TRIGGERS  = [
     "check wifi","wifi scan","scan wifi","who's on the wifi","who is on the wifi",
@@ -338,9 +341,12 @@ def get_whisper():
         _whisper_model = whisper.load_model("tiny", device="cpu")
     return _whisper_model
 
+_whisper_lock = threading.Lock()
+
 def transcribe_file(filepath):
     try:
-        return get_whisper().transcribe(filepath, language="en", fp16=False)["text"].strip()
+        with _whisper_lock:
+            return get_whisper().transcribe(filepath, language="en", fp16=False)["text"].strip()
     except Exception as e:
         push_event({"type": "error", "msg": str(e)})
         return ""
@@ -581,6 +587,7 @@ def _handle_sensor_line(line: str):
     elif line.startswith("RADAR_ERROR"):
         _sensor_status["radar_ok"] = False
         _log_sensor("error", "mmWave radar failed to start")
+    _dream_on_sensor_line(line)
     push_event({"type": "sensor_status", **_sensor_snapshot()})
 
 def _sensor_port():
@@ -706,22 +713,168 @@ def nora_watcher():
         check_nora_reachable()
         time.sleep(NORA_CHECK_INTERVAL)
 
-# ── Video pools (web avatar — static/videos/<state><n>.mp4) ────────────────────
-# Mirrors scripts/dream.py's build_video_pools(): groups clips by the state-name
-# prefix in their filename so the browser client can pick a random one per state.
-VIDEO_STATES = ("idle", "listening", "thinking", "talking")
+# ── Video pools (web avatar) ───────────────────────────────────────────────────
+# Same clips scripts/dream.py plays (videos/), grouped by filename prefix, plus the
+# sleeping loop and the startup intro. Falls back to static/videos if videos/ is missing.
+ROOT_VIDEOS_DIR = os.path.join(BASE_DIR, "videos")
+VIDEO_POOL_PREFIXES = ("idle", "listening", "thinking", "talking", "flirtytalk")
 
 def build_video_pools():
-    pools = {s: [] for s in VIDEO_STATES}
-    if os.path.isdir(VIDEOS_DIR):
-        for f in sorted(os.listdir(VIDEOS_DIR)):
-            if not f.endswith(".mp4"):
-                continue
-            for s in VIDEO_STATES:
-                if f.startswith(s):
-                    pools[s].append(f"/static/videos/{f}")
+    pools = {s: [] for s in VIDEO_POOL_PREFIXES}
+    pools["sleeping"] = []
+    pools["intro"] = []
+    if os.path.isdir(ROOT_VIDEOS_DIR):
+        source, url_prefix = ROOT_VIDEOS_DIR, "/videos/"
+    else:
+        source, url_prefix = VIDEOS_DIR, "/static/videos/"
+    if not os.path.isdir(source):
+        return pools
+    for f in sorted(os.listdir(source)):
+        if not f.endswith(".mp4"):
+            continue
+        if f == "sleeping.mp4":
+            pools["sleeping"].append(url_prefix + f)
+        elif f == "intro1.mp4":
+            pools["intro"].append(url_prefix + f)
+        else:
+            for prefix in VIDEO_POOL_PREFIXES:
+                if f.startswith(prefix):
+                    pools[prefix].append(url_prefix + f)
                     break
     return pools
+
+# ── DREAM behaviours (web version of scripts/dream.py) ─────────────────────────
+# dream.py keeps these in its own threads; here they live on the server so every
+# open page stays in sync: idle timers (flirt, then sleep), waking on presence or
+# the wake words, the farewell when someone leaves, and the wake-up greeting.
+FLIRT_IDLE_TIMEOUT = 600   # 10 minutes — flirt attention grab
+SLEEP_IDLE_TIMEOUT = 900   # 15 minutes — fall asleep
+NEAR_DISTANCE_M    = 1.0   # wake-up greeting bands (meters)
+FAR_DISTANCE_M     = 3.0
+WAKE_SECONDS       = 3     # length of each wake-word listening clip
+RECORD_SECONDS     = 16    # longest a spoken command can be
+STARTUP_TEXT       = "ComCentre online. DREAM is ready. Say Hey DREAM to wake me."
+
+WAKE_WORDS = ["hey dream", "hey, dream", "hi dream", "hi, dream", "okay dream", "ok dream", "dream"]
+SLEEP_WAKE_WORDS = ["wake up", "wake up dream", "wake up, dream"]   # only heard while sleeping
+
+ALARM_OFF_TRIGGERS = ["turn off the alarm", "disable the alarm", "disarm the alarm", "alarm off", "stop the alarm"]
+ALARM_ON_TRIGGERS  = ["turn on the alarm", "enable the alarm", "arm the alarm", "alarm on"]
+LIGHT_OFF_TRIGGERS = ["lights off", "turn off the lights", "turn the lights off", "lights out"]
+LIGHT_RAINBOW_TRIGGERS = ["rainbow lights", "lights rainbow", "make the lights rainbow", "rainbow mode", "party lights"]
+LIGHT_COLOR_NAMES = ["red", "green", "blue", "yellow", "orange", "purple", "pink", "cyan", "white"]
+
+_dream = {
+    "sleeping":      False,
+    "busy":          False,  # a page is recording, thinking or speaking
+    "last_wake_ts":  time.time(),
+    "flirt_played":  False,
+    "presence_seen": False,  # mmWave PRESENT currently active — for the ABSENT farewell edge
+    "distance_m":    None,
+}
+
+def touch_interaction():
+    """Call whenever the user actually interacts — resets all idle timers."""
+    _dream["last_wake_ts"] = time.time()
+    _dream["flirt_played"] = False
+
+def enter_sleep():
+    if not _dream["sleeping"]:
+        _dream["sleeping"] = True
+        push_event({"type": "sleep", "sleeping": True})
+
+def exit_sleep():
+    touch_interaction()
+    if _dream["sleeping"]:
+        _dream["sleeping"] = False
+        push_event({"type": "sleep", "sleeping": False})
+
+def wake_greeting() -> str:
+    """The "Yes?" line, chosen by the mmWave sensor's last RANGE reading."""
+    d = _dream["distance_m"]
+    if d is None:
+        return "Yes?"
+    if d < NEAR_DISTANCE_M:
+        return "Whoa, hi! Yes?"
+    if d > FAR_DISTANCE_M:
+        return "Yes? I hear you over there."
+    return "Yes?"
+
+def _audio_url_for(text):
+    wav = speak_text(text)
+    return f"/audio/{os.path.basename(wav)}" if wav else None
+
+def _announce(text: str, event_type: str = "speak"):
+    """Speak a line on every open page ("speak" plays it; "wake" plays it, then listens)."""
+    push_event({"type": event_type, "text": text, "audio_url": _audio_url_for(text)})
+
+def _match_light_color(lower: str):
+    """Only matches a color when it's clearly about the lights, so ordinary
+    chat ("I like the color blue") doesn't accidentally trigger the RGB board."""
+    if not re.search(r"\blight(s)?\b|\bmake it\b|\bturn it\b", lower):
+        return None
+    for name in LIGHT_COLOR_NAMES:
+        if re.search(rf"\b{name}\b", lower):
+            return name
+    return None
+
+def _sensor_voice_command(lower: str):
+    """Alarm / RGB-light voice commands. Returns the spoken reply, or None if
+    this isn't one."""
+    if any(t in lower for t in ALARM_OFF_TRIGGERS):
+        return "Alarm disabled." if send_alarm_command(False) else "I can't reach the alarm board."
+    if any(t in lower for t in ALARM_ON_TRIGGERS):
+        return "Alarm enabled." if send_alarm_command(True) else "I can't reach the alarm board."
+    if any(t in lower for t in LIGHT_OFF_TRIGGERS):
+        return "Lights off." if send_sensor_command("RGB OFF") else "I can't reach the lights."
+    if any(t in lower for t in LIGHT_RAINBOW_TRIGGERS):
+        return "Rainbow mode." if send_sensor_command("RGB RAINBOW") else "I can't reach the lights."
+    color = _match_light_color(lower)
+    if color:
+        return f"Lights {color}." if send_sensor_command(f"RGB {color.upper()}") else "I can't reach the lights."
+    return None
+
+def _dream_on_sensor_line(line: str):
+    """Presence keeps DREAM awake and wakes her when asleep; leaving says goodbye."""
+    if line == "PRESENT":
+        _dream["presence_seen"] = True
+        if _dream["sleeping"]:
+            exit_sleep()
+            threading.Thread(target=_announce, args=(wake_greeting(), "wake"), daemon=True).start()
+        else:
+            touch_interaction()
+    elif line == "ABSENT":
+        if _dream["presence_seen"]:
+            _dream["presence_seen"] = False
+            if not _dream["sleeping"] and not _dream["busy"] and _state["value"] == "idle":
+                threading.Thread(target=_announce, args=("Bye for now.",), daemon=True).start()
+    elif line.startswith("RANGE"):
+        parts = line.split()
+        if len(parts) >= 2:
+            try:
+                _dream["distance_m"] = float(parts[1])
+            except ValueError:
+                return
+            if not _dream["sleeping"]:
+                touch_interaction()
+
+def dream_watcher():
+    """Idle timers: flirt clip at FLIRT_IDLE_TIMEOUT, sleep at SLEEP_IDLE_TIMEOUT."""
+    while _state["running"]:
+        time.sleep(5)
+        if _dream["sleeping"]:
+            continue
+        if _state["value"] != "idle" or _dream["busy"]:
+            touch_interaction()
+            continue
+        elapsed = time.time() - _dream["last_wake_ts"]
+        if elapsed >= SLEEP_IDLE_TIMEOUT:
+            enter_sleep()
+        elif elapsed >= FLIRT_IDLE_TIMEOUT and not _dream["flirt_played"]:
+            _dream["flirt_played"] = True
+            pool = build_video_pools()["flirtytalk"]
+            if pool:
+                push_event({"type": "flirt", "clip": random.choice(pool)})
 
 # ── Flask app ──────────────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -754,6 +907,7 @@ def events():
 
     def gen():
         yield "data: " + json.dumps({"type": "state", "state": _state["value"]}) + "\n\n"
+        yield "data: " + json.dumps({"type": "sleep", "sleeping": _dream["sleeping"]}) + "\n\n"
         yield "data: " + json.dumps({"type": "nodes", "nodes": _safe_peers()}) + "\n\n"
         try:
             while True:
@@ -788,6 +942,75 @@ def dream_page():
 def api_videos():
     return jsonify(build_video_pools())
 
+@app.route("/videos/<path:name>")
+def serve_video(name):
+    return send_from_directory(ROOT_VIDEOS_DIR, name)
+
+@app.route("/api/dream/config")
+def api_dream_config():
+    return jsonify({
+        "startup_text":   STARTUP_TEXT,
+        "wake_seconds":   WAKE_SECONDS,
+        "record_seconds": RECORD_SECONDS,
+        "sleeping":       _dream["sleeping"],
+    })
+
+@app.route("/api/dream/activity", methods=["POST"])
+def api_dream_activity():
+    """A page reports whether it's busy (recording/thinking/speaking) so the
+    idle timers and the farewell don't fire in the middle of a conversation."""
+    busy = bool((request.get_json(silent=True) or {}).get("busy"))
+    _dream["busy"] = busy
+    if busy:
+        touch_interaction()
+    return jsonify({"busy": busy})
+
+@app.route("/api/speak", methods=["POST"])
+def api_speak():
+    text = ((request.get_json(silent=True) or {}).get("text") or "").strip()
+    if not text:
+        return jsonify({"error": "missing 'text'"}), 400
+    return jsonify({"text": text, "audio_url": _audio_url_for(text)})
+
+@app.route("/api/wake", methods=["POST"])
+def api_wake():
+    """One short listening clip from a page. Checks it for the wake words the
+    way scripts/dream.py's listen_for_wake_word() does: while sleeping only
+    "wake up" counts; while awake, "hey dream" (or a wifi-scan phrase) does."""
+    f = request.files.get("audio")
+    if not f:
+        return jsonify({"trigger": None})
+    fd, raw = tempfile.mkstemp(suffix=".raw", dir=AUDIO_DIR)
+    os.close(fd)
+    wav = raw + ".wav"
+    try:
+        f.save(raw)
+        if not _convert_to_wav(raw, wav) or not check_audio_levels(wav):
+            return jsonify({"trigger": None})
+        text = transcribe_file(wav).lower().strip()
+    finally:
+        for p in (raw, wav):
+            if os.path.exists(p):
+                os.unlink(p)
+    if not text:
+        return jsonify({"trigger": None})
+
+    if _dream["sleeping"]:
+        if any(w in text for w in SLEEP_WAKE_WORDS):
+            exit_sleep()
+            greeting = wake_greeting()
+            return jsonify({"trigger": "wake", "text": greeting, "audio_url": _audio_url_for(greeting), "heard": text})
+        return jsonify({"trigger": None, "heard": text})
+
+    if any(w in text for w in WAKE_WORDS):
+        touch_interaction()
+        greeting = wake_greeting()
+        return jsonify({"trigger": "wake", "text": greeting, "audio_url": _audio_url_for(greeting), "heard": text})
+    if any(t in text for t in WIFI_TRIGGERS):
+        touch_interaction()
+        return jsonify({"trigger": "wifi", "heard": text})
+    return jsonify({"trigger": None, "heard": text})
+
 @app.route("/ping")
 def ping_route():
     return f"{THIS_NAME} alive"
@@ -802,6 +1025,7 @@ def api_status():
         pass
     return jsonify({
         "state":       _state["value"],
+        "sleeping":    _dream["sleeping"],
         "ollama":      ollama_ok,
         "piper":       os.path.exists(PIPER_BIN),
         "voice_model": VOICE_MODEL is not None,
@@ -853,13 +1077,22 @@ def _handle_chat():
     if voice_mode:
         push_event({"type": "transcript", "role": "user", "text": user_text})
 
+    exit_sleep()  # any real interaction wakes her and resets the idle timers
     lower = user_text.lower()
 
     if any(w in lower for w in ["goodbye", "exit", "quit", "bye", "shut down", "shutdown"]):
         reply = "Goodbye."
         push_event({"type": "transcript", "role": "assistant", "text": reply})
         set_state("idle")
-        return _make_reply(reply, voice_mode)
+        resp = _make_reply(reply, voice_mode)
+        enter_sleep()  # dream.py exits here; the web version goes to sleep (pages wait until she's done speaking)
+        return resp
+
+    board_reply = _sensor_voice_command(lower)
+    if board_reply:
+        push_event({"type": "transcript", "role": "assistant", "text": board_reply})
+        set_state("idle")
+        return _make_reply(board_reply, voice_mode)
 
     if any(t in lower for t in WIFI_TRIGGERS):
         set_state("thinking")
@@ -1047,6 +1280,7 @@ if __name__ == "__main__":
     print(f"[ComCentre] Zeroconf registered as {THIS_NAME} on port {THIS_PORT}")
 
     threading.Thread(target=sensor_watcher, daemon=True).start()
+    threading.Thread(target=dream_watcher, daemon=True).start()
     threading.Thread(target=nora_watcher, daemon=True).start()
     threading.Thread(target=rift_heartbeat, daemon=True).start()
     print(f"[ComCentre] Announcing to RIFT at {RIFT_HOST}:{RIFT_PORT} every {RIFT_HEARTBEAT_SECS}s")
@@ -1057,6 +1291,11 @@ if __name__ == "__main__":
         run_kwargs["ssl_context"] = (CERT_PATH, KEY_PATH)
         print(f"[ComCentre] HTTPS enabled — open https://{MY_IP}:{THIS_PORT}/dream.html on your phone")
         print("[ComCentre] (accept the one-time self-signed certificate warning)")
+        threading.Thread(
+            target=lambda: app.run(host="127.0.0.1", port=LOCAL_HTTP_PORT, debug=False, threaded=True, use_reloader=False),
+            daemon=True,
+        ).start()
+        print(f"[ComCentre] On this PC, no warning: http://localhost:{LOCAL_HTTP_PORT}/dream.html")
     else:
         print(f"[ComCentre] HTTPS unavailable — mic access on /dream.html will only work from localhost")
 

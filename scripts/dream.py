@@ -4,6 +4,13 @@ import os
 import re
 import sys
 
+# `dream.py --web` runs DREAM in the browser instead: starts app.py if needed and
+# opens /dream.html. Handled here, before the heavy imports below (torch, pygame…).
+if "--web" in sys.argv:
+    import web_launcher
+    web_launcher.run()
+    sys.exit(0)
+
 # Disable torch.compile / TorchDynamo entirely — Triton is not available on
 # Windows, so every compile attempt would fail and fall back to eager anyway.
 # Setting this before any torch import avoids all compile overhead and noise.
