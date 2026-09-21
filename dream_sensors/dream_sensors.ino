@@ -205,7 +205,9 @@ void loop() {
   if (Serial.available() > 0) {
     String cmd = Serial.readStringUntil('\n');
     cmd.trim();
-    if (cmd.equalsIgnoreCase("BUZZER")) {
+    if (cmd.equalsIgnoreCase("WHO")) {
+      Serial.println("I am Dream");
+    } else if (cmd.equalsIgnoreCase("BUZZER")) {
       toneActive = true;
       toneStart  = millis();
       tone(BUZZER_PIN, 1500);

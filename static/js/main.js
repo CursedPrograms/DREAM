@@ -131,6 +131,9 @@ function connectSSE() {
       case 'wifi': renderWifiDevices(d.devices); break;
       case 'nodes': renderNodes(d.nodes); break;
       case 'error': addMessage('system', `⚠ ${d.msg}`); break;
+      case 'milestone': addMessage('system', `★ Milestone: ${d.text}`); break;
+      case 'sensor_status': renderSensorStatus(d); break;
+      case 'sensor_log': addSensorLog(d); break;
       case 'ping': break; // keepalive
     }
   };
@@ -438,6 +441,55 @@ $('text-input').addEventListener('keydown', e => {
 });
 
 /* ════════════════════════════════════════════════════════════════════════
+   SENSORS — PIR alarm + mmWave presence (dream_sensors.ino, via app.py)
+════════════════════════════════════════════════════════════════════════ */
+function setSensorValue(id, text, cls) {
+  const el = $(id);
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = cls ? `var(--${cls})` : '';
+}
+
+function renderSensorStatus(s) {
+  if (!s) return;
+  setSensorValue('ss-board', s.connected ? (s.radar_ok ? 'ONLINE' : 'NO RADAR') : 'OFFLINE',
+                 s.connected ? (s.radar_ok ? 'ok' : 'warn') : 'danger');
+  setSensorValue('ss-presence', s.connected ? (s.present ? 'PRESENT' : 'CLEAR') : '—',
+                 s.present ? 'glow2' : '');
+  setSensorValue('ss-range', s.present && s.range_m != null ? `${s.range_m.toFixed(1)} m` : '—');
+  setSensorValue('ss-alarm', s.connected ? (s.alarm_enabled ? 'ARMED' : 'OFF') : '—',
+                 s.connected ? (s.alarm_enabled ? 'ok' : 'dim') : '');
+  setSensorValue('ss-motion', s.last_motion || '—', s.last_motion ? 'danger' : '');
+}
+
+const SENSOR_LOG_MAX = 30;
+
+function addSensorLog(entry) {
+  const log = $('sensor-log');
+  if (!log) return;
+  const note = log.querySelector('.dim-note');
+  if (note) note.remove();
+
+  const row = document.createElement('div');
+  row.className = `sensor-row ${entry.kind}`;
+  const ts = document.createElement('span');
+  ts.className = 'sensor-ts';
+  ts.textContent = entry.ts;
+  row.append(ts, document.createTextNode(entry.text)); // text nodes: nothing from the board is parsed as HTML
+  log.prepend(row);
+  while (log.children.length > SENSOR_LOG_MAX) log.lastElementChild.remove();
+}
+
+async function loadSensors() {
+  try {
+    const r = await fetch('/api/sensors');
+    const d = await r.json();
+    renderSensorStatus(d.status);
+    d.log.forEach(addSensorLog); // oldest first; prepend leaves the newest on top
+  } catch { /* server not up yet; live events will fill this in */ }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
    UTILS
 ════════════════════════════════════════════════════════════════════════ */
 function escapeHtml(str) {
@@ -453,4 +505,5 @@ window.addEventListener('DOMContentLoaded', () => {
   connectSSE();
   pollStatus();
   pollStats();
+  loadSensors();
 });

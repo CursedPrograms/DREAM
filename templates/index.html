@@ -88,6 +88,17 @@
     <div class="bar-track"><div class="bar-fill" id="bf-disk" style="width:0%"></div></div>
     <div class="stat-row" id="temp-row" style="display:none"><span>TEMP</span><span id="sv-temp">—</span></div>
 
+    <!-- Sensor board (PIR alarm + mmWave presence) -->
+    <div class="panel-label">SENSORS</div>
+    <div class="stat-row"><span>BOARD</span><span id="ss-board">—</span></div>
+    <div class="stat-row"><span>PRESENCE</span><span id="ss-presence">—</span></div>
+    <div class="stat-row"><span>DISTANCE</span><span id="ss-range">—</span></div>
+    <div class="stat-row"><span>ALARM</span><span id="ss-alarm">—</span></div>
+    <div class="stat-row"><span>LAST MOTION</span><span id="ss-motion">—</span></div>
+    <div id="sensor-log">
+      <div class="dim-note">No sensor events yet.</div>
+    </div>
+
     <!-- WiFi devices -->
     <div class="panel-label">NETWORK DEVICES</div>
     <div id="wifi-list">

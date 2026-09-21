@@ -50,13 +50,9 @@ try:
 except ImportError:
     SCAPY_AVAILABLE = False
 
-try:
-    import serial
-    PYSERIAL_AVAILABLE = True
-except ImportError:
-    PYSERIAL_AVAILABLE = False
-
 console = Console()
+
+from dream_memory import extract_memories, remember, memory_prompt_block
 
 # ==================== PLATFORM ====================
 IS_WINDOWS = sys.platform == "win32"
@@ -153,9 +149,8 @@ SLEEP_IDLE_TIMEOUT = 900   # 15 minutes — fall asleep
 
 # mmWave sensor (dream_sensors.ino) — presence keeps DREAM awake and,
 # while asleep, wakes her up exactly like the "wake up" spoken word. The
-# PIR on that same board is alarm-only and isn't read here.
-SENSOR_SERIAL_PORT = "/dev/ttyUSB0"
-SENSOR_SERIAL_BAUD = 9600
+# PIR on that same board is alarm-only and isn't read here. The serial port
+# itself is owned by app.py — see the sensor section below.
 
 # Distance bands (meters) for the wake-up greeting — see _wake_greeting().
 NEAR_DISTANCE_M = 1.0
@@ -819,7 +814,7 @@ def ask_llm(prompt, history):
         for msg in history[-6:]:
             role = "You" if msg["role"] == "assistant" else "Human"
             context += f"{role}: {msg['content']}\n"
-        full_prompt = f"System: {SYSTEM_PROMPT}\n\n{context}Human: {prompt}\nYou:"
+        full_prompt = f"System: {SYSTEM_PROMPT}{memory_prompt_block()}\n\n{context}Human: {prompt}\nYou:"
         payload = {
             "model": MODEL,
             "prompt": full_prompt,
@@ -1185,86 +1180,103 @@ def _farewell():
     is never blocked waiting for TTS/lipsync to finish."""
     speak("Bye for now.")
 
-# ── Sensor board write commands (ALARM ON/OFF, RGB <color>/OFF/RAINBOW) ────────
-# serial_watcher() owns the connection (it's the one reading PRESENT/ABSENT/
-# RANGE off it continuously) and publishes it here so voice commands can write
-# back down the same link instead of opening a second, conflicting connection.
-_sensor_serial      = None
-_sensor_serial_lock = threading.Lock()
+# ── Sensor board (dream_sensors.ino) — owned by app.py ─────────────────────────
+# Only one program can hold the board's COM port, and that's app.py. It
+# re-broadcasts every line the board prints on its /events stream as
+# {"type": "sensor", "line": ...}; serial_watcher() below listens to that, and
+# send_sensor_command() writes back through POST /api/sensor/command.
+# So app.py has to be running for the sensor to work.
+_HUB_PORT   = config["Config"]["ComCentre"].get("Port", 5009)
+_hub_scheme = "https"   # app.py serves HTTPS when it has a cert, else HTTP; remembered once one answers
+
+try:
+    requests.packages.urllib3.disable_warnings()  # app.py's cert is self-signed, and this is localhost
+except Exception:
+    pass
+
+def _hub_request(method: str, path: str, **kwargs):
+    """Calls app.py on this PC, trying whichever of https/http answered last first."""
+    global _hub_scheme
+    schemes = ["https", "http"] if _hub_scheme == "https" else ["http", "https"]
+    last_error = None
+    for scheme in schemes:
+        try:
+            r = requests.request(method, f"{scheme}://localhost:{_HUB_PORT}{path}", verify=False, **kwargs)
+            _hub_scheme = scheme
+            return r
+        except requests.RequestException as e:
+            last_error = e
+    raise last_error
 
 def send_sensor_command(cmd: str) -> bool:
-    """Writes a line to dream_sensors.ino over the shared sensor serial link."""
-    with _sensor_serial_lock:
-        ser = _sensor_serial
-        if ser is None or not ser.is_open:
-            return False
-        try:
-            ser.write((cmd + "\n").encode())
-            ser.flush()
-            return True
-        except Exception as e:
-            console.print(f"[yellow]Sensor command failed: {e}[/yellow]")
-            return False
+    """Sends a line (ALARM ON/OFF, RGB <color>/OFF/RAINBOW, BUZZER) to the sensor board via app.py."""
+    try:
+        return _hub_request("post", "/api/sensor/command", json={"cmd": cmd}, timeout=5).status_code == 200
+    except Exception as e:
+        console.print(f"[yellow]Sensor command failed: {e}[/yellow]")
+        return False
+
+def _handle_sensor_line(line: str):
+    if line == "PRESENT":
+        _state["presence_seen"] = True
+        if _state["sleeping"]:
+            _state["sensor_wake"] = True
+        else:
+            touch_interaction()
+    elif line == "ABSENT":
+        if _state["presence_seen"]:
+            _state["presence_seen"] = False
+            if not _state["sleeping"] and _state["value"] == "idle":
+                threading.Thread(target=_farewell, daemon=True).start()
+    elif line.startswith("RANGE"):
+        parts = line.split()
+        if len(parts) >= 2:
+            try:
+                _state["distance_m"] = float(parts[1])
+            except ValueError:
+                pass
+            if not _state["sleeping"]:
+                touch_interaction()
 
 def serial_watcher():
     """
-    Reads PRESENT/ABSENT/RANGE lines from the mmWave sensor (dream_sensors.ino)
-    over serial. The PIR on that same board only drives the physical alarm and
-    is not read here. Presence while awake resets the idle timers so DREAM
-    doesn't fall asleep with someone in the room. Presence while asleep sets
-    sensor_wake, which listen_for_wake_word() treats exactly like the "wake
-    up" spoken word. RANGE is cached so DREAM knows how far away they are.
-    ABSENT (after a PRESENT was actually seen) fires a quick farewell line —
-    but only while awake and idle, so it never interrupts an active
-    conversation or talks over a sleep/wake sequence.
+    Listens for PRESENT/ABSENT/RANGE lines from the mmWave sensor
+    (dream_sensors.ino), relayed by app.py, which owns the serial port. The PIR
+    on that same board only drives the physical alarm and is not read here.
+    Presence while awake resets the idle timers so DREAM doesn't fall asleep
+    with someone in the room. Presence while asleep sets sensor_wake, which
+    listen_for_wake_word() treats exactly like the "wake up" spoken word. RANGE
+    is cached so DREAM knows how far away they are. ABSENT (after a PRESENT was
+    actually seen) fires a quick farewell line — but only while awake and idle,
+    so it never interrupts an active conversation or talks over a sleep/wake
+    sequence.
     """
-    global _sensor_serial
-
-    if not PYSERIAL_AVAILABLE:
-        console.print("[yellow]pyserial not installed — mmWave sensor disabled[/yellow]")
-        return
-
     while _state["running"]:
         try:
-            ser = serial.Serial(SENSOR_SERIAL_PORT, SENSOR_SERIAL_BAUD, timeout=1)
+            # 3s to connect; the server pings every 25s, so 60s of silence means it's gone
+            r = _hub_request("get", "/events", stream=True, timeout=(3, 60))
         except Exception as e:
-            console.print(f"[yellow]mmWave sensor unavailable ({e}) — retrying in 5s[/yellow]")
+            console.print(f"[yellow]Sensor hub (app.py) unavailable ({e}) — retrying in 5s[/yellow]")
             time.sleep(5)
             continue
 
-        console.print(f"[dim]mmWave sensor connected on {SENSOR_SERIAL_PORT}[/dim]")
-        with _sensor_serial_lock:
-            _sensor_serial = ser
+        console.print("[dim]Sensor hub (app.py) connected[/dim]")
         try:
-            with ser:
-                while _state["running"]:
-                    line = ser.readline().decode(errors="ignore").strip()
-                    if line == "PRESENT":
-                        _state["presence_seen"] = True
-                        if _state["sleeping"]:
-                            _state["sensor_wake"] = True
-                        else:
-                            touch_interaction()
-                    elif line == "ABSENT":
-                        if _state["presence_seen"]:
-                            _state["presence_seen"] = False
-                            if not _state["sleeping"] and _state["value"] == "idle":
-                                threading.Thread(target=_farewell, daemon=True).start()
-                    elif line.startswith("RANGE"):
-                        parts = line.split()
-                        if len(parts) >= 2:
-                            try:
-                                _state["distance_m"] = float(parts[1])
-                            except ValueError:
-                                pass
-                            if not _state["sleeping"]:
-                                touch_interaction()
+            with r:
+                for raw in r.iter_lines(decode_unicode=True):
+                    if not _state["running"]:
+                        break
+                    if not raw or not raw.startswith("data:"):
+                        continue
+                    try:
+                        evt = json.loads(raw[5:])
+                    except ValueError:
+                        continue
+                    if evt.get("type") == "sensor":
+                        _handle_sensor_line(str(evt.get("line", "")).strip())
         except Exception as e:
-            console.print(f"[yellow]mmWave sensor error: {e} — reconnecting[/yellow]")
+            console.print(f"[yellow]Sensor hub error: {e} — reconnecting[/yellow]")
             time.sleep(2)
-        finally:
-            with _sensor_serial_lock:
-                _sensor_serial = None
 
 # ==================== FLIRT WATCHER (background thread) ====================
 
@@ -1572,6 +1584,10 @@ def voice_loop():
                 ok = send_sensor_command(f"RGB {light_color.upper()}")
                 speak(f"Lights {light_color}." if ok else "I can't reach the lights.")
                 continue
+
+            for kind, fact in extract_memories(user_text):
+                if remember(kind, fact) == "milestone":
+                    console.print(f"[magenta]Milestone: {escape(fact)}[/magenta]")
 
             response = ask_llm(user_text, history)
             history.append({"role": "user",      "content": user_text})

@@ -913,3 +913,30 @@ body.settings-page {
   opacity: .4;
   cursor: not-allowed;
 }
+
+/* ── Sensor log (dashboard SENSORS panel) ───────────────────────────────── */
+#sensor-log {
+  margin-top: 6px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.sensor-row {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text);
+  padding: 2px 0 2px 6px;
+  border-left: 2px solid var(--border);
+  margin-bottom: 2px;
+}
+
+.sensor-row .sensor-ts {
+  color: var(--dim);
+  margin-right: 6px;
+}
+
+.sensor-row.presence { border-left-color: var(--glow2); }
+.sensor-row.motion   { border-left-color: var(--danger); color: var(--danger); }
+.sensor-row.alarm    { border-left-color: var(--warn); }
+.sensor-row.error    { border-left-color: var(--danger); }
+.sensor-row.system   { border-left-color: var(--glow); }

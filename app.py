@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os, sys, time, json, math, socket, tempfile, subprocess, wave, re
+from collections import deque
 import threading, queue, random, ipaddress
 from concurrent.futures import ThreadPoolExecutor
 
@@ -92,7 +93,7 @@ STATS_TRIGGERS = [
 ]
 
 # ── Alarm board (dream_sensors.ino) ────────────────────────────────────────────
-ALARM_SERIAL_PORT = "/dev/ttyUSB0"
+ALARM_SERIAL_PORT = None   # None = find the board that answers "I am Dream" (see scripts/board_id.py)
 ALARM_SERIAL_BAUD = 9600
 
 # ── NORA (fleet robot) ──────────────────────────────────────────────────────────
@@ -345,73 +346,14 @@ def transcribe_file(filepath):
         return ""
 
 # ── Memories & Milestones ──────────────────────────────────────────────────────
-# memories.txt accumulates facts learned in conversation; mymilestones.txt logs
-# the first time each *kind* of fact is learned (name, pet, home, job, birthday).
-MEMORIES_PATH        = os.path.join(BASE_DIR, "memories", "memories.txt")
-MILESTONES_PATH      = os.path.join(BASE_DIR, "memories", "mymilestones.txt")
-MAX_MEMORIES_IN_PROMPT = 6
-
-_MEMORY_PATTERNS = [
-    ("name",     re.compile(r"\bmy name is ([A-Z][a-zA-Z'-]{1,20})\b", re.I)),
-    ("pet",      re.compile(r"\bi (?:have|own) an? (dog|cat|bird|fish|rabbit|hamster)(?: named ([A-Z][a-zA-Z'-]{1,20}))?\b", re.I)),
-    ("home",     re.compile(r"\bi live in ([A-Za-z][A-Za-z\s]{1,30}?)[.,!]?$", re.I)),
-    ("job",      re.compile(r"\bi work as an? ([A-Za-z][A-Za-z\s]{1,30}?)[.,!]?$", re.I)),
-    ("birthday", re.compile(r"\bmy birthday is ([A-Za-z0-9,\s]{3,30}?)[.,!]?$", re.I)),
-]
-
-def _known_memory_kinds():
-    kinds = set()
-    if os.path.exists(MEMORIES_PATH):
-        with open(MEMORIES_PATH, encoding="utf-8") as f:
-            for line in f:
-                m = re.match(r"\[.*?\]\s*\((\w+)\)", line)
-                if m: kinds.add(m.group(1))
-    return kinds
-
-def _append_line(path, line):
-    with open(path, "a", encoding="utf-8") as f:
-        f.write(line + "\n")
+# Shared with scripts/dream.py — see scripts/dream_memory.py.
+from dream_memory import MEMORIES_PATH, MILESTONES_PATH, extract_memories, memory_prompt_block
+from dream_memory import remember as _remember
 
 def remember(kind: str, text: str):
-    """Append a fact to memories.txt; log a milestone the first time this kind is learned."""
-    ts    = time.strftime("%Y-%m-%d %H:%M")
-    known = _known_memory_kinds()
-    _append_line(MEMORIES_PATH, f"[{ts}] ({kind}) {text}")
-    if kind not in known:
-        _append_line(MILESTONES_PATH, f"[{ts}] {text}")
+    """Save a fact; tells the dashboard the first time each kind of fact is learned."""
+    if _remember(kind, text) == "milestone":
         push_event({"type": "milestone", "text": text})
-
-def extract_memories(user_text: str):
-    """Pull simple durable facts (name, pet, home, job, birthday) out of user_text."""
-    found = []
-    m = _MEMORY_PATTERNS[0][1].search(user_text)
-    if m:
-        found.append(("name", f"Human's name is {m.group(1)}."))
-    m = _MEMORY_PATTERNS[1][1].search(user_text)
-    if m:
-        pet, pname = m.group(1).lower(), m.group(2)
-        found.append(("pet", f"Human has a {pet}" + (f" named {pname}." if pname else ".")))
-    m = _MEMORY_PATTERNS[2][1].search(user_text)
-    if m:
-        found.append(("home", f"Human lives in {m.group(1).strip()}."))
-    m = _MEMORY_PATTERNS[3][1].search(user_text)
-    if m:
-        found.append(("job", f"Human works as a {m.group(1).strip()}."))
-    m = _MEMORY_PATTERNS[4][1].search(user_text)
-    if m:
-        found.append(("birthday", f"Human's birthday is {m.group(1).strip()}."))
-    return found
-
-def recent_memories(limit=MAX_MEMORIES_IN_PROMPT):
-    if not os.path.exists(MEMORIES_PATH):
-        return []
-    with open(MEMORIES_PATH, encoding="utf-8") as f:
-        lines = [l.strip() for l in f if l.strip()]
-    out = []
-    for line in lines[-limit:]:
-        m = re.match(r"\[.*?\]\s*\(\w+\)\s*(.*)", line)
-        out.append(m.group(1) if m else line)
-    return out
 
 # ── LLM ───────────────────────────────────────────────────────────────────────
 def ask_llm(prompt, history):
@@ -419,10 +361,7 @@ def ask_llm(prompt, history):
     ctx = ""
     for m in history[-6:]:
         ctx += ("You" if m["role"] == "assistant" else "Human") + f": {m['content']}\n"
-    system = SYSTEM_PROMPT
-    mem_lines = recent_memories()
-    if mem_lines:
-        system += "\n\nThings you remember about the human:\n" + "\n".join(f"- {m}" for m in mem_lines)
+    system = SYSTEM_PROMPT + memory_prompt_block()
     payload = {
         "model": MODEL,
         "prompt": f"System: {system}\n\n{ctx}Human: {prompt}\nYou:",
@@ -596,45 +535,127 @@ def _inline_wifi_scan():
     except Exception:
         return []
 
-# ── Alarm control (serial to dream_sensors.ino) ────────────────────────────────
+# ── Sensor board (serial to dream_sensors.ino) — this app is its only owner ────
+# Only one program can hold a COM port, so app.py owns the connection and
+# scripts/dream.py goes through it: every line the board prints is re-broadcast
+# on /events as {"type": "sensor", "line": ...}, and commands are written back
+# via POST /api/sensor/command.
 _alarm_state       = {"enabled": True}  # mirrors the board's default (alarmEnabled = true on boot)
-_alarm_serial      = None
-_alarm_serial_lock = threading.Lock()
+_sensor_serial     = None
+_sensor_serial_lock = threading.Lock()   # guards writes and the _sensor_serial handle
 
-def _open_alarm_serial():
-    """(Re)open the serial link to dream_sensors.ino if not already open."""
-    global _alarm_serial
-    if _alarm_serial is not None:
+# What the dashboard's SENSORS panel shows: live status plus a rolling event log.
+_sensor_status = {"connected": False, "present": False, "range_m": None, "radar_ok": True, "last_motion": None}
+_sensor_log    = deque(maxlen=50)
+
+def _sensor_snapshot():
+    return {**_sensor_status, "alarm_enabled": _alarm_state["enabled"]}
+
+def _log_sensor(kind: str, text: str):
+    entry = {"ts": time.strftime("%H:%M:%S"), "kind": kind, "text": text}
+    _sensor_log.append(entry)
+    push_event({"type": "sensor_log", **entry})
+
+def _handle_sensor_line(line: str):
+    """Updates status/log from one line the board printed, then tells the dashboard."""
+    if line == "PRESENT":
+        _sensor_status["present"] = True
+        _log_sensor("presence", "Presence detected")
+    elif line == "ABSENT":
+        _sensor_status.update(present=False, range_m=None)
+        _log_sensor("presence", "Presence lost")
+    elif line.startswith("RANGE"):
+        parts = line.split()
+        if len(parts) >= 2:
+            try:
+                _sensor_status["range_m"] = float(parts[1])
+            except ValueError:
+                pass
+    elif line == "MOTION":
+        _sensor_status["last_motion"] = time.strftime("%H:%M:%S")
+        _log_sensor("motion", "Motion detected — alarm triggered")
+    elif line.startswith("ALARM_STATE "):
+        _alarm_state["enabled"] = line.endswith("ON")
+        push_event({"type": "alarm", "enabled": _alarm_state["enabled"]})
+        _log_sensor("alarm", "Alarm enabled" if _alarm_state["enabled"] else "Alarm disabled")
+    elif line.startswith("RADAR_ERROR"):
+        _sensor_status["radar_ok"] = False
+        _log_sensor("error", "mmWave radar failed to start")
+    push_event({"type": "sensor_status", **_sensor_snapshot()})
+
+def _sensor_port():
+    """Explicit ALARM_SERIAL_PORT if set, else whichever port answers "I am Dream"."""
+    if ALARM_SERIAL_PORT:
+        return ALARM_SERIAL_PORT
+    from board_id import find_board
+    port = find_board("dream", ALARM_SERIAL_BAUD)
+    if not port:
+        raise RuntimeError('no serial port answered "I am Dream"')
+    return port
+
+def sensor_watcher():
+    """Keeps the board connected (reconnecting if it drops) and broadcasts every
+    line it prints as a "sensor" event."""
+    global _sensor_serial
+    if not PYSERIAL_AVAILABLE:
+        push_event({"type": "error", "msg": "pyserial not installed — sensor board disabled"})
+        return
+
+    warned = False
+    while _state["running"]:
         try:
-            if _alarm_serial.is_open:
-                return _alarm_serial
-        except Exception:
-            pass
-    try:
-        _alarm_serial = _serial.Serial(ALARM_SERIAL_PORT, ALARM_SERIAL_BAUD, timeout=2)
+            ser = _serial.Serial(_sensor_port(), ALARM_SERIAL_BAUD, timeout=1)
+        except Exception as e:
+            if not warned:
+                push_event({"type": "error", "msg": f"Sensor board unreachable: {e}"})
+                warned = True
+            time.sleep(5)
+            continue
+        warned = False
         time.sleep(2)  # board resets when the port opens; let it finish booting
-    except Exception as e:
-        push_event({"type": "error", "msg": f"Alarm board unreachable: {e}"})
-        _alarm_serial = None
-    return _alarm_serial
+        with _sensor_serial_lock:
+            _sensor_serial = ser
+        print(f"[ComCentre] Sensor board connected on {ser.port}")
+        _sensor_status.update(connected=True, radar_ok=True)
+        _log_sensor("system", f"Sensor board connected on {ser.port}")
+        push_event({"type": "sensor_status", **_sensor_snapshot()})
+        try:
+            with ser:
+                while _state["running"]:
+                    line = ser.readline().decode(errors="ignore").strip()
+                    if not line:
+                        continue
+                    _handle_sensor_line(line)
+                    push_event({"type": "sensor", "line": line})
+        except Exception as e:
+            push_event({"type": "error", "msg": f"Sensor board disconnected: {e}"})
+            time.sleep(2)
+        finally:
+            with _sensor_serial_lock:
+                _sensor_serial = None
+            _sensor_status.update(connected=False, present=False, range_m=None)
+            _log_sensor("system", "Sensor board disconnected")
+            push_event({"type": "sensor_status", **_sensor_snapshot()})
+
+def send_sensor_command(cmd: str) -> bool:
+    """Writes one line to dream_sensors.ino. Returns True once it's sent."""
+    with _sensor_serial_lock:
+        ser = _sensor_serial
+        if ser is None or not ser.is_open:
+            push_event({"type": "error", "msg": "Sensor board not connected"})
+            return False
+        try:
+            ser.write((cmd + "\n").encode())
+            ser.flush()
+            return True
+        except Exception as e:
+            push_event({"type": "error", "msg": f"Sensor command failed: {e}"})
+            return False
 
 def send_alarm_command(enabled: bool) -> bool:
     """Sends ALARM ON/OFF to dream_sensors.ino. Returns True once it's confirmed sent."""
-    global _alarm_serial
-    if not PYSERIAL_AVAILABLE:
-        push_event({"type": "error", "msg": "pyserial not installed — can't reach the alarm board"})
+    if not send_sensor_command("ALARM ON" if enabled else "ALARM OFF"):
         return False
-    with _alarm_serial_lock:
-        ser = _open_alarm_serial()
-        if ser is None:
-            return False
-        try:
-            ser.write((("ALARM ON" if enabled else "ALARM OFF") + "\n").encode())
-            ser.flush()
-        except Exception as e:
-            push_event({"type": "error", "msg": f"Alarm command failed: {e}"})
-            _alarm_serial = None
-            return False
     _alarm_state["enabled"] = enabled
     push_event({"type": "alarm", "enabled": enabled})
     return True
@@ -924,6 +945,10 @@ def api_wifi():
     set_state("idle")
     return jsonify({"devices": devices})
 
+@app.route("/api/sensors")
+def api_sensors():
+    return jsonify({"status": _sensor_snapshot(), "log": list(_sensor_log)})
+
 @app.route("/api/alarm")
 def api_alarm_get():
     return jsonify(_alarm_state)
@@ -935,6 +960,24 @@ def api_alarm_set():
     if not send_alarm_command(enabled):
         return jsonify({"error": "alarm board unreachable", **_alarm_state}), 503
     return jsonify(_alarm_state)
+
+# Commands scripts/dream.py (or anything else on this PC) may send to the board.
+_SENSOR_COMMANDS = {"BUZZER", "ALARM ON", "ALARM OFF", "RGB OFF", "RGB RAINBOW"}
+
+@app.route("/api/sensor/command", methods=["POST"])
+def api_sensor_command():
+    data = request.get_json(silent=True) or {}
+    cmd  = " ".join(str(data.get("cmd", "")).split())  # one line, no stray newlines
+    upper = cmd.upper()
+    if upper not in _SENSOR_COMMANDS and not upper.startswith("RGB "):
+        return jsonify({"error": "unknown sensor command"}), 400
+    if upper in ("ALARM ON", "ALARM OFF"):
+        ok = send_alarm_command(upper == "ALARM ON")
+    else:
+        ok = send_sensor_command(cmd)
+    if not ok:
+        return jsonify({"error": "sensor board unreachable"}), 503
+    return jsonify({"status": "sent", "cmd": cmd})
 
 @app.route("/api/nora")
 def api_nora():
@@ -1003,6 +1046,7 @@ if __name__ == "__main__":
     _zc_instance, _zc_info = _start_zeroconf()
     print(f"[ComCentre] Zeroconf registered as {THIS_NAME} on port {THIS_PORT}")
 
+    threading.Thread(target=sensor_watcher, daemon=True).start()
     threading.Thread(target=nora_watcher, daemon=True).start()
     threading.Thread(target=rift_heartbeat, daemon=True).start()
     print(f"[ComCentre] Announcing to RIFT at {RIFT_HOST}:{RIFT_PORT} every {RIFT_HEARTBEAT_SECS}s")
