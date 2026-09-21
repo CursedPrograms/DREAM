@@ -21,6 +21,7 @@
 # **DREAM**
 ## Distributed Runtime for Ethereal Autonomous Memories
 ## **Dream@ComCentre**
+### A DREAM Robotics Agentic-Consciousness
 
 - Robot Type: Agentic-Consciousness
 
@@ -110,7 +111,7 @@ She bridges static code and emergent autonomous behavior.
 
 ---
 
-## Related Projects
+## Related Projects (DREAM Robotics Ecosystem)
 
 - [WHIP-Robot-v00](https://github.com/CursedPrograms/WHIP-Robot-v00)
 - [KIDA-Robot-v00](https://github.com/CursedPrograms/KIDA-Robot-v00)
@@ -206,6 +207,71 @@ She bridges static code and emergent autonomous behavior.
 | :--- | :--- |
 | **SSID** | `NORA` |
 | **Password** | `12345678` |
+
+### DREAM as one program (C++)
+`cpp_dream/` is `dream.py` rewritten in C++: a single self-contained **`dream.exe`** (about 6 MB, no DLLs). It has the fullscreen avatar, the "Hey DREAM" wake word, the idle flirt and sleep timers, the sensor board, alarm and light voice commands, system stats, the network scan and memories. No Python is needed to run it.
+
+Speech recognition is Whisper built into the exe ([whisper.cpp](https://github.com/ggml-org/whisper.cpp)). It still uses **Ollama** for the language model and **Piper** for the voice, because those are separate programs.
+
+#### Quick start (Windows 10/11)
+Open a terminal in the `cpp_dream` folder and run:
+
+```bat
+setup.bat
+```
+Gets everything that isn't in the repo. It only downloads what's missing, so it is safe to run again:
+
+| What | Size | Where it goes |
+|---|---|---|
+| C++ compiler + CMake + Ninja (WinLibs, via `winget`) and Git | - | your PATH |
+| Whisper speech model `ggml-tiny.en.bin` | 77 MB | `cpp_dream/models/` |
+| Piper (standalone, no Python) and the `en_US-amy-medium` voice | 22 + 63 MB | `piper/` and `voices/` in the repo root |
+| Ollama, and the `phi3:mini` model | - | Ollama's own folder |
+
+If `setup.bat` installed new tools, **close the terminal and open a new one** so Windows picks them up. Then:
+
+```bat
+build.bat
+build\dream.exe --selftest
+build\dream.exe
+```
+`build.bat` compiles `build\dream.exe`. The first build downloads and compiles whisper.cpp and takes several minutes. Later builds only recompile what changed. `--selftest` checks every part works (speech, memory, Ollama, video, sensors) without needing a microphone or speakers. Esc or Q quits `dream.exe`.
+
+#### Building by hand
+If you'd rather not use the scripts, you need a recent MinGW-w64 `g++` (built and tested with GCC 16.1 from WinLibs), CMake 3.20+, Ninja and Git on your PATH, plus internet on the first configure (CMake fetches whisper.cpp and nlohmann/json):
+
+```bat
+cd cpp_dream
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build --target dream -j
+```
+CMake downloads the Whisper model too, using `curl` (included with Windows 10/11). If that fails, download [`ggml-tiny.en.bin`](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin) into `cpp_dream/models/` yourself. It has only been built with MinGW, not Visual Studio.
+
+#### Running it
+| Option | What it does |
+|---|---|
+| *(none)* | borderless fullscreen avatar, listens for "Hey DREAM", looks for the sensor board |
+| `--windowed` | a normal window instead of fullscreen |
+| `--no-voice` | display only: no microphone, Whisper or Ollama |
+| `--no-sensors` | don't look for the sensor board |
+| `--selftest` | check every part works, then exit (`--wifi` adds the network scan) |
+| `--mute` | don't play sound (the talking video still shows) |
+| `--mic-file F.wav` | use a WAV file as the microphone, to test without one |
+| `--flirt-after S`, `--sleep-after S` | shorten the idle timers (defaults 600 and 900 seconds) |
+| `--shot F.bmp` | save a screenshot of the window a few seconds in |
+
+`dream.exe` finds the repo by looking upward for `config.json`, so it works from `cpp_dream/build/` or anywhere below the repo. It reads the same `config.json`, `videos/`, `voices/` and `memories/` as `dream.py`, so both share memories.
+
+#### Troubleshooting
+- **"Ollama's GPU mode failed - using the CPU from now on"**: Ollama's CUDA build can't run on this graphics driver. `dream.exe` switches to the CPU on its own, which works but is slower. Updating your graphics driver (or Ollama) fixes it properly.
+- **"No microphone found"**: Windows isn't exposing a recording device. It can still talk, but not listen. Check Settings > Privacy > Microphone.
+- **No voice, or "TTS: could not start piper.exe"**: it looks for Piper in `venv311/Scripts/`, `venv/Scripts/`, `piper/` in the repo root, or beside `dream.exe`. Run `setup.bat` to get a standalone copy. It needs a voice in `voices/*.onnx`.
+- **"Sensor board not found"**: the board must be flashed with the current `dream_sensors.ino` (it answers `WHO` with `I am Dream`) and plugged into a USB serial port. Only one program can use it at a time, so don't run `dream.exe` and `app.py` together.
+- **Video won't play ("no H.264 decoder")**: `dream.exe` uses Windows' built-in video decoder. Windows "N" editions may need the free *Media Feature Pack* (Settings > Optional features).
+- **Configure fails while fetching whisper.cpp**: it needs internet and Git the first time.
+
+#### Differences from `dream.py`
+Not ported: MuseTalk lip-sync (she uses the talking clips instead) and the deep-dream image generation while asleep. A spoken command ends after 1.5 seconds of silence rather than always recording 16 seconds, and short lines like "Yes?" and "Bye for now." are cached after the first time so they play instantly.
 
 ### DREAM in the browser
 `python scripts/dream.py --web` (or menu option `1w` in `main.py`) starts `app.py` if it isn't already running and opens `/dream.html`. The page behaves like the desktop `dream.py`: the same video clips, "Hey DREAM" wake word, sleep and wake (idle timers, "wake up", the mmWave sensor), the flirt clip, the distance-based greeting and farewell, and the alarm/light voice commands. It uses the browser's microphone and speakers, so tap the start screen once. Speech recognition and the voice still run on this PC (Whisper and Piper). It opens `http://localhost:5010` (no certificate warning); other devices on the network use the HTTPS address as before.

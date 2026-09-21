@@ -1,0 +1,4 @@
+# Build output and the downloaded speech model (77 MB) - both are recreated by build.bat
+build/
+models/
+*.log
