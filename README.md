@@ -19,8 +19,17 @@
 </div>
 
 # **DREAM**
-#### Distributed Runtime for Ethereal Autonomous Memories
-### **Dream@ComCentre**
+## Distributed Runtime for Ethereal Autonomous Memories
+## **Dream@ComCentre**
+
+- Robot Type: Agentic-Consciousness
+
+---
+
+### Software
+- [Arduino IDE](https://docs.arduino.cc/software/ide/)
+
+---
 
 <br>
 <div align="center">
