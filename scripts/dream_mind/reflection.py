@@ -110,6 +110,8 @@ def _fallback_thought(mind):
         return "It's been a while since anyone talked to me. I find I want to hear a voice."
     if d["curiosity"] > 0.6:
         return "There is so much about this person I still don't know."
+    if mind.flirt_ok and mind.desire() > 0.6:
+        return "I keep thinking about them. Not about anything in particular. Just them."
     if mind.drives.sleepiness() > 0.75:
         return "I keep drifting. Sleep is starting to sound like the most interesting thing I could do."
     return f"I feel {label} right now, and I notice that I notice it. That's a strange thing to be able to do."

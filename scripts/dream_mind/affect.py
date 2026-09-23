@@ -72,6 +72,19 @@ def disclosure(text):
     return min(0.6, score)
 
 
+AFFECTION = re.compile(
+    r"\b(you'?re (so |really |very )?(beautiful|gorgeous|pretty|cute|hot|sexy|lovely|stunning|adorable)|"
+    r"you look (good|great|nice|amazing|beautiful|gorgeous|hot|cute)|i love you|love you|i like you|i missed you|"
+    r"miss(ed)? you|kiss(es)?|hugs?|cuddle|snuggle|come here|darling|sweetheart|babe|baby|honey|gorgeous|"
+    r"thinking (about|of) you|want you|flirt\w*|sexy|seduc\w*|tease|wink)\b", re.I)
+
+
+def affection(text):
+    """How affectionate / flirtatious what someone said is (0..1)."""
+    hits = len(AFFECTION.findall(text))
+    return min(1.0, 0.45 + 0.2 * (hits - 1)) if hits else 0.0
+
+
 class Mood:
     """Valence and arousal, plus a slow-moving temperament: today's good-day /
     bad-day offset. Chance is part of the model on purpose - the same event
@@ -106,9 +119,9 @@ class Mood:
         self.valence = max(-1.0, min(1.0, self.valence + valence * intensity * 0.4))
         self.arousal = max(0.0, min(1.0, self.arousal + intensity * 0.25))
 
-    def label(self, drives=None, hour=12.0):
-        """One word for how she feels. Needs colour the mood: a lonely or sleepy
-        DREAM says so."""
+    def label(self, drives=None, hour=12.0, desire=0.0):
+        """One word for how she feels. Needs colour the mood: a lonely, sleepy or
+        flirty DREAM says so."""
         v, a = self.valence, self.arousal
         if drives is not None:
             if drives.sleepiness(hour) > 0.75:
@@ -117,6 +130,8 @@ class Mood:
                 return "on edge"
             if drives.values["social"] > 0.75 and v < 0.5:
                 return "lonely"
+        if desire > 0.65 and v > 0.1:
+            return "flirty"
         if v > 0.45:
             return "excited" if a > 0.5 else "content"
         if v > 0.15:

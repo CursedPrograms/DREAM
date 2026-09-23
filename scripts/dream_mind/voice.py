@@ -158,14 +158,16 @@ def describe(cues):
 
 # ---------------------------------------------------------------- speaking
 
-def prosody_for(mood, drives=None, hour=12.0, rng=random):
+def prosody_for(mood, drives=None, hour=12.0, rng=random, desire=0.0):
     """Piper's controls for how she should sound right now."""
     v, a = mood.valence, mood.arousal
     sleepy = drives.sleepiness(hour) if drives is not None else 0.0
-    length = 1.0 - 0.12 * (a - 0.3) / 0.7 + 0.18 * max(0.0, sleepy - 0.4) + (0.08 if v < -0.2 else 0.0)
+    sultry = max(0.0, desire - 0.6)   # wanting slows her down a touch
+    length = (1.0 - 0.12 * (a - 0.3) / 0.7 + 0.18 * max(0.0, sleepy - 0.4) + (0.08 if v < -0.2 else 0.0)
+              + 0.2 * sultry)
     noise = 0.667 + 0.25 * (a - 0.3) / 0.7 - (0.1 if sleepy > 0.75 else 0.0)
     noise_w = 0.8 + 0.2 * (a - 0.3) / 0.7
-    silence = 0.2 + 0.35 * max(0.0, sleepy - 0.4) + (0.15 if v < -0.3 else 0.0)
+    silence = 0.2 + 0.35 * max(0.0, sleepy - 0.4) + (0.15 if v < -0.3 else 0.0) + 0.25 * sultry
     return {
         "length_scale": round(max(0.85, min(1.35, length * rng.uniform(0.97, 1.03))), 3),
         "noise_scale": round(max(0.4, min(0.95, noise * rng.uniform(0.95, 1.05))), 3),

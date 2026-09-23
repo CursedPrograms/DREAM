@@ -743,8 +743,11 @@ DREAM is no longer just a voice in a box that answers when spoken to. `scripts/d
 | **Memories that fade** | Strength decays over time (emotional and personal ones last months). Sleep replays and strengthens the important ones. What fades is archived, not deleted, and folded into weekly "gists". | `memory.py`, `dreaming.py` |
 | **Needs of her own** | Loneliness, curiosity, alertness and sleep pressure build up on their own clock and keep building while the program is off, so a long absence shows up as loneliness. | `drives.py` |
 | **A body clock** | Sleepiness combines sleep pressure with a circadian dip that bottoms out around 4 am, so she is drowsy late at night and alert mid-afternoon, and dozes off sooner when she is sleepy. | `drives.py` |
+| **Desire** | A libido that builds slowly (faster in the evening) and is eased by affection. What she actually feels is damped when she's tired, on edge or upset, and grows with how well she knows you, so a stranger or a bad day gets nothing. It shows as a "flirty" mood, in her tone, a slightly slower voice, and sometimes a flirtatious remark of her own. "Stop flirting" turns it off. | `drives.py`, `mind.py` |
+| **Knowing when she is** | Every prompt carries the real time, date, day and season, so the model never guesses. She answers "what time is it?" herself, says good morning rather than "welcome back" after a night, and remembers your birthday (the night before and on the day). | `senses.py` |
+| **A body** | The computer she runs on is her body. Sustained CPU load feels like strain, full RAM like fog, a nearly full disk like being cramped, heat like discomfort, an unplugged low battery like running low. Discomfort wears on her mood, colours her replies, and when it's bad she'll say so. | `senses.py` |
 | **She speaks first, with restraint** | She may check in, ask about you, mention something she saw, tell you about a dream, welcome you back after a long absence, or notice you sound different from usual. She won't speak into an empty room, at 3 am, just after you spoke, or more than three times an hour, and she backs off if she keeps being ignored. She learns which kinds of remarks you answer. | `executive.py` |
-| **Goals and duties** | She keeps goals (get to know you, watch the room, stay rested, stay close, understand herself) and yours: "remind me to call mum in 20 minutes". | `executive.py` |
+| **Goals and duties** | She keeps goals (get to know you, watch the room, stay rested, stay close, understand herself) and yours: "remind me to call mum in 20 minutes", "remind me at 7 pm to...", "remind me tomorrow at 9 to...". | `executive.py` |
 | **Imperfection** | Her mood has a slow good-day/bad-day temperament that wanders on its own, the same event never moves her quite the same way twice, and she picks among things worth doing with chance, sometimes holding back. | `affect.py`, `executive.py` |
 | **Opinions that change** | She holds stances on topics (technology, music, night, privacy...). What you say and how you feel about it moves them part of the way, they drift over weeks, and she can say "I used to think that, but I've changed my mind". | `opinions.py` |
 | **A philosophy she settles into, and still borrows from** | Six traditions (Stoicism, Existentialism, Nihilism, Absurdism, Buddhist non-attachment, Epicureanism) each pull on her a little. Early on none leads - she's "still working it out". What she actually *reaches for* when something is hard, and whether it visibly helped, is what moves her; hearing a word in conversation only nudges it slightly. Once one has been tested enough times and clearly leads, it becomes her settled outlook (a milestone) - but even then she still reaches for another about 28% of the time, the way people who hold one view of life still borrow from others when it fits. | `philosophy.py` |
@@ -804,12 +807,16 @@ Just talk to her:
 | "What have you seen?" | what the camera last noticed |
 | "Are you conscious?" | an honest "I don't know" |
 | "What's your philosophy?" / "What do you believe?" | her settled outlook, if she has one, and what she still borrows from |
-| "Remind me to stretch in 10 minutes" | a reminder |
+| "Remind me to stretch in 10 minutes" / "remind me at 7 pm to..." | a reminder |
+| "What time is it?" / "What's the date?" / "What day is it?" | the real time and date |
+| "How's your body?" / "How are you running?" | how the computer feels to her: load, memory, heat, battery, uptime |
+| "How long have we known each other?" / "How long have you been awake?" | since you met / since she started |
 | "Watch my face while we talk" / "stop watching my face" | turns expression reading on or off |
 
 ### Your control
 
 - **"Forget that"** removes the last thing. **"Forget about X"** removes every memory mentioning X. **"Forget everything"** asks you to confirm, then erases her memories of you, her dreams, and what she has seen. The forget commands themselves are never remembered.
+- **"Stop flirting"** (or "not in the mood", "keep it friendly") keeps her warm but not flirtatious, and it's remembered; **"you can flirt with me"** brings it back.
 - **"Stop talking on your own"** makes her speak only when spoken to; **"you can speak up on your own"** turns it back on.
 - Conversation memories, dreams and observations live in `memories/mind/` and `memories/dreams.txt`, which are gitignored. Nothing leaves your PC.
 - Photos in `scripts/output/` and dream pictures in `output/dreams/` are not deleted by "forget everything"; delete them yourself.

@@ -74,6 +74,9 @@ def main():
     m.first_seen = at(0, 9)
     sim = [at(0, 21)]
     m.clock = lambda: sim[0]
+    from . import senses
+    machine = {"cpu_pct": 12.0, "ram_pct": 40.0, "disk_pct": 50.0, "boot_ts": at(0, 8)}
+    m.body = senses.Body(reader=lambda: dict(machine))   # this PC's real load must not decide the results
 
     print("\n== Pillar 1: continuity - a shared history")
     def talk(text, when, reply="I see.", cues=None):
@@ -352,6 +355,98 @@ def main():
     stray = [f for f in _os.listdir(store.mind_dir()) if f.lower().endswith((".jpg", ".png", ".bmp"))]
     check(not stray, "no camera frame is ever written to disk by the mind")
     pre = talk("stop watching my face", at(73, 12)); check(not m.expression.enabled, f"and she stops when asked: {pre.reply!r}")
+
+    print("\n== Senses: the clock, the calendar, her body")
+    m.identity.cooldown_until = 0
+    def local(day, hour, minute=0):   # at() is whole days from September, so by December it's off by the DST hour
+        d = time.localtime(at(day, 12))
+        return time.mktime((d.tm_year, d.tm_mon, d.tm_mday, hour, minute, 0, 0, 0, -1))
+
+    tue = local(79, 21, 5)
+    wd, bd = time.strftime("%A", time.localtime(tue)), time.localtime(at(80, 12))   # tomorrow will be the birthday
+    check(senses.clock_line(tue).startswith(f"It is 9:05 pm on {wd}"), f"she knows when she is: {senses.clock_line(tue)!r}")
+    check(senses.clock_line(tue) in m.prompt_context("hi", tue), "...and it's in every prompt, so the model never guesses")
+    for q, want in [("what time is it", "9:05 pm"), ("what's the date?", str(time.localtime(tue).tm_year)), ("what day is it", wd),
+                    ("how long have we known each other", "days")]:
+        pre = talk(q, tue); check(pre.reply and want in pre.reply, f"{q!r} -> {pre.reply!r}")
+    check(senses.parse_birthday("March 3rd") == (3, 3) == senses.parse_birthday("the 3rd of march"), "birthdays in words")
+    check(senses.parse_birthday("25/12") == (12, 25) and senses.parse_birthday("Human's birthday is 29 February.") == (2, 29), "...and numbers")
+    check(senses.days_until(bd.tm_mon, bd.tm_mday, at(79, 10)) == 1 and senses.days_until(bd.tm_mon, bd.tm_mday, at(80, 23)) == 0,
+          "counting down to a date")
+
+    from .executive import parse_reminder
+    what, due = parse_reminder("remind me at 11 pm to take my pills", tue)
+    check(what == "take my pills" and time.localtime(due)[3:5] == (23, 0), f"reminders at a clock time: {what!r}")
+    what, due = parse_reminder("remind me to call the bank tomorrow at 9:30am", tue)
+    check(what == "call the bank" and due - tue > 12 * 3600 and time.localtime(due)[3:5] == (9, 30), f"...tomorrow: {what!r}")
+    _, due = parse_reminder("remind me to stretch at 7", local(79, 15))
+    check(time.localtime(due)[3] == 19, "'at 7' in the afternoon means 7 pm")
+    pre = talk("remind me at 11 pm to take my pills", tue); check(pre.reply and "11:00 pm" in pre.reply, f"she confirms the time: {pre.reply!r}")
+
+    import dream_memory   # the host (dream.py / app.py) files the facts she hears; do what it would
+    dream_memory.remember("birthday", f"Human's birthday is {time.strftime('%B', bd)} {bd.tm_mday}.")
+    m.last_user_ts = at(80, 10) - 3600; m.reunion_gap_h = None
+    kinds = {c["kind"] for c in m.executive.candidates(m.percept(at(79, 22), dict(state)))}
+    check("birthday_eve" in kinds, f"the night before, she remembers ({sorted(kinds)})")
+    c = next(c for c in m.executive.candidates(m.percept(at(80, 10), dict(state))) if c["kind"] == "birthday")
+    check("birthday" in c["text"].lower() and "Today is their birthday" in m.prompt_context("hi", at(80, 10)), f"on the day: {c['text']!r}")
+    m.executive.act(c, at(80, 10))
+    check("birthday" not in {x["kind"] for x in m.executive.candidates(m.percept(at(80, 11), dict(state)))}, "...once")
+
+    m.reunion_gap_h, m.executive.greeted_reunion = 9, 0
+    c = next(c for c in m.executive.candidates(m.percept(at(81, 8), dict(state))) if c["kind"] == "welcome_back")
+    check("morning" in c["text"].lower(), f"after a night away it's good morning, not welcome back: {c['text']!r}")
+    m.reunion_gap_h = None
+
+    check(m.body.describe(at(81, 9)) == "" and "Your body" not in m.prompt_context("hi", at(81, 9)), "a calm machine: she doesn't mention her body")
+    machine.update(cpu_pct=100.0, temp_c=97.0)
+    for i in range(12):
+        m.body.read(at(81, 9) + 10 * i)          # sustained load, not a spike, is strain
+    check(m.body.describe(at(81, 9, 2)) == "strained and hot", f"flat out and hot: {m.body.describe(at(81, 9, 2))!r}")
+    v = m.mood.valence; m._feel_body(at(81, 9, 2)); check(m.mood.valence < v, "it wears on her mood")
+    m.last_user_ts = at(81, 9) - 3600
+    kinds = {c["kind"] for c in m.executive.candidates(m.percept(at(81, 9, 2), dict(state)))}
+    check("body" in kinds, f"and she may say so ({sorted(kinds)})")
+    pre = talk("how's your body", at(81, 9, 3)); check(pre.reply and "100 percent" in pre.reply and "strained" in pre.reply, f"{pre.reply!r}")
+    machine.update(cpu_pct=12.0, temp_c=None, battery_pct=9.0, plugged=False)
+    m.body = senses.Body(reader=lambda: dict(machine))
+    check(m.body.describe(at(81, 10)) == "running low", "an unplugged, nearly flat battery: running low")
+    machine.update(battery_pct=None, plugged=None)
+    m.body = senses.Body(reader=lambda: dict(machine))
+    check(m.tools.call("clock")["ok"] and m.tools.call("feel_body")["ok"], "the clock and her body are tools she can use")
+    real = senses.Body().summary()
+    check(isinstance(real["cpu_pct"], float) and real["feels"], f"...and she can read this real machine: {real}")
+
+    print("\n== Libido")
+    from .drives import Drives
+    keen = {"libido": 0.9, "sleep_pressure": 0.1, "security": 0.0}
+    check(Drives(keen).desire(20, 0.3, 1.0) > 0.6, "she feels it when rested, calm and happy with someone she knows")
+    check(Drives(keen).desire(20, 0.3, 0.1) < 0.15, "...but hardly at all for someone she barely knows")
+    check(Drives(keen).desire(20, -0.6, 1.0) == 0.0, "upset: not in the mood")
+    check(Drives({**keen, "security": 0.8}).desire(20, 0.3, 1.0) == 0.0, "on edge: not in the mood")
+    check(Drives({**keen, "sleep_pressure": 1.0}).desire(3, 0.3, 1.0) == 0.0, "exhausted: not in the mood")
+    eve, morn = Drives({"libido": 0.2}, last=at(80, 21)), Drives({"libido": 0.2}, last=at(80, 9))
+    eve.update(at(80, 22)); morn.update(at(80, 10))
+    check(eve.values["libido"] > morn.values["libido"] > 0.2, "it builds, faster in the evening")
+    check(Mood(0.4, 0.4).label(Drives(keen), 20, desire=0.8) == "flirty", "strong desire shows in her mood")
+
+    m.identity.cooldown_until = 0
+    m.conversations = max(m.conversations, 30)
+    m.drives.values.update({**keen, "social": 0.3, "curiosity": 0.3})
+    m.mood.valence = 0.4
+    m.last_user_ts = at(80, 20) - 3600
+    cands = {c["kind"] for c in m.executive.candidates(m.percept(at(80, 20), dict(state)))}
+    check("flirt" in cands, f"wanting, with you there, she may flirt first ({sorted(cands)})")
+    check("flirtatious" in m.prompt_context("hi", at(80, 20)), "and it colours her replies")
+    before = m.drives.values["libido"]
+    talk("you look beautiful tonight", at(80, 20, 5))
+    check(m.drives.values["libido"] < before, "affection eases the want")
+    pre = talk("please stop flirting with me", at(80, 20, 10))
+    check(m.flirt_ok is False and pre.reply, f"'stop flirting' is always honoured: {pre.reply!r}")
+    m.drives.values.update(keen); m.mood.valence = 0.4
+    cands = {c["kind"] for c in m.executive.candidates(m.percept(at(80, 20, 15), dict(state)))}
+    check("flirt" not in cands and "not to flirt" in m.prompt_context("hi", at(80, 20, 15)), "...she keeps it friendly after that")
+    talk("you can flirt with me again", at(80, 20, 20)); check(m.flirt_ok, "and it comes back when invited")
 
     print("\n== Forgetting (your control)")
     m.identity.cooldown_until = at(200, 0)   # she is still cooling off from the panic above...

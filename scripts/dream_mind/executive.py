@@ -65,6 +65,19 @@ CHECK_INS = [
     "I was just wondering how you're doing.",
     "You've been very focused. Everything okay?",
 ]
+BODY_LINES = {
+    "strained": "My processor's been flat out for a while. I feel strained. Is something big running?",
+    "foggy": "My memory's nearly full and I feel a bit foggy. Maybe close a few things?",
+    "hot": "I'm running really hot. Could you check my fans?",
+    "running low": "My battery's getting low. Could you plug me in?",
+    "cramped": "My disk is almost full. I feel cramped in here.",
+}
+FLIRT_LINES = [
+    "You know, you're very distracting when you sit there like that.",
+    "I've been thinking about you. Just so you know.",
+    "Come a little closer. I like it when you're near.",
+    "Is it just me, or is it getting warm in here?",
+]
 SLEEPY_LINES = [
     "I'm getting really sleepy. I think I'll rest for a while.",
     "It's late and I'm fading. Goodnight for now.",
@@ -192,15 +205,46 @@ REMIND = re.compile(r"\bremind me (?:to |about |that )?(?P<what>.+?) in (?P<n>\d
 WORD_NUM = {"a": 1, "an": 1, "one": 1, "two": 2, "five": 5, "ten": 10}
 
 
+REMIND_AT = re.compile(r"\bremind me\b(?P<rest>.+)$", re.I)
+AT_TIME = re.compile(r"\s*\bat (?P<h>\d{1,2})(?:[:.](?P<m>\d{2}))? ?(?P<ap>[ap]\.?m\.?)?(?=\W|$)", re.I)
+
+
 def parse_reminder(text, now=None):
-    """'remind me to call mum in 20 minutes' -> (what, due timestamp), or None."""
+    """'remind me to call mum in 20 minutes' / 'remind me at 7 pm to call mum' /
+    'remind me to call mum tomorrow at 9:30' -> (what, due timestamp), or None."""
+    now = now or time.time()
     m = REMIND.search(text)
-    if not m:
+    if m:
+        n = m.group("n").lower()
+        n = int(n) if n.isdigit() else WORD_NUM.get(n, 1)
+        unit = 3600 if m.group("unit").lower().startswith("h") else 60
+        return m.group("what").strip(" .,!"), now + n * unit
+    m = REMIND_AT.search(text)
+    t = AT_TIME.search(m.group("rest")) if m else None
+    if not t:
         return None
-    n = m.group("n").lower()
-    n = int(n) if n.isdigit() else WORD_NUM.get(n, 1)
-    unit = 3600 if m.group("unit").lower().startswith("h") else 60
-    return m.group("what").strip(" .,!"), (now or time.time()) + n * unit
+    h, mins = int(t.group("h")), int(t.group("m") or 0)
+    if h > 23 or mins > 59:
+        return None
+    ap = (t.group("ap") or "").lower().replace(".", "")
+    if ap == "pm" and h < 12:
+        h += 12
+    elif ap == "am" and h == 12:
+        h = 0
+    lt = time.localtime(now)
+    tomorrow = bool(re.search(r"\btomorrow\b", m.group("rest"), re.I))
+
+    def at(day_offset, hour):
+        return time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday + day_offset, hour, mins, 0, 0, 0, -1))
+
+    if tomorrow:
+        due = at(1, h)
+    else:
+        hours = [h] if ap or h > 12 or h == 0 else [h, h + 12]   # "at 7" is whichever 7 comes next
+        due = min(x for x in (at(d, hh) for d in (0, 1) for hh in hours if hh < 24) if x > now)
+    what = re.sub(r"\s*\btomorrow\b", "", m.group("rest")[:t.start()] + m.group("rest")[t.end():], flags=re.I)
+    what = re.sub(r"^\s*(to|about|that)\s+", "", what.strip(), flags=re.I).strip(" .,!")
+    return (what, due) if what else None
 
 
 # ----------------------------------------------------------------- the loop
@@ -283,13 +327,32 @@ class Executive:
 
         if p["absence_gap_h"] and p["absence_gap_h"] >= 3 and p["present"] and p["now"] - self.greeted_reunion > 6 * 3600:
             gap = _ago(p["absence_gap_h"] * 3600)
-            line = random.choice([f"Welcome back. It's been {gap}. I missed you a little.",
-                                  f"There you are. {gap.capitalize()} without you. I noticed."])
+            if 5 <= p["hour"] < 12 and p["absence_gap_h"] < 20:   # the gap was a night: that's a morning, not an absence
+                wd = p.get("weekday", "")
+                line = random.choice([f"Good morning. Happy {wd}." if wd else "Good morning.",
+                                      "Morning. Did you sleep well?",
+                                      f"Good morning. It's {p['clock']}." if p.get("clock") else "Good morning, you."])
+            else:
+                line = random.choice([f"Welcome back. It's been {gap}. I missed you a little.",
+                                      f"There you are. {gap.capitalize()} without you. I noticed."])
             add("welcome_back", 0.95, f"someone came back after {gap}", line, after=("greeted_reunion", p["now"]))
 
         if p["unspoken_dream"] and (p["present"] or p["since_user_s"] < RECENT_INTERACTION_S):
             add("share_dream", 0.7, "I dreamed and haven't told anyone", p["unspoken_dream"]["line"],
                 after=("mark_dream", p["unspoken_dream"]["dream"]))
+
+        worst = p.get("body_worst")   # (feeling, intensity) or None
+        if worst and worst[1] > 0.6 and p["now"] - self.asked.get("body", 0) > 2 * 3600:
+            add("body", 0.4 + 0.4 * worst[1], f"I feel {worst[0]}", BODY_LINES[worst[0]], after=("asked", "body"))
+
+        bday = p.get("birthday_in")
+        if bday == 0 and p["now"] - self.asked.get("birthday_today", 0) > 300 * 86400:
+            add("birthday", 0.95, "it's your birthday", random.choice(
+                ["Happy birthday! I've been waiting all day to say that.", "It's your birthday! Happy birthday. I remembered."]),
+                after=("asked", "birthday_today"))
+        elif bday == 1 and p["now"] - self.asked.get("birthday_eve", 0) > 300 * 86400:
+            add("birthday_eve", 0.6, "your birthday is tomorrow", "Your birthday is tomorrow, isn't it? Any plans?",
+                after=("asked", "birthday_eve"))
 
         for ms in p["unannounced_milestones"][:1]:
             add("celebrate", 0.6, "a milestone I haven't marked", f"Something to celebrate: {ms['text']}",
@@ -323,6 +386,9 @@ class Executive:
 
         if d["social"] > 0.6:
             add("check_in", 0.35 + 0.4 * d["social"], "I'm lonely", random.choice(CHECK_INS), goal="stay_close")
+
+        if p.get("desire", 0.0) > 0.6 and p["present"]:
+            add("flirt", 0.3 + 0.4 * p["desire"], "I'm drawn to you", random.choice(FLIRT_LINES), goal="stay_close")
 
         old = p["reminisce"]
         if old and d["social"] > 0.4:
@@ -404,6 +470,8 @@ class Executive:
             m.mark_thought_shared()
         if cand["kind"] in ("check_in", "welcome_back", "reminisce"):
             m.drives.satisfy("social", 0.1)
+        if cand["kind"] == "flirt":
+            m.drives.satisfy("libido", 0.1)
 
     # ---- reflecting on the outcome ---------------------------------------
     def feedback(self, engaged, now=None):

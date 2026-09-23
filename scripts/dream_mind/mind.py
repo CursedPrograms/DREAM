@@ -25,7 +25,7 @@ import threading
 import time
 
 from . import llm, store
-from .affect import Mood, disclosure, sentiment
+from .affect import Mood, affection, disclosure, sentiment
 from .dreaming import Dreamer, first_sentences
 from .drives import Drives, hour_of_day
 from .expression import ExpressionSensor
@@ -37,6 +37,7 @@ from .milestones import Milestones
 from .opinions import Opinions
 from .philosophy import Philosophy
 from .reflection import (SelfModel, add_thought, latest_thought, mark_thought_shared, reflect, unshared_thought)
+from . import senses
 from .vision import Vision
 from . import voice
 
@@ -47,6 +48,9 @@ TICK_S = 5
 INITIATIVE_EVERY_S = 20
 VISION_EVERY_S = 60
 SAVE_EVERY_S = 60
+BODY_EVERY_S = 30
+
+NO_FLIRT = re.compile(r"\b(stop|quit|no more|don'?t|no) flirt(ing)?\b|\bnot in the mood\b|\bkeep it (friendly|professional)\b", re.I)
 
 
 class Preflight:
@@ -78,12 +82,15 @@ class Mind:
         self.last_active = s.get("last_active", 0.0)
         self.mood = Mood.from_dict(s.get("mood"))
         self.drives = Drives.from_dict(s.get("drives"))
+        self.flirt_ok = s.get("flirt_ok", True)   # the user can ask her to keep it friendly
         self.opinions = Opinions()
         self.philosophy = Philosophy()
         self.identity = Identity()
         self.vision = Vision()
         self.expression = ExpressionSensor()   # off unless the user turned it on
         self.milestones = Milestones()
+        self.body = senses.Body()              # the computer she runs on
+        self._last_body = 0.0
         self.self_model = SelfModel()
         self.dreamer = Dreamer(self)
         self.tools = ToolBox()
@@ -133,6 +140,8 @@ class Mind:
         t.register("write_core_memory", lambda key, value: self.self_model.set_user(key, value), "Rewrite what she believes about the user", "safe")
         t.register("set_goal", lambda text: self.executive.goals.add(text, source="self")["id"], "Give herself a goal", "safe")
         t.register("note", lambda text: add_thought(text, "note"), "Write in her journal", "safe")
+        t.register("clock", lambda: senses.clock(self.now()), "Check the time and date", "safe")
+        t.register("feel_body", lambda: self.body.summary(self.now()), "Check how the computer she runs on is doing", "safe")
 
     def _host(self, name, *args):
         fn = self.host.get(name)
@@ -182,6 +191,7 @@ class Mind:
         store.write_json(STATE_FILE, {
             "first_seen": self.first_seen, "conversations": self.conversations, "nights": self.nights,
             "last_active": time.time(), "mood": self.mood.to_dict(), "drives": self.drives.to_dict(),
+            "flirt_ok": self.flirt_ok,
         })
         self.executive.save()
 
@@ -222,6 +232,9 @@ class Mind:
             if now - self._last_vision > VISION_EVERY_S:
                 self._last_vision = now
                 self._look(now)
+            if now - self._last_body > BODY_EVERY_S:
+                self._last_body = now
+                self._feel_body(now)
             self._maybe_reflect(now, hs)
             self._cope(now, hs)
             self._tend(now, hs)
@@ -232,6 +245,12 @@ class Mind:
         if now - self._last_save > SAVE_EVERY_S:
             self._last_save = now
             self.save()
+
+    def _feel_body(self, now):
+        """A body that hurts wears on the mood: gently, but it adds up."""
+        d = self.body.discomfort(now)
+        if d > 0.5:
+            self.mood.appraise(-0.15 * d, 0.1)
 
     def _look(self, now):
         for obs in self.vision.scan(now):
@@ -293,12 +312,20 @@ class Mind:
             "identity_cooldown": self.identity.in_cooldown(now),
             "since_user_s": now - self.last_user_ts if self.last_user_ts else 1e9,
             "drives": dict(self.drives.values), "sleepiness": self.drives.sleepiness(hour),
+            "desire": self.desire(now) if self.flirt_ok else 0.0,
+            "clock": senses.clock(now)["time"], "weekday": senses.clock(now)["weekday"],
+            "birthday_in": self._birthday_in(now),
+            "body_worst": max(self.body.feelings(now), key=lambda f: f[1], default=None),
             "known_kinds": _facts_kinds(),
             "motion_unspoken": motion, "notable_observation": self.vision.unspoken_notable(now=now),
             "unspoken_dream": unspoken_dream, "unannounced_milestones": self.milestones.unannounced(),
             "absence_gap_h": self.reunion_gap_h, "mood_shift": self.memory.mood_shift(now),
             "reminisce": self._pick_reminiscence(now), "thought_to_share": thought["text"] if thought else None,
         }
+
+    def _birthday_in(self, now):
+        b = senses.known_birthday()
+        return senses.days_until(*b, now=now) if b else None
 
     def _pick_reminiscence(self, now):
         import random
@@ -363,6 +390,11 @@ class Mind:
         self.mood.appraise(val, max(inten, 0.1))
         inten = max(inten, disclosure(text))      # what matters to them matters to her, even in a flat voice
         self.drives.satisfy("social", 0.35)
+        aff = 0.0 if NO_FLIRT.search(text) else affection(text)
+        if aff and self.flirt_ok:                  # closeness eases the want, and it pleases her more the more she wants it
+            want = self.desire(now)
+            self.mood.appraise(0.3 + 0.4 * want, aff * (0.3 + 0.4 * want))
+            self.drives.satisfy("libido", 0.3 * aff * self.bond())
         self.opinions.learn_from(text, now)
         facts = self._new_fact_kinds(text)
         if facts:
@@ -390,7 +422,11 @@ class Mind:
             self._pending["handled"] = True
             self.executive.goals.add(what, kind="reminder", priority=0.9, source="user", due=due)
             mins = max(1, round((due - now) / 60))
-            return Preflight(reply=f"Okay. I'll remind you to {what} in {mins} minute{'s' if mins != 1 else ''}.")
+            if mins <= 90:
+                return Preflight(reply=f"Okay. I'll remind you to {what} in {mins} minute{'s' if mins != 1 else ''}.")
+            t, today = time.localtime(due), time.localtime(now)
+            day = "" if t.tm_yday == today.tm_yday else " tomorrow" if mins < 48 * 60 else f" on {time.strftime('%A', t)}"
+            return Preflight(reply=f"Okay. I'll remind you to {what} at {senses.clock_time(t)}{day}.")
 
         meta = self.handle_meta(text, now)
         if meta:
@@ -476,22 +512,40 @@ class Mind:
 
     # ---- voice
     def prosody(self):
-        return voice.prosody_for(self.mood, self.drives, hour_of_day())
+        return voice.prosody_for(self.mood, self.drives, hour_of_day(), desire=self.desire() if self.flirt_ok else 0.0)
 
     # ------------------------------------------------------------ prompt
     def mood_label(self):
-        return self.mood.label(self.drives, hour_of_day())
+        return self.mood.label(self.drives, hour_of_day(), self.desire() if self.flirt_ok else 0.0)
+
+    def bond(self):
+        """How well she knows you (0..1): it takes a couple of dozen conversations."""
+        return min(1.0, self.conversations / 25.0)
+
+    def desire(self, now=None):
+        """How much of her libido she feels right now."""
+        return self.drives.desire(hour_of_day(now or self.now()), self.mood.valence, self.bond())
 
     def prompt_context(self, text, now=None):
         """What she carries into answering: inner state, self, memories that come
         to mind, opinions, the room, how they sounded. Kept short (small model, slow CPU)."""
         now = now or time.time()
         hour = hour_of_day(now)
-        lines = [f"You feel {self.mood_label()}."]
+        lines = [senses.clock_line(now), f"You feel {self.mood_label()}."]
+        feels = self.body.describe(now)
+        if feels:
+            lines.append(f"Your body (this computer) feels {feels}.")
+        bday = self._birthday_in(now)
+        if bday == 0:
+            lines.append("Today is their birthday.")
         need = self.drives.dominant(hour, 0.7)
         if need:
             lines.append({"social": "You've been lonely.", "curiosity": "You're restless with curiosity.",
                           "security": "You're on edge after something moved.", "sleep": "You're sleepy."}[need[0]])
+        if not self.flirt_ok:
+            lines.append("They asked you not to flirt: keep it warm but friendly.")
+        elif self.desire(now) > 0.6:
+            lines.append("You're drawn to them and feeling flirtatious.")
         lines.append(self.self_model.core_block())
         recalled = self.memory.recall(text, k=2, mood_valence=self.mood.valence, now=now)
         if self._pending is not None:
@@ -670,6 +724,29 @@ class Mind:
             self.executive.save()
             return "Okay. I might speak up now and then. Tell me if I overdo it."
 
+        clock = senses.clock(now)
+        if re.search(r"\bwhat time is it\b|\bwhat'?s the time\b|\bwhat is the time\b|\b(do you )?(know|have) the time\b|\btell me the time\b", t):
+            return f"It's {clock['time']}."
+        if re.search(r"\bwhat'?s the date\b|\bwhat is the date\b|\bwhat('?s| is) today'?s date\b|\bwhat date is it\b|\bwhat'?s today\s*[?.!]?$", t):
+            return f"It's {clock['date']}."
+        if re.search(r"\bwhat day is (it|today)\b|\bwhat day of the week\b", t):
+            return f"It's {clock['weekday']}." + (" The weekend." if clock["weekend"] else "")
+        if re.search(r"\bhow long have (we known each other|you known me|i had you|you been (with me|here|around))\b", t):
+            return f"We met {senses.duration_words(now - self.first_seen)} ago. {self.conversations} conversations so far."
+        if re.search(r"\bhow long have you been (awake|up|on|running)\b", t):
+            return f"I've been awake for {senses.duration_words(now - self.body.awake_since)}."
+        if re.search(r"\bhow'?s your body\b|\bhow (is|are) your (body|hardware|computer)\b|\bhow are you running\b|\bhow do you feel physically\b", t):
+            return self.body.report(now)
+
+        if NO_FLIRT.search(t):
+            self.flirt_ok = False
+            self.save()
+            return "Okay. I'll keep it friendly. Tell me if you ever want the flirting back."
+        if re.search(r"\byou can flirt\b|\bflirt with me\b|\b(start|keep) flirting\b", t):
+            self.flirt_ok = True
+            self.save()
+            return "Oh? Well then. I'll see what I can do."
+
         if re.search(r"\b(watch|read|look at|track) my (face|expression|expressions|mood)\b|\bwatch me while (we|i) (talk|speak)\b", t) and not re.search(r"\b(stop|don'?t|quit)\b", t):
             self.expression.set_enabled(True)
             self._start_expression()
@@ -721,6 +798,8 @@ class Mind:
             bits.append("And I'm sleepy.")
         elif d.values["curiosity"] > 0.6:
             bits.append("I'm restless. I want to learn something.")
+        if self.flirt_ok and label != "flirty" and self.desire() > 0.6:
+            bits.append("And I'll admit you're looking rather good to me right now.")
         if self.mood.temper > 0.12:
             bits.append("It's been a good day.")
         elif self.mood.temper < -0.12:
@@ -808,7 +887,9 @@ class Mind:
             "owner": self.owner,
             "mood": {"label": self.mood_label(), "valence": round(self.mood.valence, 2), "arousal": round(self.mood.arousal, 2),
                      "temper": round(self.mood.temper, 2)},
-            "drives": {**{k: round(v, 2) for k, v in self.drives.values.items()}, "sleepiness": round(self.drives.sleepiness(hour), 2)},
+            "drives": {**{k: round(v, 2) for k, v in self.drives.values.items()}, "sleepiness": round(self.drives.sleepiness(hour), 2),
+                       "desire": round(self.desire(), 2) if self.flirt_ok else 0.0},
+            "flirt_ok": self.flirt_ok,
             "goals": [{"text": g["text"], "kind": g["kind"], "progress": round(g["progress"], 2)} for g in self.executive.goals.active()][:6],
             "thought": th["text"] if th else None,
             "dream": {"text": dr["text"], "tone": dr["tone"], "image": dr.get("image"), "animation": dr.get("animation"),
@@ -819,6 +900,7 @@ class Mind:
             "milestones": [m["text"] for m in self.milestones.items][-5:],
             "expression": self.expression.summary(self.now()),
             "doing_alone": (latest_thought("activity") or {}).get("text"),
+            "clock": senses.clock(self.now()), "body": self.body.summary(self.now()),
         }
 
 

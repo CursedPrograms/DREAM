@@ -495,8 +495,10 @@ function renderMind(s) {
   setMindBar('mb-social', 'mind-social', s.drives.social);
   setMindBar('mb-curiosity', 'mind-curiosity', s.drives.curiosity);
   setMindBar('mb-sleepy', 'mind-sleepy', s.drives.sleepiness);
+  setMindBar('mb-desire', 'mind-desire', s.drives.desire || 0);
   $('mind-memories').textContent = `${s.memories} · ${s.conversations} chats`;
   $('mind-philosophy').textContent = s.philosophy && s.philosophy.lean ? `◈ leans ${s.philosophy.lean}` : '';
+  if ($('mind-body')) $('mind-body').textContent = s.body ? `⌁ body feels ${s.body.feels}` + (s.clock ? ` · ${s.clock.time}, ${s.clock.weekday}` : '') : '';
   $('mind-thought').textContent = s.thought ? `💭 ${s.thought}` : '';
   $('mind-dream').textContent = s.dream ? `☾ ${s.dream.tone}: ${s.dream.text}` : '';
   const img = $('mind-dream-img');
