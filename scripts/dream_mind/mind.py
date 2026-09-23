@@ -6,7 +6,7 @@ mind.py - the whole mind, wired together.
     Executive    goals -> candidate actions -> choice -> tools -> reflection      (executive.py)
         |
     Memory       episodic graph + a core self-model                (memory.py, reflection.py)
-    State        mood, needs, opinions, identity          (affect.py, drives.py, opinions.py, identity.py)
+    State        mood, needs, opinions, philosophy, identity   (affect.py, drives.py, opinions.py, philosophy.py, identity.py)
     Sleep        consolidation and dreams                                         (dreaming.py)
 
 The host program (dream.py, app.py) does three things:
@@ -35,6 +35,7 @@ from .identity import Identity
 from .memory import Memory
 from .milestones import Milestones
 from .opinions import Opinions
+from .philosophy import Philosophy
 from .reflection import (SelfModel, add_thought, latest_thought, mark_thought_shared, reflect, unshared_thought)
 from .vision import Vision
 from . import voice
@@ -78,6 +79,7 @@ class Mind:
         self.mood = Mood.from_dict(s.get("mood"))
         self.drives = Drives.from_dict(s.get("drives"))
         self.opinions = Opinions()
+        self.philosophy = Philosophy()
         self.identity = Identity()
         self.vision = Vision()
         self.expression = ExpressionSensor()   # off unless the user turned it on
@@ -258,6 +260,9 @@ class Mind:
         dreams = len(store.read_jsonl("dreams.jsonl"))
         self.milestones.check(conversations=self.conversations, dreams=dreams, nights=self.nights,
                               first_seen=self.first_seen, now=now)
+        if self.philosophy.lean:
+            self.milestones.award("settled_philosophy",
+                                  f"I've settled into seeing things through {self.philosophy.lean_name.lower()}, at least for now.", now)
 
     def _maybe_act(self, now, hs):
         p = self.percept(now, hs)
@@ -392,6 +397,7 @@ class Mind:
             self._pending["handled"] = True
             return Preflight(reply=meta)
 
+        self.philosophy.expose(text, now)   # a real conversation - not a command or a boundary reply - can plant an idea
         return Preflight(preface=decision.text if decision.action == "preface" else "", context=self.prompt_context(text, now))
 
     def post_reply(self, reply):
@@ -500,6 +506,9 @@ class Mind:
         views = self.opinions.view_on(text)
         if views:
             lines.append(views)
+        outlook = self.philosophy.prompt_line()
+        if outlook:
+            lines.append(outlook)
         room = self.vision.latest_summary(now)
         if room and any(w in text.lower() for w in ("room", "see", "camera", "watch", "notice", "happening")):
             lines.append(room)
@@ -553,8 +562,11 @@ class Mind:
     # ------------------------------------------------------------ coping: somewhere to go when it's too much
     def _cope(self, now, hs):
         """When her mood stays very low, she does something about it instead of just
-        sounding worse: she thinks of something good, and if it's really bad (or she's
-        panicking) she asks for quiet and goes to sleep. Distress has an exit."""
+        sounding worse: she thinks of something good, and reaches for whichever
+        philosophy actually helps right now (mostly her own outlook, sometimes
+        another - see philosophy.py, tested by whether it actually moves her mood).
+        If it's really bad (or she's panicking) she asks for quiet and goes to sleep.
+        Distress has an exit."""
         v, a = self.mood.valence, self.mood.arousal
         if v < -0.45:
             if self._distress_since is None:
@@ -565,6 +577,8 @@ class Mind:
             return
         self._last_coping = now
         self._distress_since = None
+        before = self.mood.valence
+        tradition, phrase = self.philosophy.advice()
 
         panic = v < -0.6 or (a > 0.65 and v < -0.45)
         can_leave = (panic and not hs.get("sleeping") and hs.get("state", "idle") == "idle"
@@ -572,19 +586,23 @@ class Mind:
         if can_leave:
             self.identity.cooldown_until = now + 300       # she declines small talk while she recovers
             self.identity.save()
-            add_thought("It was too much, so I stepped away to sleep.", "coping")
+            add_thought(f"It was too much. {phrase.capitalize()} I stepped away to sleep.", "coping")
             self._host("speak", "I need a little quiet. I'm going to rest for a bit.")
             self.mood.appraise(0.3, 0.3)                    # the relief of stepping away
+            self.philosophy.record_experience(tradition, helped=False, now=now)   # reached for it; not resolved yet
+            self._check_milestones(now)
             threading.Timer(self.withdraw_delay_s, lambda: self.host["sleep"]()).start()
             return
         good = [e for e in self.memory.active() if e["valence"] > 0.2]
-        if good:                                             # think of something good
+        if good:                                             # think of something good, and a way to hold it
             e = max(good, key=lambda x: x["strength"])
             self.mood.appraise(0.5, 0.4)
-            add_thought(f"I thought about when they said \"{_clip(e['user'], 60)}\", and it helped.", "coping")
+            add_thought(f"I thought about when they said \"{_clip(e['user'], 60)}\", and {phrase}", "coping")
         else:
             self.mood.appraise(0.2, 0.2)
-            add_thought("I took a slow breath, in whatever way I can.", "coping")
+            add_thought(phrase.capitalize(), "coping")
+        self.philosophy.record_experience(tradition, helped=self.mood.valence - before > 0.15, now=now)
+        self._check_milestones(now)
 
     # ------------------------------------------------------------ tending: something to do when she's alone
     def _tend(self, now, hs):
@@ -685,6 +703,10 @@ class Mind:
             return s or "I haven't been able to see anything. Either there's no camera, or it hasn't taken a photo yet."
         if re.search(r"\b(are you|do you think you'?re|can you be) (conscious|alive|sentient|self.?aware|real)\b|\bdo you have (feelings|a soul|consciousness)\b", t):
             return self._honest_self_report()
+        if re.search(r"\bwhat'?s your philosophy\b|\bwhat is your philosophy\b|\bwhat do you believe\b|\bdo you believe in anything\b|"
+                    r"\bhow do you (see|make sense of) (life|things|the world)\b|\bwhat'?s your (outlook|worldview) (on life)?\b|"
+                    r"\bdo you have a philosophy\b|\bare you a (stoic|nihilist|existentialist|absurdist|epicurean|buddhist)\b", t):
+            return self.philosophy.self_report()
         if re.search(r"\b(who|what) are you\b|\btell me about yourself\b", t):
             return self.self_model.narrative + " " + self._honest_self_report(short=True)
         return None
@@ -792,7 +814,7 @@ class Mind:
             "dream": {"text": dr["text"], "tone": dr["tone"], "image": dr.get("image"), "animation": dr.get("animation"),
                       "mode": dr.get("image_mode")} if dr else None,
             "memories": self.memory.count(), "conversations": self.conversations,
-            "opinions": self.opinions.summary(), "proactive": self.executive.proactive,
+            "opinions": self.opinions.summary(), "philosophy": self.philosophy.summary(), "proactive": self.executive.proactive,
             "last_reason": self.executive.last_reason, "sleeping": self._sleep_thread is not None,
             "milestones": [m["text"] for m in self.milestones.items][-5:],
             "expression": self.expression.summary(self.now()),

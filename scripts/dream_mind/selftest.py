@@ -173,6 +173,48 @@ def main():
         m.opinions.learn_from("I hate music, this song is awful and terrible!")
     check(m.opinions.data["stances"]["music"]["stance"] < 0.2 and m.opinions.data["history"], "her opinion shifted, and she can say so")
 
+    print("\n== Philosophy: a settled outlook that still borrows from the others")
+    from .philosophy import TRADITIONS as PHIL_TRADITIONS
+    check(m.philosophy.lean is None, "starts uncommitted - still working it out, like a person before life has tested anything")
+    check("don't know yet" in m.philosophy.self_report(), f"and says so if asked: {m.philosophy.self_report()!r}")
+
+    hs62 = {"sleeping": False, "state": "idle", "present": True}
+    m.mood = Mood(-0.5, 0.3, temper=0.0); m._distress_since = at(62, 9) - 100; m._last_coping = 0
+    before_exp = m.philosophy.experiences
+    m._cope(at(62, 9), hs62)
+    coping_thought = latest_kind(store, "coping")
+    all_phrases = [p.rstrip(".") for info in PHIL_TRADITIONS.values() for p in info["distress"]]
+    check(m.philosophy.experiences == before_exp + 1 and coping_thought and any(p.lower() in coping_thought.lower() for p in all_phrases),
+          f"coping actually reaches for one of the traditions verbatim: {coping_thought!r}")
+
+    for i in range(10):   # tested against something hard, again and again, and it keeps working - not just read about
+        m.philosophy.record_experience("stoicism", helped=True, now=at(62, 10) + i * 3600)
+    m._check_milestones(at(62, 20))
+    check(m.philosophy.lean == "stoicism", f"settles once one tradition is tested enough and clearly leads ({m.philosophy.summary()['top']})")
+    check(any(x["key"] == "settled_philosophy" for x in m.milestones.items), "...and it's a milestone, once, like the others")
+
+    pre = talk("just checking in", at(62, 21))
+    check(any("outlook leans" in ln for ln in pre.context.split("\n")), "once settled, her outlook quietly reaches the model's prompt")
+    pre = talk("what's your philosophy?", at(62, 21, 1))
+    check(pre.reply is not None and "stoicism" in pre.reply.lower(), f"and she can name it directly: {pre.reply!r}")
+    pre = talk("do you believe in anything?", at(62, 21, 2))
+    check(pre.reply is not None and "stoicism" in pre.reply.lower(), f"...however it's asked: {pre.reply!r}")
+
+    drawn_on = {m.philosophy.advice()[0] for _ in range(200)}
+    check(len(drawn_on) > 1, f"she only ever settles on one, but still reaches for others sometimes ({sorted(drawn_on)})")
+
+    before_exp = m.philosophy.experiences
+    pre = talk("I want to end it all", at(62, 22))
+    check(pre.reply is not None and "reach out" in pre.reply, "a crisis reply is never coloured by philosophy - identity.py's own line, untouched")
+    check(m.philosophy.experiences == before_exp, "...and it's never even consulted for one")
+
+    m.opinions.data["stances"]["technology"].update({"stance": 0.5, "confidence": 0.3})
+    before_tech = m.opinions.data["stances"]["technology"]["stance"]
+    for _ in range(5):
+        m.opinions.learn_from("I hate technology, computers are terrible and awful!")
+    check(m.opinions.data["stances"]["technology"]["stance"] < before_tech and m.philosophy.lean == "stoicism",
+          "opinions (about things) and her philosophy (about life) drift independently, side by side")
+
     print("\n== Pillar 4: emotional resonance")
     import numpy as np
     from . import voice

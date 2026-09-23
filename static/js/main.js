@@ -496,6 +496,7 @@ function renderMind(s) {
   setMindBar('mb-curiosity', 'mind-curiosity', s.drives.curiosity);
   setMindBar('mb-sleepy', 'mind-sleepy', s.drives.sleepiness);
   $('mind-memories').textContent = `${s.memories} · ${s.conversations} chats`;
+  $('mind-philosophy').textContent = s.philosophy && s.philosophy.lean ? `◈ leans ${s.philosophy.lean}` : '';
   $('mind-thought').textContent = s.thought ? `💭 ${s.thought}` : '';
   $('mind-dream').textContent = s.dream ? `☾ ${s.dream.tone}: ${s.dream.text}` : '';
   const img = $('mind-dream-img');

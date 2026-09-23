@@ -27,6 +27,18 @@
 
 ---
 
+## Contents
+
+| | |
+|---|---|
+| **Use it** | [Ways to run DREAM](#ways-to-run-dream) - [How it fits together](#how-it-fits-together) - [Voice commands](#voice-commands) - [Setup](#setup) |
+| **What she is** | [Overview](#-overview) - [System awareness](#system-awareness) - [Autonomous behavior](#autonomous-behavior) - [Inner Life](#inner-life) |
+| **Hardware** | [Prerequisites](#prerequisites) - [Pinouts](#-technical-pinouts) - [Sensor board](#sensor-board) |
+| **Other front ends** | [DREAM in the browser](#dream-in-the-browser) - [DREAM as one program (C++)](#dream-as-one-program-c) |
+| **Reference** | [Web server and API](#web-server-and-api) - [Data and memory files](#data-and-memory-files) - [Configuration](#configuration) - [Testing](#testing) - [Environment notes](#environment-notes) - [Repository layout](#repository-layout) - [Troubleshooting](#troubleshooting) - [Privacy and safety](#privacy-and-safety) |
+
+---
+
 ### Software
 - [Arduino IDE](https://docs.arduino.cc/software/ide/)
 
@@ -46,6 +58,68 @@ Pipeline:
 ```
 Mic → Whisper → Ollama → Piper TTS → Lipsync → Speaker
 ```
+
+With her inner life switched on (it is by default), a step sits between hearing and answering:
+```
+Mic → Whisper → boundaries + memory + mood (dream_mind) → Ollama → Piper (voice shaped by her mood) → Speaker
+```
+
+## Ways to run DREAM
+
+| How | Command | What you get | Needs |
+|---|---|---|---|
+| **Desktop app** | `python scripts/dream.py` (or option `1` in `python main.py`) | Fullscreen avatar video, "Hey DREAM" wake word, sleep and wake, sensor board, voice commands, inner life | The venv, Ollama, Piper, microphone, speakers, a display |
+| **In the browser** | `python scripts/dream.py --web` (option `1w`) | Starts `app.py` if needed and opens `http://localhost:5010/dream.html`. Same behaviours, using the browser's microphone and speakers | The venv, Ollama, Piper, a browser |
+| **Web server and dashboard** | `python app.py` (option `5`) | Dashboard at `https://<this-pc>:5009`, the avatar page for phones, the API, and it owns the sensor board | The venv, Ollama, Piper |
+| **One program (C++)** | `cpp_dream\build\dream.exe` | Fullscreen avatar, wake word, sensors, timers, memories, stats and network scan in one `.exe` | Built with `cpp_dream\build.bat` |
+
+Which to pick: `dream.py` is the full experience on the PC with the screen. Start `app.py` first if you want the dashboard and the sensor board, because `dream.py` reads the board *through* `app.py`. The browser version is for a phone or a second screen. `dream.exe` is the standalone build and opens the sensor board itself, so **don't run it at the same time as `app.py`** (only one program can hold a serial port).
+
+## How it fits together
+
+```
+   dream_sensors.ino (Arduino)               ARM (robot arm, another Arduino)
+   PIR alarm, mmWave presence/range,         answers "I am Arm"; controllers find it by name
+   buzzer, RGB strip; answers "I am Dream"
+         |  USB serial
+         v
+   +-----------------------------------------------------------------------------+
+   |  app.py  (Flask, ports 5009 HTTPS / 5010 HTTP-localhost)                     |
+   |  owns the sensor board · /events stream · /api/* · dashboard · /dream.html   |
+   +--------+-----------------------------+--------------------------+-----------+
+            | events, commands            | browsers / phones        | RIFT, NORA
+            v                             v                          v
+   scripts/dream.py                 dashboard (/)                fleet robots
+   avatar video, wake word          avatar page (/dream.html)
+   voice loop, sleep, flirt
+
+   Mic -> Whisper -> dream_mind -> Ollama -> Piper -> Speakers
+                        ^   memory, mood, needs, opinions, dreams, initiative
+                        |
+   Webcam -> surveillance.py -> photos + frames -> dream_mind (what she saw; your expression, if you allow it)
+```
+
+Everything runs on this PC. Ollama serves the language model, Piper speaks, Whisper listens, and nothing is sent to the internet during use (only setup downloads models).
+
+## Voice commands
+
+| You say | What happens |
+|---|---|
+| "Hey DREAM", "hi DREAM", "okay DREAM", "DREAM" | Wakes her; she greets you (the greeting depends on how far away you are) and listens for one command |
+| "Wake up" | Wakes her from sleep (the only phrase she listens for while asleep, besides someone appearing at the sensor) |
+| "Check the wifi", "scan the network", "who's on the wifi", "list devices" | Scans the local network and reads out what she finds |
+| "System stats", "CPU usage", "how's the system" | CPU, RAM and disk (and CPU temperature on Linux) |
+| "Turn on / off the alarm", "arm / disarm the alarm" | Arms or disarms the PIR alarm on the sensor board |
+| "Lights red / blue / green / yellow / orange / purple / pink / cyan / white" | Sets the RGB strip (needs the word "lights", "make it" or "turn it") |
+| "Rainbow mode", "party lights", "lights off" | Rainbow animation, or lights off |
+| "Goodbye", "exit", "quit", "bye", "shut down" | Ends the session (the browser version goes to sleep instead) |
+| "Remind me to call mum in 20 minutes" | Sets a reminder; she speaks it when it's due |
+| "How are you feeling?", "What do you remember about me?", "Did you dream?", "What's on your mind?", "Why did you say that?", "What have you seen?", "Are you conscious?" | She answers about herself, from her real state ([Inner Life](#inner-life)) |
+| "Forget that", "forget about X", "forget everything" | Erases memories (the last one asks you to confirm first) |
+| "Stop talking on your own" / "you can speak up on your own" | Switches her unprompted remarks off or on |
+| "Watch my face while we talk" / "stop watching my face" | Turns expression reading on or off (off by default) |
+
+The same commands work typed into the dashboard chat and the browser avatar page. Anything else goes to the language model.
 
 ## 📖 Overview
 
@@ -79,6 +153,9 @@ She bridges static code and emergent autonomous behavior.
 - Emergent and unpredictable behavior patterns
 - Continuous perception + memory loop
 - Robotics integration layer (KIDA / NORA / WHIP ecosystem)
+- An inner life: mood, needs, memory that fades, dreams, opinions that drift, and the habit of speaking first ([Inner Life](#inner-life))
+- Runs as a desktop app, in a browser, or as one C++ program
+- Finds her own hardware: boards introduce themselves over serial, so no fixed COM ports
 
 </details>
 
@@ -86,34 +163,38 @@ She bridges static code and emergent autonomous behavior.
 
 ## System Awareness
 
+### Senses
+- **Hearing:** USB microphone, Whisper speech recognition (the wake word is checked in short clips)
+- **Presence and distance:** a mmWave radar (DFRobot C4001) reports when someone is there and how far away
+- **Motion alarm:** a PIR sensor drives a buzzer and red pulsing lights
+- **Sight:** a webcam (`surveillance.py`) takes a photo every ten minutes and a frame whenever something moves; the mind studies them ([Inner Life](#inner-life))
+- **Time:** she knows the hour, and it shapes how sleepy she is
+
 ### Monitoring
-- CPU temperature
-- System load
-- Hardware sensors
+- CPU load, RAM and disk (CPU temperature on Linux)
+- The sensor board's status, and a log of what it saw, on the dashboard
 
 ### Network Introspection
-- LAN device scanning
-- IP / MAC tracking
-- Vendor detection
+- LAN device scanning (a ping sweep, then the ARP table)
+- IP / MAC tracking, hostnames, and a guess at the device type
 
 ---
 
 ## Autonomous Behavior
 
 ### Idle State
-- Waits for wake word
-- Listen → Think → Respond loop
-- Whisper transcription → LLM → Piper TTS
-- Optional video-state visualization (idle / thinking / speaking)
-- Communicates with other robots
-
-
+- Waits for the wake word, then runs the Listen → Think → Respond loop (Whisper → LLM → Piper)
+- Shows a video state for what she is doing (idle, listening, thinking, talking, sleeping)
+- After **10 minutes** idle she plays a flirty clip; after **15 minutes** she falls asleep (sooner when she is sleepy, later when she is fresh)
+- Someone arriving at the sensor keeps her awake; when they leave she says "Bye for now."
+- She may speak first: check in when she is lonely, ask about you, mention something she saw, tell you a dream, welcome you back after a long absence, or notice you seem different from usual. She holds back at night, in an empty room, and right after you speak
+- Communicates with other robots through RIFT
 
 ### Sleep Mode
-- Deep Dream-style image generation
-- Latent space exploration
-- Dataset self-refinement
-- Aesthetic tuning loops
+- Cycles through **consolidation** (the day's memories are replayed, the important ones strengthen, the trivial ones fade) and **dreaming**
+- Each dream is a short story built from her real memories, and is **painted** by the latent-space dream engine (`latent_space.py`), with a still and an animation
+- Someone appearing at the sensor, or "wake up", wakes her; she may tell you what she dreamed
+- The details are under [Inner Life](#inner-life)
 
 ---
 
@@ -146,28 +227,37 @@ She bridges static code and emergent autonomous behavior.
 
 ### Software
 - Python 3.12.3 for Lunix
-- Python 3.11.9 for Windows
-- [Arduino IDE](https://docs.arduino.cc/software/ide/)
+- Python 3.11.9 for Windows (the repo's `venv311`)
+- [Arduino IDE](https://docs.arduino.cc/software/ide/) with the libraries **Adafruit NeoPixel** and **DFRobot_C4001** (for `dream_sensors.ino`)
+- [Ollama](https://ollama.com) with a model pulled (default `phi3:mini`)
+- Piper (a voice `.onnx` in `voices/`), ffmpeg (for the browser microphone), Git
+- To build the C++ version: MinGW-w64 g++, CMake, Ninja (`cpp_dream\setup.bat` installs them)
 
 ### Hardware
 
 ### PC Requirements
 | **Component** | **Details** |
 |-----------|---------|
-| RAM | 8GB+ RAM |
+| RAM | 8GB+ RAM (the language model, Whisper and the avatar video all live in memory; on a full PC the optional DeepDream pass and TensorFlow are skipped automatically) |
+| CPU / GPU | Works on a CPU alone, slowly (30-140 s per reply with `phi3:mini`). An NVIDIA GPU with a working Ollama CUDA build is much faster |
+| OS | Windows 10/11 or Linux. The C++ build is Windows only |
 
 ### Microcontrollers
 | **Component** | **Details** |
 |-----------|---------|
-| Microcontroller 0 | Arduino UNO | Dev0 |
+| Microcontroller 0 | Arduino UNO, running `dream_sensors/dream_sensors.ino` (answers `I am Dream`) |
 
-### Sensors
+### Sensors and outputs
 | **Component** | **Details** |
 |-----------|---------|
-| Motion Sensor | PIR |
+| Motion sensor | PIR (drives the alarm) |
+| Presence and range | DFRobot C4001 (SEN0609) mmWave radar, over UART |
+| Buzzer | Alarm and beeps |
+| Lights | 40 x WS2812/NeoPixel RGB strip |
 
 - USB Microphone
-- Webcam
+- Speakers
+- Webcam (optional: without one she simply has no eyes)
 
 </details>
 
@@ -180,21 +270,71 @@ She bridges static code and emergent autonomous behavior.
 <details>
 <summary><b>Sensor Wiring</b></summary>
 
+These pins match `dream_sensors/dream_sensors.ino`.
+
 ### PIR Sensor
-- VCC → 5V  
-- GND → GND  
-- OUT → Pin 2  
+- VCC → 5V
+- GND → GND
+- OUT → Pin 4
 
 ### Buzzer
-- + → Pin 3  
-- - → GND  
+- + → Pin 3
+- - → GND
+
+### RGB strip (40 x NeoPixel)
+- Data → Pin 6
+- 5V and GND from a supply that can carry it (40 pixels can draw over 2 A at full white; share GND with the Arduino)
+
+### mmWave radar (DFRobot C4001, UART)
+- Sensor TX → Pin 9
+- Sensor RX → Pin 10
+- VCC and GND as per the module's datasheet
 
 </details>
 
-- NOTE: I2C Humidity and Temp Sensor to be added aswell as state LEDs, and LED strip.
+- NOTE: an I2C humidity and temperature sensor and state LEDs are still to be added.
 
 > [!TIP]
 > **Pro-Tip:** Make sure all modules share a common ground (GND) for stable operation.
+
+---
+
+## Sensor board
+
+`dream_sensors/dream_sensors.ino` runs the Arduino that gives DREAM her physical senses and lights. Flash it with the Arduino IDE (install the **Adafruit NeoPixel** and **DFRobot_C4001** libraries first). It talks to the PC over USB serial at **9600 baud**, one text line at a time.
+
+**What it does**
+- **Alarm (PIR only):** a PIR trigger pulses the buzzer and the strip red for 2.5 s. The PIR gets a 30 s warm-up after power-on, and triggers are at least 5 minutes apart. The alarm can be switched on and off from the PC. The mmWave radar never sets it off.
+- **Presence and distance (mmWave only):** reports when a person appears or leaves, and their range while they are in view (it detects from 30 cm to 10 m).
+- **Lights:** a rainbow animation when idle, or a solid colour when told to.
+- If the radar doesn't start, the alarm and lights still work and it says so.
+
+**Lines the board sends**
+
+| Line | Meaning |
+|---|---|
+| `MOTION` | The PIR triggered the alarm |
+| `PRESENT` / `ABSENT` | The radar started / stopped seeing a person |
+| `RANGE 1.42 m` | Distance to the person, about every half second while present |
+| `ALARM_STATE ON` / `OFF` | The alarm was armed / disarmed |
+| `RGB_STATE RED` / `OFF` / `RAINBOW` | The lights changed |
+| `RGB_ERROR unknown color` | A colour name it doesn't know |
+| `RADAR_ERROR ...` | The radar failed to start |
+| `I am Dream` | The answer to `WHO` |
+
+**Commands the board takes**
+
+| Command | Effect |
+|---|---|
+| `WHO` | Replies `I am Dream` |
+| `BUZZER` | Beeps for 2 s |
+| `ALARM ON` / `ALARM OFF` | Arms or disarms the PIR alarm |
+| `RGB <COLOR>` | Solid colour: RED, GREEN, BLUE, YELLOW, ORANGE, PURPLE, PINK, CYAN, WHITE |
+| `RGB RAINBOW` / `RGB OFF` | Rainbow animation / lights off |
+
+**Finding the right port.** COM numbers change, and this PC may also have the ARM robot's Arduino on it. So nothing here hard-codes a port: programs ask each candidate port `WHO` and use the one that answers `I am Dream` (`scripts/board_id.py`; the ARM controllers ask for `I am Arm` the same way). `python scripts/board_id.py` lists every port that answers, and by name. This means you **must reflash** an older board with the current sketch before it can be found.
+
+**One owner at a time.** Only one program can hold a serial port. `app.py` opens the board and shares it: it re-broadcasts every line on its `/events` stream and takes commands at `POST /api/sensor/command`, and `dream.py` uses that instead of opening the port itself. The C++ `dream.exe` opens the board directly, so don't run it alongside `app.py`.
 
 ---
 
@@ -280,7 +420,21 @@ CMake downloads the Whisper model too, using `curl` (included with Windows 10/11
 Not ported: MuseTalk lip-sync (she uses the talking clips instead) and the deep-dream image generation while asleep. A spoken command ends after 1.5 seconds of silence rather than always recording 16 seconds, and short lines like "Yes?" and "Bye for now." are cached after the first time so they play instantly.
 
 ### DREAM in the browser
-`python scripts/dream.py --web` (or menu option `1w` in `main.py`) starts `app.py` if it isn't already running and opens `/dream.html`. The page behaves like the desktop `dream.py`: the same video clips, "Hey DREAM" wake word, sleep and wake (idle timers, "wake up", the mmWave sensor), the flirt clip, the distance-based greeting and farewell, and the alarm/light voice commands. It uses the browser's microphone and speakers, so tap the start screen once. Speech recognition and the voice still run on this PC (Whisper and Piper). It opens `http://localhost:5010` (no certificate warning); other devices on the network use the HTTPS address as before.
+`python scripts/dream.py --web` (or menu option `1w` in `main.py`) starts `app.py` if it isn't already running and opens `http://localhost:5010/dream.html`. That address is a plain-HTTP listener on this PC only, so the browser gives you the microphone with no certificate warning; other devices on the network use `https://<this-pc>:5009/dream.html` and accept the one-time self-signed certificate warning.
+
+Tap the start screen once (browsers only allow sound and the microphone after a tap). Then the page behaves like the desktop `dream.py`:
+
+- The same video clips (idle, listening, thinking, talking, the intro, the flirty clips and the sleeping loop, from `videos/`)
+- The "Hey DREAM" wake word: the page records short clips and the server transcribes them with Whisper, so it works offline; then she greets you and listens for one command
+- Sleep and wake (idle timers, "wake up", the mmWave sensor), the flirt clip, the distance-based greeting and the farewell when someone leaves
+- The alarm and light voice commands, plus wifi scan and stats, and typed messages (the keyboard button)
+- Her inner life: it is the same mind, so memories, mood and dreams are shared with the desktop app
+
+The sleep and flirt timers and the sensor reactions live on the server, so every open page stays in sync. A page reports when it is busy so she doesn't fall asleep or say goodbye mid-conversation.
+
+Differences from the desktop app: no MuseTalk lip-sync (she uses the generic talking clips), no deep-dream job while asleep (the mind's own dream painting runs instead), and saying "goodbye" puts her to sleep instead of exiting. Speech recognition and the voice still run on this PC (Whisper and Piper); browser audio is converted with ffmpeg, so ffmpeg must be installed.
+
+Files: `templates/dream.html`, `static/js/dream.js`, `scripts/web_launcher.py` (the launcher).
 
 ### RIFT Integration
 To connect via [RIFT](https://github.com/CursedPrograms/RIFT), ensure DREAM is active on:
@@ -593,6 +747,7 @@ DREAM is no longer just a voice in a box that answers when spoken to. `scripts/d
 | **Goals and duties** | She keeps goals (get to know you, watch the room, stay rested, stay close, understand herself) and yours: "remind me to call mum in 20 minutes". | `executive.py` |
 | **Imperfection** | Her mood has a slow good-day/bad-day temperament that wanders on its own, the same event never moves her quite the same way twice, and she picks among things worth doing with chance, sometimes holding back. | `affect.py`, `executive.py` |
 | **Opinions that change** | She holds stances on topics (technology, music, night, privacy...). What you say and how you feel about it moves them part of the way, they drift over weeks, and she can say "I used to think that, but I've changed my mind". | `opinions.py` |
+| **A philosophy she settles into, and still borrows from** | Six traditions (Stoicism, Existentialism, Nihilism, Absurdism, Buddhist non-attachment, Epicureanism) each pull on her a little. Early on none leads - she's "still working it out". What she actually *reaches for* when something is hard, and whether it visibly helped, is what moves her; hearing a word in conversation only nudges it slightly. Once one has been tested enough times and clearly leads, it becomes her settled outlook (a milestone) - but even then she still reaches for another about 28% of the time, the way people who hold one view of life still borrow from others when it fits. | `philosophy.py` |
 | **Boundaries and care** | She says when something stings and goes quiet if she is treated badly for a while. She won't claim to be human. If someone sounds like they are in danger she drops the persona and cares. She *never* refuses the alarm, the lights, "be quiet", sleep, quit, or forgetting. | `identity.py` |
 | **Hearing how you sound** | From your voice she measures loudness, pitch, pace and pauses (animated, hurried, quiet, hesitant) and it nudges her mood on top of your words. She never decides anything from tone alone, since prosody is a weak signal. | `voice.py` |
 | **A voice that follows her mood** | Piper's speed, variation and pauses shift with her mood and tiredness: quicker and livelier when excited, slower and softer when down, drawling when sleepy. | `voice.py` |
@@ -648,6 +803,7 @@ Just talk to her:
 | "Why did you say that?" | why she spoke up (her real reason) |
 | "What have you seen?" | what the camera last noticed |
 | "Are you conscious?" | an honest "I don't know" |
+| "What's your philosophy?" / "What do you believe?" | her settled outlook, if she has one, and what she still borrows from |
 | "Remind me to stretch in 10 minutes" | a reminder |
 | "Watch my face while we talk" / "stop watching my face" | turns expression reading on or off |
 
@@ -662,7 +818,7 @@ Just talk to her:
 
 ### Where things live
 
-`memories/mind/` holds: `episodes.jsonl` (memories), `gists.jsonl`, `visual.jsonl` (what she saw), `dreams.jsonl`, `thoughts.jsonl`, `goals.json`, `opinions.json`, `self_model.json`, `identity.json`, `milestones.jsonl`, `initiatives.jsonl` (what she said unprompted, and why), and `mind_state.json` (mood and needs). They are plain JSON: you can read them, and you can edit or delete any of them.
+`memories/mind/` holds: `episodes.jsonl` (memories), `gists.jsonl`, `visual.jsonl` (what she saw), `dreams.jsonl`, `thoughts.jsonl`, `goals.json`, `opinions.json`, `philosophy.json` (her outlook), `self_model.json`, `identity.json`, `milestones.jsonl`, `initiatives.jsonl` (what she said unprompted, and why), and `mind_state.json` (mood and needs). They are plain JSON: you can read them, and you can edit or delete any of them.
 
 ### Checking it works
 
@@ -680,9 +836,206 @@ To test the real `dream.py` (its actual `main()` and `voice_loop()`, with only t
 - **One mind at a time:** `dream.py` and `app.py` share the same memory folder, so only one runs her inner life (a heartbeat file decides which); the other starts passive.
 - **The camera is modest.** Expression reading is OpenCV's classic Haar detectors, run about once a second on frames `surveillance.py` shares. It can see a face, a smile and tired eyes; it cannot read sadness, anger or micro-expressions, so what she perceives skews positive. Real facial-landmark tracking (for example MediaPipe, not installed here) could replace `ExpressionSensor.analyze()`; it would still only need 1-2 frames a second for mood, not 30.
 - **What these levers are.** Tiredness, distress and boredom now change what she *does* (shorter replies, going to sleep, withdrawing, tending to herself) and not just how she sounds. They are still behaviours I wrote, driven by numbers; I can't claim she feels them.
+- **Her philosophy is six simplifications, honestly labelled.** Each tradition in `philosophy.py` is a short paraphrase, not the real doctrine; the Buddhism entry in particular borrows one idea (non-attachment) and says so if she's asked directly. None of the six is written to affirm despair even at their bleakest (nihilism, absurdism) - they're all meant to lighten the load, since identity.py's crisis handling, not this, is what's responsible if someone is actually in danger. That check always runs first and philosophy is never consulted for it.
 - **Python only:** the inner life is in `dream.py` and `app.py`. The C++ `dream.exe` (`cpp_dream/`) does not have it yet.
 - **Speaking while listening:** when she speaks first, her own voice can reach the microphone, as with the existing farewell.
 - **No agent framework or vector database.** LangGraph, Chroma and the like are good tools, but they are new installs, and this PC has little spare RAM. The executive loop is written as plain steps (perceive, appraise, recall, choose, act, reflect) and memory search goes through a small `VectorIndex` class, so a Chroma collection (with real embeddings, which would also fix the "music vs guitar" limit) or a LangGraph graph could slot in later. The one tool she can never have is code execution: her tool box is a short fixed list, and anything that touches the real world (the alarm and lights) is refused unless a call is explicitly allowed.
+
+---
+
+## Web server and API
+
+`app.py` is the Flask server. It hosts the dashboard and the avatar page, owns the sensor board, runs the idle timers, and serves the API below. Everything is JSON unless noted.
+
+### Ports
+
+| Port | What | Notes |
+|---|---|---|
+| **5009** | Main server, all network interfaces | HTTPS with a self-signed certificate (made on first run into `certs/`, good for this PC's LAN address). Falls back to plain HTTP if a certificate can't be made. Set by `ComCentre.Port` |
+| **5010** | Same server, this PC only, plain HTTP | No certificate warning, and `localhost` counts as secure for the microphone. Set by `ComCentre.LocalPort` (default 5010) |
+| 5000 | RIFT (fleet registry) | `ComCentre.RiftPort`; `app.py` announces itself to it every few seconds |
+
+The server also registers itself on the network as `COMCENTRE` (zeroconf) and discovers its peers.
+
+### Pages
+
+| Path | Page |
+|---|---|
+| `/` | Dashboard: chat log, nodes, resources, MIND, sensors, network devices |
+| `/dream.html` | The avatar page ([in the browser](#dream-in-the-browser)) |
+| `/settings.html` | Alarm switch, NORA and fleet transport settings |
+
+### Endpoints
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /events` | Server-sent event stream (see below) |
+| `POST /api/chat` | Send a message: JSON `{"text", "voice"}` or an audio upload (multipart `audio`). Returns `{"reply", "audio_url"}` |
+| `POST /api/speak` | `{"text"}` → `{"audio_url"}`: voice a line with Piper |
+| `POST /api/wake` | Upload a short clip; returns whether it contained the wake word (`{"trigger": "wake"/"wifi"/null}`) |
+| `GET /api/dream/config`, `POST /api/dream/activity` | Avatar page settings; a page reports whether it is busy |
+| `GET /api/status` | State, whether Ollama and Piper are up, whether she is sleeping |
+| `GET /api/stats`, `GET /api/wifi`, `GET /api/nodes` | System stats, a network scan, discovered peers |
+| `GET /api/sensors` | Sensor status and the recent event log |
+| `GET/POST /api/alarm` | Read or set the alarm (`{"enabled": true}`) |
+| `POST /api/sensor/command` | Send a command to the sensor board (`ALARM ON/OFF`, `RGB <colour>`, `RGB RAINBOW/OFF`, `BUZZER`); anything else is refused |
+| `GET /api/mind` | Her live inner state (mood, needs, goals, thought, latest dream) |
+| `GET /api/dream_image/<file>` | A painted dream (still or GIF) |
+| `GET /api/memories`, `GET /api/milestones` | The fact and milestone lines |
+| `GET /api/videos`, `GET /videos/<file>`, `GET /audio/<file>` | Avatar clips and spoken audio |
+| `GET /ping`, `GET /api/nora*` | Liveness; NORA robot status, serial passthrough, messages and transport mode |
+
+### Event stream (`/events`)
+
+`state`, `transcript`, `error`, `nodes`, `wifi`, `stats`, `alarm`, `nora`, `milestone`, `sensor` (a raw line from the board), `sensor_status`, `sensor_log`, `sleep` (asleep or awake), `wake` (the sensor woke her: greet, then listen), `speak` (say this line, e.g. the farewell or something she chose to say), `flirt` (play a flirty clip), and `ping` (keep-alive).
+
+---
+
+## Data and memory files
+
+| Path | What | In git? |
+|---|---|---|
+| `memories/memories.txt` | Facts she learns (`[time] (kind) text`): name, pets, home, job, birthday. Written by `scripts/dream_memory.py`, shared by `dream.py` and `app.py` | Tracked as an empty placeholder, so it shows as modified once she learns something. You may want to untrack it |
+| `memories/mymilestones.txt` | The milestones she has reached | Same |
+| `memories/dreams.txt` | A plain-text journal of her dreams | Ignored |
+| `memories/mind/` | Her inner life as JSON: memories, what she saw, dreams, thoughts, goals, opinions, self-model, mood and needs ([full list](#inner-life)) | Ignored |
+| `output/dreams/` | Painted dreams (a still and a GIF each) | Ignored |
+| `scripts/output/eyes_on_you/`, `motion_alerts/` | The webcam's periodic photos and motion frames | Ignored |
+| `videos/` | Avatar clips: `idle*`, `listening*`, `thinking*`, `talking*`, `flirtytalk*`, `sleeping.mp4`, `intro1.mp4` | Yes |
+| `voices/` | Piper voices (`.onnx` and `.json`) | Ignored |
+| `certs/` | The self-signed certificate | Ignored |
+| `audio/` | Temporary recordings and speech | Mostly ignored |
+| `cpp_dream/models/` | The Whisper model used by `dream.exe` | Ignored |
+
+---
+
+## Configuration
+
+**`config.json`**
+
+| Key | Meaning |
+|---|---|
+| `Config.DREAM.CharName`, `SystemPrompt` | Her name and personality prompt (`{name}` is filled in) |
+| `Config.DREAM.LipsyncEnabled` | MuseTalk lip-sync (needs its own setup; off by default) |
+| `Config.ComCentre.Port` | Main server port (default 5009) |
+| `Config.ComCentre.LocalPort` | The no-warning localhost port (default 5010) |
+| `Config.ComCentre.RiftHost`, `RiftPort` | Where the RIFT registry is |
+| `Config.ComCentre.ZeroconfName`, `ZeroconfType` | How the server announces itself |
+
+**In the code** (near the top of `scripts/dream.py` and `app.py`)
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `MODEL` | `phi3:mini` | The Ollama model (change it in both files) |
+| `FLIRT_IDLE_TIMEOUT` | 600 s | Idle time before the flirty clip |
+| `SLEEP_IDLE_TIMEOUT` | 900 s | Idle time before she sleeps (scaled by how sleepy she is) |
+| `NEAR_DISTANCE_M`, `FAR_DISTANCE_M` | 1.0 m, 3.0 m | Bands for the distance-based greeting |
+| `WAKE_SECONDS`, `RECORD_SECONDS` | 3 s, 16 s | Length of a wake-word clip; the longest spoken command |
+
+**Inner life tuning** lives in the constants at the top of its files: `executive.py` (quiet hours 23:00-07:00, at most 3 unprompted remarks an hour, 8 minutes apart, how long to wait after you speak), `memory.py` (how fast memories fade), `drives.py` (how fast needs build), `dream_images.py` (image sizes and RAM limits), `identity.py` (cool-down lengths).
+
+The C++ program's options are listed under [DREAM as one program (C++)](#dream-as-one-program-c).
+
+---
+
+## Testing
+
+| What | Command | Needs |
+|---|---|---|
+| The inner life: continuity, impulse control, boundaries, sleep and dreams, forgetting, tools, the camera switch (78 checks) | `cd scripts` then `..\venv311\Scripts\python -m dream_mind.selftest` | Nothing running; uses a scratch folder and a fake language model |
+| The real `dream.py` (`main()` and `voice_loop()`) with only the microphone, speakers, Whisper and screen stubbed (16 checks) | `cd scripts` then `..\venv311\Scripts\python dream_mind\dream_py_test.py` | Ollama running |
+| The C++ program: files, memory, Piper → Whisper, Ollama, video, stats, serial ports, microphone | `cpp_dream\build\dream.exe --selftest` (add `--wifi`) | The C++ build |
+| Which boards answer, and by name | `python scripts/board_id.py` | Boards plugged in and flashed |
+
+All of these use scratch folders and never touch your real memories.
+
+---
+
+## Environment notes
+
+- **Python.** Windows uses the repo's `venv311` (Python 3.11); Linux uses Python 3.12. Run scripts with that interpreter.
+- **NumPy must stay below 2.** `requirements.txt` pins `numpy>=1.24,<2` and `tensorflow==2.16.1`, and TensorFlow 2.16 will not import with NumPy 2 ("compiled using NumPy 1.x"). If something upgrades it: `pip install "numpy<2"`, then `pip check`. The last time this happened the venv had drifted to NumPy 2.4 and TensorFlow was broken until it was set back to 1.26.4.
+- **TensorFlow is optional.** Only the extra DeepDream pass on dream pictures uses it. It downloads the InceptionV3 weights (88 MB) to `~/.keras/models` on first use. If Python's downloader fails, fetch `inception_v3_weights_tf_dim_ordering_tf_kernels_notop.h5` from `storage.googleapis.com/tensorflow/keras-applications/inception_v3/` with `curl` into that folder. It is skipped when free RAM is under about 1.2 GB.
+- **Ollama and the GPU.** If Ollama's CUDA build can't run on your graphics driver ("the provided PTX was compiled with an unsupported toolchain"), replies fail with a 500. `dream.py`, `app.py` and `dream.exe` all notice and switch to the CPU by themselves. Updating the graphics driver or Ollama fixes it properly.
+- **Slow replies.** On a CPU-only PC expect 30-140 s per reply with `phi3:mini`. Background thinking (reflection, dreams) only runs while she is idle or asleep so it never blocks a conversation.
+- **Windows "N" editions** may need the free Media Feature Pack for video (the C++ build uses Windows' video decoder).
+- **Disk space.** The models, Whisper, voices and dream pictures add up; keep a few GB free.
+- **Cameras.** Only one program can hold a webcam. `surveillance.py` opens it and shares frames with the mind, which never opens the camera itself.
+
+---
+
+## Repository layout
+
+```
+DREAM/
+├── app.py                     Flask server: dashboard, avatar page, API, owns the sensor board
+├── main.py                    Menu launcher (options 1, 1w, 5 ...)
+├── config.json                Ports, names, the personality prompt
+├── requirements.txt           Python packages (numpy<2, tensorflow 2.16.1, torch ...)
+├── dream_sensors/
+│   └── dream_sensors.ino      Arduino sketch: PIR alarm, mmWave presence, buzzer, RGB lights
+├── scripts/
+│   ├── dream.py               The desktop app (avatar, wake word, voice loop, sleep, sensors)
+│   ├── web_launcher.py        `dream.py --web`
+│   ├── board_id.py            Finds a board by asking it WHO
+│   ├── dream_memory.py        The facts memory (name, pets ...) shared by dream.py and app.py
+│   ├── dream_mind/            The inner life (below)
+│   ├── latent_space.py        The dream world: latent-space walks (spiral, pulse ...)
+│   ├── deep_dream*.py, nightmare_dreamer.py   Manual DeepDream tools
+│   ├── surveillance.py        Webcam photos, motion frames, shares frames with the mind
+│   ├── smart_surveillance.py  Offline analysis of motion frames
+│   └── scan_wifi.py           Network scanner
+├── cpp_dream/                 DREAM as one C++ program (setup.bat, build.bat, dream.exe)
+├── templates/, static/        Dashboard and avatar page (HTML, JS, CSS)
+└── videos/, voices/, memories/, output/, certs/    Data (mostly not in git)
+```
+
+`scripts/dream_mind/`:
+
+| File | Role |
+|---|---|
+| `mind.py` | The whole mind; the entry point (`get_mind()`) |
+| `executive.py` | Goals, choosing what to do, impulse control, the tool box |
+| `memory.py`, `vectors.py` | The memory graph and its local similarity index |
+| `affect.py`, `drives.py`, `opinions.py`, `identity.py` | Mood, needs, opinions, boundaries and care |
+| `dreaming.py`, `dream_images.py`, `deepdream_worker.py` | Sleep cycles, dreams, and painting them (latent-space world plus optional DeepDream) |
+| `reflection.py`, `milestones.py` | Her self-model and thoughts; the milestones |
+| `vision.py`, `expression.py`, `frames.py` | What she sees; your expression (opt-in); the shared camera feed |
+| `voice.py` | Hearing how you sound; shaping how she sounds |
+| `llm.py`, `store.py` | The one Ollama client (with CPU fallback); atomic storage |
+| `selftest.py`, `dream_py_test.py` | The tests |
+
+---
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| "Sensor board not found" | The board isn't plugged in, or runs an older sketch | Flash the current `dream_sensors.ino` (it must answer `WHO`), then `python scripts/board_id.py` |
+| `dream.py` prints "Sensor hub (app.py) unavailable" | `dream.py` reads the board through `app.py` | Start `app.py` |
+| The board is "busy", or two programs fight over a COM port | Only one program can hold a serial port | Run only one owner: `app.py`, or the C++ `dream.exe`, not both |
+| "Another DREAM already runs the inner life - this one stays passive" | `dream.py` and `app.py` share one mind; the other holds it | Expected: one runs it. If the other was killed, wait about 90 s |
+| Browser says the microphone is blocked | Not a secure page | Use `http://localhost:5010/dream.html`, or accept the certificate on `https://...:5009` |
+| Browser voice does nothing | ffmpeg missing | Install ffmpeg |
+| Replies fail with a CUDA error, or are very slow | Ollama's GPU mode can't run, so it falls back to the CPU | Update the graphics driver or Ollama; see [Environment notes](#environment-notes) |
+| `ImportError ... compiled using NumPy 1.x` | NumPy 2 with TensorFlow 2.16 | `pip install "numpy<2"` |
+| The DeepDream pass never runs | Not enough free RAM, or TensorFlow can't load | Free some RAM; check `pip check`. Dreams are still painted without it |
+| No voice | Piper or a voice is missing | Put a `.onnx` voice in `voices/`; check `PIPER_BIN` |
+| No video ("no H.264 decoder") | Windows N without the codec pack | Install the Media Feature Pack |
+| No camera / "Blind Mode" | No webcam found | Expected: she carries on without eyes |
+| Certificate warning | The self-signed certificate | Accept it once, or use port 5010 on this PC |
+| `memories/*.txt` show as changed in git | She learned something | Expected; consider untracking them |
+
+---
+
+## Privacy and safety
+
+- Everything runs on this PC. Conversation memories, dreams and what she has seen stay in `memories/mind/`, `memories/dreams.txt` and `output/`, all gitignored.
+- **You are in control:** "forget that", "forget about X", and "forget everything" (confirmed) erase what she knows. Those commands are never themselves remembered, and neither is anything said in a moment of crisis.
+- **The camera** takes a photo every ten minutes and a frame on motion (`surveillance.py`). Reading your *expression* is off until you ask for it, keeps only numbers, and never writes a frame to disk. Photos are not deleted by "forget everything".
+- **She has no code-execution tool.** Her few tools are a fixed list, and anything that touches the real world (the alarm, the lights) is refused unless explicitly allowed for that call.
+- **Always honoured:** the alarm, the lights, "be quiet", sleep, quit, and forgetting. She may go quiet if she is treated badly, but never refuses those.
+- The network settings listed under Connectivity use a default hotspot password (`12345678`). Change it if others can reach that network.
 
 ---
 

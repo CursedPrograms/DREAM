@@ -81,6 +81,7 @@ class Dreamer:
             report["consolidation"].append(stats)
             if cycle == 0:
                 m.opinions.drift()
+                m.philosophy.drift()
                 report["insights"] = self.take_stock()
             if stop.wait(nrem_s):
                 break
