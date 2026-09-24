@@ -197,3 +197,10 @@ musetalk_out/speech_1777319283.mp4
 # DREAM's inner life: conversation memories, dreams, what she has seen. Personal - never commit.
 /memories/mind/
 /memories/dreams.txt
+
+# MiDaS depth models (downloaded by scripts/monocular_depth.py)
+scripts/models/model-*.onnx
+scripts/models/*.part
+
+# Depth videos for the avatar depth effect (built by scripts/depth_effect.py)
+videos/depth/

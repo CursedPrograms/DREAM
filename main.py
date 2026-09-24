@@ -34,6 +34,8 @@ def main():
         "4": {"name": "Run 'DREAM Low FPS'", "file_name": "scripts/_dream.py", "desc": "JPEG-based DREAM"},
         "5": {"name": "Run 'WebServer'", "file_name": "app.py", "desc": "Flask Server"},
         "6": {"name": "Run 'Speak'", "file_name": "scripts/speak.py", "desc": "Piper TTS Test"},
+        "7": {"name": "Run 'Depth'", "file_name": "scripts/monocular_depth.py", "desc": "Webcam depth map (MiDaS)"},
+        "7d": {"name": "Build depth videos", "file_name": "scripts/depth_effect.py", "desc": "For the avatar depth effect (config.json DepthEffect)"},
         "00": {"name": "Update Deps", "file_name": "scripts/install_dependencies.py", "desc": "Install requirements"}
     }
 

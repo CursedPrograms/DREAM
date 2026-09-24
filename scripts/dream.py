@@ -60,6 +60,7 @@ except ImportError:
 console = Console()
 
 from dream_memory import extract_memories, remember, memory_prompt_block
+import depth_effect
 
 # ==================== PLATFORM ====================
 IS_WINDOWS = sys.platform == "win32"
@@ -222,6 +223,8 @@ with open(os.path.join(BASE_DIR, "config.json")) as f:
 CHAR_NAME       = config["Config"]["DREAM"]["CharName"]
 SYSTEM_PROMPT   = config["Config"]["DREAM"]["SystemPrompt"].format(name=CHAR_NAME)
 LIPSYNC_ENABLED = config["Config"]["DREAM"].get("LipsyncEnabled", True)
+# 2.5D parallax on the avatar videos (depth_effect.py); off unless Enabled is true
+DEPTH_EFFECT    = {**depth_effect.DEFAULTS, **config["Config"]["DREAM"].get("DepthEffect", {})}
 
 print("CharName:", CHAR_NAME)
 print("SystemPrompt:", SYSTEM_PROMPT)
@@ -683,6 +686,15 @@ def startup_banner():
         console.print(f"[yellow]WARN[/yellow] opencv-python not importable: {_cv2_import_error}")
 
     build_video_pools()
+
+    if DEPTH_EFFECT.get("Enabled"):
+        # flirtytalk plays as a one-shot clip, which the effect skips
+        clips = [p for k, pool in VIDEO_POOLS.items() if k != "flirtytalk" for p in pool]
+        missing = depth_effect.missing_depth(clips)
+        console.print(f"[green]OK[/green] Depth effect on (strength {DEPTH_EFFECT['Strength']}, speed {DEPTH_EFFECT['Speed']}, scale {DEPTH_EFFECT['Scale']})")
+        if missing:
+            console.print(f"[yellow]WARN[/yellow] {len(missing)} clip(s) have no depth video and play flat - "
+                          f"run: python scripts/depth_effect.py")
 
 # ==================== AUDIO ====================
 
@@ -1348,6 +1360,10 @@ class VideoPlayer:
         self.ms_frame = 1000.0 / self.fps
         self._surface = pygame.Surface((sw, sh))
         self._last_ms = 0.0
+        # Depth displacement for this clip, if the effect is on and its depth video exists.
+        # Looping state clips only: one-shot clips (intro, lipsync, flirt) play with audio,
+        # and the warp's extra per-frame cost could let the lips drift out of sync.
+        self.depth    = depth_effect.open_stream(path, DEPTH_EFFECT) if loop else None
         self._read_next()
 
     def _read_next(self):
@@ -1355,11 +1371,15 @@ class VideoPlayer:
         if not ok:
             if self.loop:
                 self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                if self.depth:
+                    self.depth.rewind()
                 ok, frame = self.cap.read()
             else:
                 self.finished = True
                 return
         if ok:
+            if self.depth:
+                frame = self.depth.apply(frame)
             rgb    = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             ih, iw = rgb.shape[:2]
             scale  = max(self.sw / iw, self.sh / ih)
@@ -1384,6 +1404,8 @@ class VideoPlayer:
 
     def release(self):
         self.cap.release()
+        if self.depth:
+            self.depth.release()
 
 # ==================== VIDEO STATE MANAGER ====================
 

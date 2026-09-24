@@ -32,7 +32,7 @@
 | | |
 |---|---|
 | **Use it** | [Ways to run DREAM](#ways-to-run-dream) - [How it fits together](#how-it-fits-together) - [Voice commands](#voice-commands) - [Setup](#setup) |
-| **What she is** | [Overview](#-overview) - [System awareness](#system-awareness) - [Autonomous behavior](#autonomous-behavior) - [Inner Life](#inner-life) |
+| **What she is** | [Overview](#-overview) - [System awareness](#system-awareness) - [Depth vision](#depth-vision) - [Autonomous behavior](#autonomous-behavior) - [Inner Life](#inner-life) |
 | **Hardware** | [Prerequisites](#prerequisites) - [Pinouts](#-technical-pinouts) - [Sensor board](#sensor-board) |
 | **Other front ends** | [DREAM in the browser](#dream-in-the-browser) - [DREAM as one program (C++)](#dream-as-one-program-c) |
 | **Reference** | [Web server and API](#web-server-and-api) - [Data and memory files](#data-and-memory-files) - [Configuration](#configuration) - [Testing](#testing) - [Environment notes](#environment-notes) - [Repository layout](#repository-layout) - [Troubleshooting](#troubleshooting) - [Privacy and safety](#privacy-and-safety) |
@@ -169,6 +169,47 @@ She bridges static code and emergent autonomous behavior.
 - **Motion alarm:** a PIR sensor drives a buzzer and red pulsing lights
 - **Sight:** a webcam (`surveillance.py`) takes a photo every ten minutes and a frame whenever something moves; the mind studies them ([Inner Life](#inner-life))
 - **Time:** she knows the hour, and it shapes how sleepy she is
+- **Depth:** a MiDaS depth map from the single webcam ([Depth vision](#depth-vision)); a standalone tool for now, not wired into the mind
+
+### Depth vision
+
+`scripts/monocular_depth.py` (option `7` in `python main.py`) estimates depth from the one webcam with [MiDaS v2.1](https://github.com/isl-org/MiDaS) and shows the feed next to a depth map (brighter = closer). Press `q` or `Esc` to quit.
+
+```bash
+python scripts/monocular_depth.py                          # webcam
+python scripts/monocular_depth.py --image photo.jpg        # one image, saved to scripts/output/depth/
+python scripts/monocular_depth.py --video clip.mp4         # a video file
+python scripts/monocular_depth.py --small / --large        # force a model
+```
+
+- The model is downloaded to `scripts/models/` on first use: Large `model-f6b98070.onnx` (~400 MB) or Small `model-small.onnx` (~63 MB).
+- Images use Large. Live video uses Small on the CPU (about 4 FPS; Large manages about 0.4) and Large when OpenCV is built with CUDA. The venv's `opencv-python-headless` is CPU-only.
+- Only one program can hold the webcam, so stop `dream.py` / `app.py` surveillance before running it on the webcam.
+
+### Avatar depth effect
+
+A 2.5D parallax on her avatar videos, like After Effects' Displacement Map. Each clip has a depth map, and on playback the near parts (her face) shift more than the far parts along a slow sway, so the flat video gains a sense of depth. Off by default.
+
+1. Build the depth videos once (option `7d` in `python main.py`, about 8 minutes on the CPU):
+   ```bash
+   python scripts/depth_effect.py            # builds missing or outdated ones into videos/depth/
+   python scripts/depth_effect.py --force    # rebuild all (e.g. after changing clips)
+   ```
+2. Turn it on in `config.json` and restart `dream.py`:
+   ```json
+   "DepthEffect": { "Enabled": true, "Strength": 14, "Speed": 0.12, "Scale": 1.0 }
+   ```
+
+| Setting | Meaning |
+|---|---|
+| `Enabled` | On or off |
+| `Strength` | How far the nearest parts move, in pixels at 1080p (try 8-30) |
+| `Speed` | Sway cycles per second (0.12 = one sway every ~8 s) |
+| `Scale` | Resolution the warp runs at. `1.0` is full quality; lower it to `0.5` if the videos play slow (softer image, about 30% cheaper) |
+
+- Only the looping clips (idle, listening, thinking, talking, sleeping) get the effect. One-shot clips (intro, lipsync replies, flirt) play with audio and stay flat, so the lips can't drift out of sync.
+- The warp runs on the GPU when torch has CUDA, otherwise on the CPU, on a worker thread next to the video decoding. At 1080p it takes about 39 ms per frame on the GPU (just inside 24 fps) and about 53 ms on the CPU, so on a CPU-only machine use `Scale` 0.5.
+- The desktop app only (`dream.py`); the browser avatar page plays the plain videos.
 
 ### Monitoring
 - CPU load, RAM and disk (CPU temperature on Linux)
@@ -204,7 +245,7 @@ She bridges static code and emergent autonomous behavior.
 - [KIDA-Robot-v00](https://github.com/CursedPrograms/KIDA-Robot-v00)
 - [KIDA-Robot-v01](https://github.com/CursedPrograms/KIDA-Robot-v01)
 - [NORA-Robot-v00](https://github.com/CursedPrograms/NORA-Robot-v00)
-- [MILA-Robot-v01](https://github.com/CursedPrograms/MILA)
+- [MILA-Robot-v00](https://github.com/CursedPrograms/MILA-Robot-v00)
 - [ARM-Robot-v01](https://github.com/CursedPrograms/ARM-Robot-v01)
 - [RIFT](https://github.com/CursedPrograms/RIFT)
 
@@ -924,6 +965,7 @@ The server also registers itself on the network as `COMCENTRE` (zeroconf) and di
 |---|---|
 | `Config.DREAM.CharName`, `SystemPrompt` | Her name and personality prompt (`{name}` is filled in) |
 | `Config.DREAM.LipsyncEnabled` | MuseTalk lip-sync (needs its own setup; off by default) |
+| `Config.DREAM.DepthEffect` | 2.5D parallax on the avatar videos ([Avatar depth effect](#avatar-depth-effect); off by default) |
 | `Config.ComCentre.Port` | Main server port (default 5009) |
 | `Config.ComCentre.LocalPort` | The no-warning localhost port (default 5010) |
 | `Config.ComCentre.RiftHost`, `RiftPort` | Where the RIFT registry is |
@@ -991,6 +1033,8 @@ DREAM/
 │   ├── deep_dream*.py, nightmare_dreamer.py   Manual DeepDream tools
 │   ├── surveillance.py        Webcam photos, motion frames, shares frames with the mind
 │   ├── smart_surveillance.py  Offline analysis of motion frames
+│   ├── monocular_depth.py     Depth map from the webcam (MiDaS v2.1)
+│   ├── depth_effect.py        Avatar depth effect: builds videos/depth/, warps frames on playback
 │   └── scan_wifi.py           Network scanner
 ├── cpp_dream/                 DREAM as one C++ program (setup.bat, build.bat, dream.exe)
 ├── templates/, static/        Dashboard and avatar page (HTML, JS, CSS)
@@ -1056,4 +1100,10 @@ DREAM/
     <img src="https://github.com/CursedPrograms/cursedentertainment/raw/main/images/logos/logo-wide-grey.png"
         alt="CursedEntertainment Logo" style="width:250px;">
 </a>
+</div>
+<br>
+<div align="center">
+  <a href="https://github.com/SynthWomb" target="_blank">
+    <img src="https://github.com/SynthWomb/synth.womb/blob/main/logos/synthwomb07.png" alt="SynthWomb" style="width:200px;"/>
+  </a>
 </div>
