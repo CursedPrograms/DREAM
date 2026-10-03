@@ -874,6 +874,75 @@ def ask_llm(prompt, history, context=""):
 
 # ==================== SPEAK (Piper → MuseTalk → display) ====================
 
+# Piper voice kept loaded in-process. Spawning piper.exe per line reloaded the
+# ONNX model every time (6-10s+ under load) and its 15s timeout could expire on
+# a busy machine — the startup line was then silently dropped and she never spoke.
+_piper_voice = None
+_piper_lock  = threading.Lock()
+
+def _get_piper_voice():
+    global _piper_voice
+    with _piper_lock:
+        if _piper_voice is None:
+            from piper import PiperVoice
+            t0 = time.time()
+            _piper_voice = PiperVoice.load(VOICE_MODEL)
+            console.print(f"[green]OK[/green] Piper voice loaded in {time.time() - t0:.1f}s")
+        return _piper_voice
+
+def _synthesize(text: str, wav_path: str, prosody: dict | None = None) -> bool:
+    """Render text to wav_path with Piper. In-process when piper-tts imports,
+    otherwise falls back to the piper executable."""
+    try:
+        from piper import SynthesisConfig
+        voice = _get_piper_voice()
+    except Exception as e:
+        console.print(f"[yellow]Piper in-process unavailable ({e}) — using {os.path.basename(PIPER_BIN)}[/yellow]")
+        voice = None
+
+    if voice is not None:
+        p = prosody or {}
+        cfg = SynthesisConfig(
+            length_scale=p.get("length_scale"),
+            noise_scale=p.get("noise_scale"),
+            noise_w_scale=p.get("noise_w_scale"),
+        )
+        silence = bytes(int(voice.config.sample_rate * p.get("sentence_silence", 0.0)) * 2)
+        try:
+            with _piper_lock, wave.open(wav_path, "wb") as wf:
+                for i, chunk in enumerate(voice.synthesize(text, cfg)):
+                    if i == 0:
+                        wf.setframerate(chunk.sample_rate)
+                        wf.setsampwidth(chunk.sample_width)
+                        wf.setnchannels(chunk.sample_channels)
+                    elif silence:
+                        wf.writeframes(silence)
+                    wf.writeframes(chunk.audio_int16_bytes)
+            return True
+        except Exception as e:
+            console.print(f"[red]Piper synth error: {e}[/red]")
+            return False
+
+    args = mind_voice.piper_args(prosody) if (prosody and mind_voice) else []
+    try:
+        proc = subprocess.run(
+            [PIPER_BIN, "-m", VOICE_MODEL, "-f", wav_path, *args],
+            input=text.encode("utf-8"), capture_output=True, timeout=60,
+        )
+    except subprocess.TimeoutExpired:
+        console.print("[red]Piper timed out[/red]")
+        return False
+    if proc.returncode != 0:
+        console.print(f"[red]Piper error: {proc.stderr.decode(errors='replace')}[/red]")
+        return False
+    return True
+
+def _synthesize_warmup():
+    try:
+        _get_piper_voice()
+    except Exception as e:
+        console.print(f"[yellow]Piper preload failed ({e}) — will use {os.path.basename(PIPER_BIN)}[/yellow]")
+
 def _play_wav(wav_path: str):
     """Play a WAV through pygame.mixer.Sound and block until done.
 
@@ -925,20 +994,19 @@ def speak(text):
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False, dir=AUDIO_DIR)
     tmp.close()
     try:
-        prosody = []
+        prosody = None
         if MIND:
             try:   # sleepy, excited, down: her mood shapes how she sounds
-                prosody = mind_voice.piper_args(MIND.prosody())
+                prosody = MIND.prosody()
             except Exception:
                 pass
-        proc = subprocess.run(
-            [PIPER_BIN, "-m", VOICE_MODEL, "-f", tmp.name, *prosody],
-            input=text.encode("utf-8"), capture_output=True, timeout=15,
-        )
-        if proc.returncode != 0:
-            console.print(f"[red]Piper error: {proc.stderr.decode()}[/red]")
+        # Show "thinking" while the voice renders instead of whatever idle clip
+        # happens to be looping, so it never looks like she froze.
+        set_state("thinking")
+        if not _synthesize(text, tmp.name, prosody):
             return
         if not os.path.exists(tmp.name) or os.path.getsize(tmp.name) < 100:
+            console.print("[red]Piper produced no audio[/red]")
             return
 
         # Measure audio duration to set a tight MuseTalk wait ceiling.
@@ -1502,6 +1570,9 @@ class VideoStateManager:
 # ==================== MAIN VOICE LOOP ====================
 
 def voice_loop():
+    # Load the Piper voice now so it's warm by the time the intro clip ends.
+    threading.Thread(target=_synthesize_warmup, daemon=True).start()
+
     if LIPSYNC_ENABLED:
         # Load any pre-cached lipsync videos (Yes?, startup, etc.)
         _init_lipsync_cache()
@@ -1547,7 +1618,10 @@ def voice_loop():
         #    through to speak()'s plain "talking" pool (MuseTalk unavailable
         #    here) since force_video is already clear by the time it runs.
         if os.path.exists(STARTUP_INTRO_VIDEO):
-            set_state("talking")
+            # "thinking", not "talking": speak() below renders the voice in the
+            # thinking state, so the clip under the intro carries straight on
+            # instead of flashing a talking loop in between.
+            set_state("thinking")
             _state["force_video"] = STARTUP_INTRO_VIDEO
             if os.path.exists(STARTUP_INTRO_AUDIO):
                 _play_wav(STARTUP_INTRO_AUDIO)
@@ -1556,7 +1630,6 @@ def voice_loop():
                 # once (VideoStateManager clears force_video when it finishes).
                 while _state["force_video"] == STARTUP_INTRO_VIDEO and _state["running"]:
                     time.sleep(0.1)
-            set_state("idle")
 
         speak(STARTUP_TEXT)  # Generates + caches startup_intro.mp4 for next run
 
