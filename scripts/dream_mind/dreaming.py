@@ -23,6 +23,7 @@ import time
 from . import dream_images, dream_visions, llm, store
 
 DREAMS = "dreams.jsonl"
+MISSION_LOG = True   # post each dream to RIFT's mission log (selftest turns this off)
 INSIGHTS = "insights.jsonl"
 
 NREM_SECONDS = 20
@@ -138,6 +139,7 @@ class Dreamer:
         }
         store.append_jsonl(DREAMS, dream)
         self._journal(dream)
+        self._post_mission(dream)
         if images and not (stop is not None and stop.is_set()):
             self._paint(dream, stop)
         return dream
@@ -191,6 +193,28 @@ class Dreamer:
             self.mind.mood.appraise(-0.6, 0.5)
         elif dream["tone"] == "pleasant":
             self.mind.mood.appraise(0.5, 0.4)
+
+    @staticmethod
+    def _post_mission(dream):
+        """Tell the fleet: RIFT's mission log gets a line for each dream (in the background, never blocking her sleep)."""
+        if not MISSION_LOG:
+            return
+
+        def post():
+            import json as _json
+            import urllib.request
+            try:
+                with open(store.ROOT / "config.json", encoding="utf-8") as f:
+                    cc = _json.load(f)["Config"].get("ComCentre", {})
+                host, port = cc.get("RiftHost", "localhost"), cc.get("RiftPort", 5000)
+                kind = "a nightmare" if dream["tone"] == "nightmare" else f"a {dream['tone']} dream"
+                body = _json.dumps({"who": "DREAM", "text": f"DREAM had {kind}: {first_sentences(dream['text'], 200)}"}).encode()
+                req = urllib.request.Request(f"http://{host}:{port}/mission", data=body, headers={"Content-Type": "application/json"})
+                urllib.request.urlopen(req, timeout=3).close()
+            except Exception:
+                pass   # RIFT isn't running: the dream is in her own journal anyway
+
+        threading.Thread(target=post, daemon=True, name="dream-mission").start()
 
     @staticmethod
     def _journal(dream):

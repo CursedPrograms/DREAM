@@ -43,6 +43,7 @@ def main():
     store.set_dir(tmp)
     from . import dreaming, dream_world, vision
     dream_world.ENABLED = False   # no GAN training bursts in the middle of the tests
+    dreaming.MISSION_LOG = False  # test dreams stay out of RIFT's real mission log
     vision.set_photo_dirs([])
     try:   # DREAM's older fact files: keep them in the scratch folder too, so "forget everything" can't touch yours
         import dream_memory
