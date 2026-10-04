@@ -102,6 +102,10 @@ _CACHE_YES_WAV = os.path.join(AUDIO_DIR,  "cache_yes.wav")
 _CACHE_YES_VID = os.path.join(VIDEOS_DIR, "cache_yes_lipsync.mp4")
 _CACHE_BYE_WAV = os.path.join(AUDIO_DIR,  "cache_bye.wav")
 _CACHE_BYE_VID = os.path.join(VIDEOS_DIR, "cache_bye_lipsync.mp4")
+# What she'll say about her dream, rendered while she's still asleep (prepare_speech())
+_CACHE_DREAM_WAV = os.path.join(AUDIO_DIR,  "cache_dream.wav")
+_CACHE_DREAM_VID = os.path.join(VIDEOS_DIR, "cache_dream_lipsync.mp4")
+_dream_cache_text = None
 
 
 def _init_lipsync_cache():
@@ -967,6 +971,40 @@ def _play_wav(wav_path: str):
         del sound       # release pygame's file handle before caller deletes the file
 
 
+def prepare_speech(text):
+    """Render `text` now - voice, and lipsync if MuseTalk is up - so a later
+    speak(text) plays it instantly. The mind calls this while she sleeps, with
+    what she'll say about her dream; only the newest such line is kept."""
+    global _dream_cache_text
+    if not text:
+        return False
+    if _dream_cache_text and _dream_cache_text != text:
+        _lipsync_cache.pop(_dream_cache_text, None)
+    _dream_cache_text = None
+    if not _synthesize(text, _CACHE_DREAM_WAV):
+        return False
+    vid = None
+    if LIPSYNC_ENABLED and _musetalk_loaded and _musetalk_lock.acquire(timeout=60):
+        try:
+            import shutil as _shutil
+            mt_wav = _CACHE_DREAM_WAV + ".mt.wav"
+            _shutil.copy(_CACHE_DREAM_WAV, mt_wav)
+            out = run_musetalk(mt_wav)
+            if out and os.path.exists(out):
+                _shutil.copy(out, _CACHE_DREAM_VID)
+                vid = _CACHE_DREAM_VID
+        except Exception as e:
+            console.print(f"[yellow]Dream lipsync failed ({e}) - she'll just say it[/yellow]")
+        finally:
+            _musetalk_lock.release()
+            if os.path.exists(_CACHE_DREAM_WAV + ".mt.wav"):
+                os.unlink(_CACHE_DREAM_WAV + ".mt.wav")
+    _lipsync_cache[text] = (_CACHE_DREAM_WAV, vid)
+    _dream_cache_text = text
+    console.print(f"[dim]Ready to tell her dream on waking ({'voice + lipsync' if vid else 'voice'})[/dim]")
+    return True
+
+
 def speak(text):
     """
     Fast path (cached): instant lipsync from pre-generated wav+video.
@@ -978,10 +1016,15 @@ def speak(text):
         return
     console.print(f"\n[bold cyan]DREAM:[/bold cyan] {text}\n")
 
-    # ── Fast path: cached lipsync (Yes?, startup, etc.) ──────────────────────
+    # ── Fast path: cached lipsync (Yes?, startup, her dream, etc.) ───────────
     if text in _lipsync_cache:
         cached_wav, cached_vid = _lipsync_cache[text]
-        if os.path.exists(cached_wav) and os.path.exists(cached_vid):
+        if cached_vid is None and os.path.exists(cached_wav):   # voice only (no MuseTalk when it was made)
+            set_state("talking")
+            _play_wav(cached_wav)
+            set_state("idle")
+            return
+        if cached_vid and os.path.exists(cached_wav) and os.path.exists(cached_vid):
             set_state("talking")
             _state["force_video"] = cached_vid
             _play_wav(cached_wav)
@@ -1832,7 +1875,8 @@ def main():
         def _mind_state():
             return {"sleeping": _state["sleeping"], "state": _state["value"], "present": _state["presence_seen"]}
 
-        if MIND.start(host={"speak": _mind_speak, "sleep": enter_sleep, "state": _mind_state, "sensor": send_sensor_command}):
+        if MIND.start(host={"speak": _mind_speak, "sleep": enter_sleep, "state": _mind_state, "sensor": send_sensor_command,
+                            "prepare_speech": prepare_speech}):
             console.print("[magenta]Inner life started - mood, needs, memory and dreams are running[/magenta]")
         else:
             console.print("[yellow]Another DREAM already runs the inner life - this one stays passive[/yellow]")

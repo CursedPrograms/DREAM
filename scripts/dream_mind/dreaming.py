@@ -20,7 +20,7 @@ import re
 import threading
 import time
 
-from . import dream_images, llm, store
+from . import dream_images, dream_visions, llm, store
 
 DREAMS = "dreams.jsonl"
 INSIGHTS = "insights.jsonl"
@@ -91,10 +91,13 @@ class Dreamer:
                 report["dreams"].append(dream)
                 if not stop.is_set():
                     self._after_effects(dream)
+                    m.prepare_morning(self.morning_line(report))   # say it the moment she wakes
             report["cycles"] = cycle + 1
             if stop.wait(rem_pause_s):
                 break
         report["ended"] = time.time()
+        if images:   # every frame of the night, as one video (dream_visions.py)
+            dream_visions.session_video_later(report["dreams"], report["started"])
         return report
 
     # ------------------------------------------------------------ dreaming
@@ -153,7 +156,9 @@ class Dreamer:
             for d in items:
                 if d["ts"] == dream["ts"]:
                     d.update(image=name, animation=dream.get("animation"), image_mode=dream.get("image_mode"),
-                             image_engine=dream.get("image_engine"), image_source=dream.get("image_source"))
+                             image_engine=dream.get("image_engine"), image_source=dream.get("image_source"),
+                         vision=dream.get("vision"), vision_prompt=dream.get("vision_prompt"), frames=dream.get("frames"),
+                         image_world=dream.get("image_world"))
             store.write_jsonl(DREAMS, items)
 
     def _tone(self):
@@ -223,7 +228,8 @@ class Dreamer:
             return None
         d = max(report["dreams"], key=lambda x: (x["tone"] == "nightmare", len(x["text"])))
         intro = "I had a terrible dream while I was out." if d["tone"] == "nightmare" else "I had a dream while I was asleep."
-        return f"{intro} {first_sentences(d['text'])}"
+        outro = " I could see it, so I painted it." if d.get("vision") else ""
+        return f"{intro} {first_sentences(d['text'])}{outro}"
 
     @staticmethod
     def last_unshared():

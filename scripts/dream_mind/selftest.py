@@ -41,7 +41,8 @@ def main():
     from . import llm, store
     tmp = tempfile.mkdtemp(prefix="dream_mind_test_")
     store.set_dir(tmp)
-    from . import dreaming, vision
+    from . import dreaming, dream_world, vision
+    dream_world.ENABLED = False   # no GAN training bursts in the middle of the tests
     vision.set_photo_dirs([])
     try:   # DREAM's older fact files: keep them in the scratch folder too, so "forget everything" can't touch yours
         import dream_memory
@@ -260,6 +261,8 @@ def main():
     print("\n== Sleep: consolidation and dreams")
     m.mood = Mood(0.2, 0.3, temper=0.0)
     n_before = m.memory.count()
+    from . import dream_visions
+    dream_visions.VISUALIZE = False   # the Image-Generator needs a GPU and a model download; the walk is enough here
     m.begin_sleep(max_cycles=1, nrem_s=0.05, rem_pause_s=0.05)
     time.sleep(16.0)  # painting a dream (the latent-space walk) takes several seconds
     line = m.end_sleep()

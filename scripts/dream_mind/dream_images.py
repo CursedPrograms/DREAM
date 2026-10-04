@@ -36,7 +36,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import store
+from . import dream_visions, dream_world, store
 
 try:
     import cv2
@@ -263,11 +263,15 @@ def latent_walk(dream, seed, stop=None):
     except Exception:
         return None, None
     mode = choose_mode(dream["tone"], dream.get("cycle", 0))
+    # The spiral keeps the untrained network's abstract charm; the other walks go
+    # through the world she's learned from her own pictures, once she has (dream_world.py).
+    learned = None if mode == "spiral" else dream_world.learned_checkpoint()
+    dream["image_world"] = "learned" if learned else "untrained"
     ls.DEVICE = "cpu"                                   # small network; no need to touch the GPU
     ls.OUTPUT_DIR = images_dir() / "latent"
     stamp = time.strftime("%Y%m%d_%H%M%S", time.localtime(dream["ts"]))
     try:
-        session = ls.dream(mode=mode, frames=LATENT_FRAMES, image_size=LATENT_SIZE, seed=seed,
+        session = ls.dream(mode=mode, frames=LATENT_FRAMES, image_size=LATENT_SIZE, seed=seed, checkpoint=learned,
                            step_size=0.3 if dream["tone"] == "nightmare" else ls.DEFAULT_STEP_SIZE,
                            session_tag=f"{stamp}_{dream.get('cycle', 0)}", verbose=False)
     except Exception as e:
@@ -338,6 +342,7 @@ def paint(mind, dream, stop=None):
                     cv2.imwrite(str(out), cv2.resize(dreamt, (LATENT_SIZE * 2, LATENT_SIZE * 2), interpolation=cv2.INTER_CUBIC),
                                 [cv2.IMWRITE_JPEG_QUALITY, 90])
         dream.update(image_engine=engine, image_mode=mode, image_source=described)
+        _visualize(dream, world, stop)
         return name
 
     # no PyTorch: the pure OpenCV dream
@@ -356,4 +361,20 @@ def paint(mind, dream, stop=None):
             return None
         cv2.imwrite(str(out), img, [cv2.IMWRITE_JPEG_QUALITY, 88])
     dream["image_engine"], dream["image_source"] = engine, described
+    painted = cv2.imread(str(out))
+    _visualize(dream, [painted] if painted is not None else [], stop)
     return name
+
+
+def _visualize(dream, world, stop):
+    """Keep the frames for the night's video, then let the Image-Generator see
+    the dream's words (dream_visions.py). Sets dream["vision"] when it could."""
+    try:
+        if world:
+            dream["frames"] = dream_visions.save_world(dream, world).name
+        vision = dream_visions.visualize(dream, stop)
+        if vision:
+            dream["vision"] = vision
+            dream["image_engine"] += "+imagegen"
+    except Exception as e:
+        print(f"[mind] couldn't visualize the dream: {e}")

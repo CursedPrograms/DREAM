@@ -15,6 +15,7 @@
     "DREAM": {
       "CharName": "DREAM",
       "LipsyncEnabled": false,
+      "DreamImageModel": "auto",
       "DepthEffect": {
         "Enabled": false,
         "Strength": 14,

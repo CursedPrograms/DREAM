@@ -64,6 +64,10 @@ With her inner life switched on (it is by default), a step sits between hearing 
 Mic → Whisper → boundaries + memory + mood (dream_mind) → Ollama → Piper (voice shaped by her mood) → Speaker
 ```
 
+## Options
+
+`options.bat` opens a game-style options menu for `config.json` (the same menu every bot has): sections as menus, on/off toggles, number steppers, text fields, and fixed choices from `options_choices.json`. Saving keeps `config.json.bak`.
+
 ## Ways to run DREAM
 
 | How | Command | What you get | Needs |
@@ -238,7 +242,11 @@ A 2.5D parallax on her avatar videos, like After Effects' Displacement Map. Each
 ### Sleep Mode
 - Cycles through **consolidation** (the day's memories are replayed, the important ones strengthen, the trivial ones fade) and **dreaming**
 - Each dream is a short story built from her real memories, and is **painted** by the latent-space dream engine (`latent_space.py`), with a still and an animation
-- Someone appearing at the sensor, or "wake up", wakes her; she may tell you what she dreamed
+- **Dream visions:** the dream's own words go to the [Image-Generator](https://github.com/CursedPrograms/Image-Generator) (`scripts/generate.py`): a picture of the dream (`output/dreams/vision_*.jpg`), and 8 frames of her latent walk re-imagined with the same prompt. Model: `DreamImageModel` in `config.json` (`auto` = SDXL-Turbo with 12 GB of RAM or more, else SD-Turbo; or `sd-turbo` / `sdxl-turbo` / any Hugging Face id)
+- **The night's film:** when she wakes, every frame of the night (each dream's walk, then its visions crossfading) becomes `output/dreams/dreams_<time>.mp4`
+- **She tells you first thing:** after each dream, while still asleep, she renders what she'll say about it (voice, and lipsync if MuseTalk is on) into her speech cache, so on waking she says it at once
+- **She learns her own dream world:** while awake and idle she trains a copy of her dream network on her photos and painted dreams (a small GAN, 5-minute bursts, stopped the moment she's needed). The spiral dreams keep the untrained network's abstract look; the others walk through what she's learned once it's had 3000 steps (`output/dreams/dream_world_learning.jpg` shows how far she's got)
+- Someone appearing at the sensor, or "wake up", wakes her
 - The details are under [Inner Life](#inner-life)
 
 ---

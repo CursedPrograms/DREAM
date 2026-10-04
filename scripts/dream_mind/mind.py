@@ -27,6 +27,7 @@ import time
 from . import llm, store
 from .affect import Mood, affection, disclosure, sentiment
 from .dreaming import Dreamer, first_sentences
+from .dream_world import IDLE_AFTER_S, WorldTrainer
 from .drives import Drives, hour_of_day
 from .expression import ExpressionSensor
 from . import frames
@@ -93,6 +94,7 @@ class Mind:
         self._last_body = 0.0
         self.self_model = SelfModel()
         self.dreamer = Dreamer(self)
+        self.world = WorldTrainer(self)        # learns her dream world from her pictures while she's idle
         self.tools = ToolBox()
         self.executive = Executive(self, self.tools)
 
@@ -181,6 +183,7 @@ class Mind:
 
     def stop(self):
         self._stop.set()
+        self.world.stop()
         self._stop_expression()
         self.end_sleep()
         if self._thread:
@@ -226,7 +229,11 @@ class Mind:
         if sleeping and self._sleep_thread is None:
             self.begin_sleep()
         elif not sleeping and self._sleep_thread is not None:
-            self.end_sleep()
+            self._tell_dream(self.end_sleep(), now)
+
+        idle = (not sleeping and not self.conversation_active and not self._reflecting
+                and now - self.last_user_ts > IDLE_AFTER_S and hs.get("state", "idle") == "idle")
+        self.world.tick(now, idle)
 
         if not sleeping:
             if now - self._last_vision > VISION_EVERY_S:
@@ -481,6 +488,7 @@ class Mind:
         with self._lock:
             if self._sleep_thread is not None:
                 return
+            self.world.stop()   # sleep needs the machine: painting, visions
             self._sleep_stop = threading.Event()
             self._sleep_report = None
             kwargs = dict(session_kwargs, use_llm=self.use_llm)
@@ -509,6 +517,24 @@ class Mind:
 
     def sleep_report(self):
         return self._sleep_report
+
+    def prepare_morning(self, line):
+        """Called from the sleep thread after each dream: have the host render what
+        she'll say on waking now, so it plays the moment she's up (dream.py caches it)."""
+        if line and self.host.get("prepare_speech"):
+            try:
+                self._host("prepare_speech", line)
+            except Exception as e:
+                print(f"[mind] couldn't prepare the morning line: {e}")
+
+    def _tell_dream(self, line, now):
+        """First thing on waking: tell whoever's there what she dreamed."""
+        if not line or not self.host.get("speak"):
+            return
+        self._host("speak", line)
+        for d in (self._sleep_report or {}).get("dreams", []):
+            self.dreamer.mark_shared(d)
+        self.executive.last_spoken = now
 
     # ---- voice
     def prosody(self):
