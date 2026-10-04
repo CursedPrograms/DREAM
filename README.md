@@ -1090,6 +1090,16 @@ DREAM/
 
 ---
 
+## Screenshots
+
+<div align="center">
+  <img src="images/screenshots/comcentre-dashboard.png" alt="ComCentre dashboard" width="640"/>
+</div>
+
+<p align="center"><i>ComCentre dashboard. Captured without a robot connected, so live values show their offline state.</i></p>
+
+---
+
 <br>
 <div align="center">
 © Cursed Entertainment 2026

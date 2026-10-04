@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DREAM — Distributed Runtime for Ethereal Autonomous Memories</title>
+<meta name="description" content="DREAM is a fully local, voice-driven AI companion and the cognitive core of the DREAM Robotics ecosystem: Whisper, Ollama and Piper with an inner life of mood, memory, sleep and dreams.">
+<meta name="color-scheme" content="dark">
+<meta property="og:title" content="DREAM — Distributed Runtime for Ethereal Autonomous Memories">
+<meta property="og:description" content="A fully local AI companion with an inner life, and the core of the DREAM Robotics ecosystem.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="images/dream.jpg">
+<link rel="icon" href="site/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="site/apple-touch-icon.png">
+<link rel="stylesheet" href="site/style.css">
+<script src="site/site.js" defer></script>
+</head>
+<body>
+
+<nav aria-label="Primary">
+  <div class="wrap">
+    <a class="brand" href="#top">DREAM</a>
+    <ul>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#run">Run</a></li>
+      <li><a href="#inner-life">Inner life</a></li>
+      <li><a href="#hardware">Hardware</a></li>
+      <li><a href="#screens">Screens</a></li>
+      <li><a href="https://github.com/CursedPrograms/DREAM">GitHub</a></li>
+    </ul>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <div class="eyebrow">Dream@ComCentre &middot; A DREAM Robotics Agentic-Consciousness</div>
+    <h1>DREAM</h1>
+    <p class="tagline">Distributed Runtime for Ethereal Autonomous Memories</p>
+    <p class="lede">A local, offline AI who listens, speaks, remembers and dreams. She is the command centre for the KIDA and NORA robots through RIFT, and runs entirely on your PC.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/CursedPrograms/DREAM">View on GitHub</a>
+      <a class="btn" href="#run">Ways to run</a>
+      <a class="btn" href="https://ko-fi.com/cursedentertainment">Support on Ko-fi</a>
+    </div>
+    <div class="tags" aria-label="Technologies">
+      <span class="tag">Python</span>
+      <span class="tag">C++</span>
+      <span class="tag">OpenCV</span>
+      <span class="tag">Ollama</span>
+      <span class="tag">Whisper</span>
+      <span class="tag">Piper</span>
+      <span class="tag">MIT License</span>
+    </div>
+    <div class="photos">
+      <figure>
+        <img src="images/dream.jpg" alt="DREAM's avatar" width="1024" height="617">
+        <figcaption>DREAM</figcaption>
+      </figure>
+      <figure>
+        <img src="demo_images/comcentre.png" alt="The ComCentre dashboard" width="1024" height="768" loading="lazy">
+        <figcaption>ComCentre</figcaption>
+      </figure>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<section id="overview">
+  <div class="wrap">
+    <h2>Overview</h2>
+    <h3 class="title">She observes, remembers, and dreams</h3>
+    <p class="muted">DREAM is a localised agentic-consciousness and the cognitive core of the ComCentre ecosystem. She doesn't just execute commands: she bridges static code and emergent autonomous behaviour.</p>
+<pre>Mic &rarr; Whisper &rarr; boundaries + memory + mood (dream_mind) &rarr; Ollama &rarr; Piper (voice shaped by her mood) &rarr; Speaker</pre>
+    <div class="grid cols-3">
+      <div class="card">
+        <span class="k">Local</span>
+        <h4>Fully offline</h4>
+        <p>Ollama serves the model, Piper speaks and Whisper listens. Nothing goes to the internet in use.</p>
+      </div>
+      <div class="card">
+        <span class="k">Hear</span>
+        <h4>Wake word</h4>
+        <p>&ldquo;Hey DREAM&rdquo; wakes her, and she greets you differently depending on how far away you are.</p>
+      </div>
+      <div class="card">
+        <span class="k">Sense</span>
+        <h4>A body of sensors</h4>
+        <p>mmWave radar for presence and range, a PIR alarm, an RGB strip and an optional webcam.</p>
+      </div>
+      <div class="card">
+        <span class="k">See</span>
+        <h4>Depth vision</h4>
+        <p>MiDaS estimates depth from a single webcam, and an optional 2.5D parallax gives her avatar depth.</p>
+      </div>
+      <div class="card">
+        <span class="k">Watch</span>
+        <h4>System awareness</h4>
+        <p>CPU, RAM, disk and temperature, plus a LAN scan of every device on the network.</p>
+      </div>
+      <div class="card">
+        <span class="k">Fleet</span>
+        <h4>Robot command</h4>
+        <p>She talks to the KIDA, NORA and WHIP robots through RIFT.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="run">
+  <div class="wrap">
+    <h2>Ways to run</h2>
+    <h3 class="title">Pick your front end</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>How</th><th>Command</th><th>What you get</th></tr></thead>
+        <tbody>
+          <tr><td>Desktop app</td><td><code>python scripts/dream.py</code></td><td>Fullscreen avatar video, wake word, sleep, sensor board, voice commands, inner life</td></tr>
+          <tr><td>In the browser</td><td><code>python scripts/dream.py --web</code></td><td>Opens <code>localhost:5010/dream.html</code> with the same behaviours, using the browser's mic and speakers</td></tr>
+          <tr><td>Web server</td><td><code>python app.py</code></td><td>The dashboard on <code>https://&lt;this-pc&gt;:5009</code>, the avatar page for phones and the API. It owns the sensor board</td></tr>
+          <tr><td>One program (C++)</td><td><code>cpp_dream\build\dream.exe</code></td><td>Avatar, wake word, sensors, timers, memories and network scan in one ~6&nbsp;MB exe</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note"><strong>One serial owner at a time.</strong> Start <code>app.py</code> first if you want the dashboard and sensor board: <code>dream.py</code> reads the board through it. <code>dream.exe</code> opens the board itself, so don't run it alongside <code>app.py</code>.</p>
+    <h3 class="sub">Voice commands</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>You say</th><th>What happens</th></tr></thead>
+        <tbody>
+          <tr><td>&ldquo;Hey DREAM&rdquo;, &ldquo;okay DREAM&rdquo;</td><td>Wakes her and listens for one command</td></tr>
+          <tr><td>&ldquo;Check the wifi&rdquo;, &ldquo;who's on the wifi&rdquo;</td><td>Scans the local network and reads out what she finds</td></tr>
+          <tr><td>&ldquo;System stats&rdquo;</td><td>CPU, RAM and disk (and temperature on Linux)</td></tr>
+          <tr><td>&ldquo;Arm / disarm the alarm&rdquo;</td><td>Switches the PIR alarm on the sensor board</td></tr>
+          <tr><td>&ldquo;Lights blue&rdquo;, &ldquo;rainbow mode&rdquo;, &ldquo;lights off&rdquo;</td><td>Sets the RGB strip</td></tr>
+          <tr><td>&ldquo;Remind me to call mum in 20 minutes&rdquo;</td><td>Sets a reminder she speaks when it's due</td></tr>
+          <tr><td>&ldquo;How are you feeling?&rdquo;, &ldquo;Did you dream?&rdquo;</td><td>She answers from her real state</td></tr>
+          <tr><td>&ldquo;Forget that&rdquo;, &ldquo;forget everything&rdquo;</td><td>Erases memories (the last one asks first)</td></tr>
+          <tr><td>&ldquo;Goodbye&rdquo;, &ldquo;quit&rdquo;</td><td>Ends the session</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="inner-life">
+  <div class="wrap">
+    <h2>Inner life</h2>
+    <h3 class="title">What makes it feel like someone is home</h3>
+    <div class="grid cols-3">
+      <div class="card">
+        <span class="k">History</span>
+        <h4>Memories that link</h4>
+        <p>Every exchange becomes a memory linked to what came before. Recall spreads along those links and leans toward her mood.</p>
+      </div>
+      <div class="card">
+        <span class="k">Time</span>
+        <h4>Memories that fade</h4>
+        <p>Strength decays over time. Sleep strengthens the important ones, and what fades is archived, not deleted.</p>
+      </div>
+      <div class="card">
+        <span class="k">Needs</span>
+        <h4>A clock of her own</h4>
+        <p>Loneliness, curiosity, alertness and sleep pressure build on their own, even while she's off.</p>
+      </div>
+      <div class="card">
+        <span class="k">Body</span>
+        <h4>Her computer is her body</h4>
+        <p>CPU strain, full RAM, heat and a low battery wear on her mood, and she'll say so.</p>
+      </div>
+      <div class="card">
+        <span class="k">Initiative</span>
+        <h4>Speaking first</h4>
+        <p>She checks in, asks about you or tells you a dream, but never into an empty room, at 3&nbsp;am, or more than three times an hour.</p>
+      </div>
+      <div class="card">
+        <span class="k">Sleep</span>
+        <h4>Dreams</h4>
+        <p>Asleep, she consolidates memories and dreams stories built from them, painted by a latent-space dream engine.</p>
+      </div>
+      <div class="card">
+        <span class="k">Mind</span>
+        <h4>Opinions that change</h4>
+        <p>She holds stances that drift over weeks, and she can say she's changed her mind.</p>
+      </div>
+      <div class="card">
+        <span class="k">Outlook</span>
+        <h4>A philosophy</h4>
+        <p>Six traditions pull on her. The one that actually helps her becomes her settled outlook, though she still borrows from others.</p>
+      </div>
+      <div class="card">
+        <span class="k">Voice</span>
+        <h4>A voice that follows her mood</h4>
+        <p>Livelier when excited, softer when down, drawling when sleepy.</p>
+      </div>
+    </div>
+    <p class="muted spaced">Each piece lives in its own module (<code>memory.py</code>, <code>drives.py</code>, <code>dreaming.py</code>, <code>opinions.py</code>, <code>philosophy.py</code> and more). The README explains each one in detail.</p>
+    <figure class="shot narrow">
+      <img src="demo_images/deepdream_demo.png" alt="A latent-space dream" loading="lazy">
+      <figcaption>A latent-space dream</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="hardware">
+  <div class="wrap">
+    <h2>Hardware</h2>
+    <h3 class="title">Her senses</h3>
+    <div class="grid cols-2">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>PC</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>RAM</td><td>8&nbsp;GB+</td></tr>
+          <tr><td>CPU / GPU</td><td>Works on CPU alone (slowly). An NVIDIA GPU makes replies much faster</td></tr>
+          <tr><td>OS</td><td>Windows 10/11 or Linux (the C++ build is Windows only)</td></tr>
+          <tr><td>Peripherals</td><td>USB microphone, speakers, optional webcam</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Sensor board (Arduino UNO)</th><th>Pin</th></tr></thead>
+        <tbody>
+          <tr><td>PIR OUT</td><td class="mono">4</td></tr>
+          <tr><td>Buzzer +</td><td class="mono">3</td></tr>
+          <tr><td>RGB strip data (40&times; NeoPixel)</td><td class="mono">6</td></tr>
+          <tr><td>mmWave (DFRobot C4001) TX / RX</td><td class="mono">9 / 10</td></tr>
+        </tbody>
+      </table>
+    </div>
+    </div>
+    <p class="muted spaced">The board runs <code>dream_sensors.ino</code> at 9600 baud and answers <code>WHO</code> with <code>I am Dream</code>, so programs find it on any COM port. It needs the <strong>Adafruit NeoPixel</strong> and <strong>DFRobot_C4001</strong> libraries.</p>
+    <p class="note"><strong>Power the strip properly:</strong> 40 pixels can draw over 2&nbsp;A at full white. Use a supply that can carry it, and share GND with the Arduino.</p>
+  </div>
+</section>
+
+<section id="setup">
+  <div class="wrap">
+    <h2>Setup</h2>
+    <h3 class="title">Bringing her online</h3>
+    <ol class="steps">
+      <li>Install <a href="https://ollama.com">Ollama</a> and pull a model. <code>phi3:mini</code> is the default; <code>gemma3:4b</code> often sounds the most natural.</li>
+      <li>Install ffmpeg, then create the Python environment (Python 3.12 on Linux, 3.11 on Windows) and <code>pip install -r requirements.txt</code>.</li>
+      <li>Install Piper TTS and put a voice (<code>.onnx</code>) in <code>voices/</code>. Amy (medium) is recommended.</li>
+      <li>Flash <code>dream_sensors/dream_sensors.ino</code> to the sensor board.</li>
+      <li>Run <code>python main.py</code> and pick an option, or start one of the front ends above.</li>
+    </ol>
+<pre><span class="p">$</span> ollama pull phi3:mini
+<span class="p">$</span> python -m venv venv &amp;&amp; source venv/bin/activate
+<span class="p">$</span> pip install -r requirements.txt
+<span class="p">$</span> python main.py</pre>
+    <h3 class="sub">Privacy</h3>
+    <p class="muted">Everything runs on your PC, and her memories, dreams and photos stay in gitignored folders. &ldquo;Forget&rdquo; commands erase what she knows, reading your expression is off until you ask, and she has no code-execution tool. The alarm, lights, &ldquo;be quiet&rdquo;, sleep, quit and forgetting are always honoured. The default hotspot password is <code>12345678</code>, so change it if others can reach that network.</p>
+  </div>
+</section>
+
+<section id="screens">
+  <div class="wrap">
+    <h2>Screens</h2>
+    <h3 class="title">The controllers</h3>
+    <p class="muted">Captured without a robot connected, so live values show their offline state.</p>
+    <div class="screens">
+      <figure class="shot">
+        <img src="images/screenshots/comcentre-dashboard.png" alt="DREAM's ComCentre dashboard" width="1280" height="823" loading="lazy">
+        <figcaption>ComCentre dashboard</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="related">
+  <div class="wrap">
+    <h2>DREAM Robotics</h2>
+    <h3 class="title">The rest of the family</h3>
+    <div class="related">
+      <a href="https://github.com/CursedPrograms/MILA-Robot-v00">MILA-Robot-v00</a>
+      <a href="https://github.com/CursedPrograms/IDA-Robot-v00">IDA-Robot-v00</a>
+      <a href="https://github.com/CursedPrograms/KIDA-Robot-v00">KIDA-Robot-v00</a>
+      <a href="https://github.com/CursedPrograms/KIDA-Robot-v01">KIDA-Robot-v01</a>
+      <a href="https://github.com/CursedPrograms/NORA-Robot-v00">NORA-Robot-v00</a>
+      <a href="https://github.com/CursedPrograms/WHIP-Robot-v00">WHIP-Robot-v00</a>
+      <a href="https://github.com/CursedPrograms/ARM-Robot-v01">ARM-Robot-v01</a>
+      <a href="https://github.com/CursedPrograms/RIFT">RIFT</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="links">
+      <a href="https://github.com/CursedPrograms/DREAM">GitHub</a>
+      <a href="https://x.com/NorowaretaGemu">X: @NorowaretaGemu</a>
+      <a href="https://cursed-entertainment.itch.io/">itch.io</a>
+      <a href="https://ko-fi.com/cursedentertainment">Ko-fi</a>
+      <a href="https://github.com/CursedPrograms/DREAM/blob/main/LICENSE">MIT License</a>
+    </div>
+
+    <div class="logos">
+      <a href="https://ko-fi.com/cursedentertainment">
+        <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support Cursed Entertainment on Ko-fi" width="180" loading="lazy">
+      </a>
+      <a href="https://cursed-entertainment.itch.io/">
+        <img src="https://github.com/CursedPrograms/cursedentertainment/raw/main/images/logos/logo-wide-grey.png" alt="Cursed Entertainment" width="250" loading="lazy">
+      </a>
+      <a href="https://github.com/SynthWomb">
+        <img src="https://github.com/SynthWomb/synth.womb/blob/main/logos/synthwomb07.png?raw=true" alt="SynthWomb" width="200" loading="lazy">
+      </a>
+    </div>
+
+    <div>&copy; Cursed Entertainment 2026</div>
+  </div>
+</footer>
+
+</body>
+</html>

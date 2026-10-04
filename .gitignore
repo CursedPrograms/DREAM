@@ -132,7 +132,7 @@ venv.bak/
 .ropeproject
 
 # mkdocs documentation
-/site
+# /site  (mkdocs output - not used here; site/ holds the GitHub Pages assets)
 
 # mypy
 .mypy_cache/
