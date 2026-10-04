@@ -119,6 +119,7 @@
       <table>
         <thead><tr><th>How</th><th>Command</th><th>What you get</th></tr></thead>
         <tbody>
+          <tr><td><strong>Everything</strong> (start here)</td><td><code>run.bat</code></td><td>Sets up <code>venv311</code> the first time, then starts <code>app.py</code> and <code>dream.py</code> together, so she registers with RIFT and her sensor board works. Closing DREAM closes the server</td></tr>
           <tr><td>Desktop app</td><td><code>python scripts/dream.py</code></td><td>Fullscreen avatar video, wake word, sleep, sensor board, voice commands, inner life</td></tr>
           <tr><td>In the browser</td><td><code>python scripts/dream.py --web</code></td><td>Opens <code>localhost:5010/dream.html</code> with the same behaviours, using the browser's mic and speakers</td></tr>
           <tr><td>Web server</td><td><code>python app.py</code></td><td>The dashboard on <code>https://&lt;this-pc&gt;:5009</code>, the avatar page for phones and the API. It owns the sensor board</td></tr>
@@ -127,6 +128,8 @@
       </table>
     </div>
     <p class="note"><strong>One serial owner at a time.</strong> Start <code>app.py</code> first if you want the dashboard and sensor board: <code>dream.py</code> reads the board through it. <code>dream.exe</code> opens the board itself, so don't run it alongside <code>app.py</code>.</p>
+    <h3 class="sub">Talking, in Brainfuck</h3>
+    <p class="muted">Every phrase is a <strong>Brainfuck</strong> program that prints its words &mdash; hello is <code>++++++++[&gt;+++++++++++++&lt;-]&gt;.+.</code> &rarr; <code>hi</code> &mdash; and a robot says it by beeping the program on its buzzer, one tone per symbol, in its own voice. <a href="https://cursedprograms.github.io/RIFT/">RIFT</a> runs the conversations and asks each robot to speak with <code>GET /chirp?u=&lt;0-13&gt;</code> (phrases 0&ndash;6, replies 7&ndash;13). DREAM&rsquo;s voice is deep and slow: <code>app.py</code> sends <code>TALK:&lt;u&gt;</code> to the sensor board, which beeps it on its buzzer (not during an alarm).</p>
     <h3 class="sub">Voice commands</h3>
     <div class="table-wrap">
       <table>

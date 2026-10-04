@@ -482,8 +482,8 @@ Differences from the desktop app: no MuseTalk lip-sync (she uses the generic tal
 Files: `templates/dream.html`, `static/js/dream.js`, `scripts/web_launcher.py` (the launcher).
 
 ### RIFT Integration
-To connect via [RIFT](https://github.com/CursedPrograms/RIFT), ensure DREAM is active on:
-* `localhost:5001`
+`app.py` (ComCentre) registers DREAM with [RIFT](https://github.com/CursedPrograms/RIFT) every few seconds, so start it (or `run.bat`, which starts it with DREAM). RIFT reaches her on:
+* `https://<this-pc>:5009` (`http://localhost:5010` on this PC)
 
 </details>
 
