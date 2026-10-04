@@ -110,6 +110,8 @@ nav ul a.active { color: var(--accent); }
 .shot { margin: 24px 0 0; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 .shot img { display: block; width: 100%; height: auto; }
 .shot figcaption { font: 12px var(--mono); letter-spacing: .15em; text-transform: uppercase; color: var(--sub); padding: 10px 14px; }
+.promo { margin: 32px auto 0; }
+.promo video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #000; }
 
 /* sections */
 section { padding: 56px 0; border-top: 1px solid var(--border); }
