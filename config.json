@@ -30,6 +30,7 @@
       "CharName": "ComCentre",
       "Host": "0.0.0.0",
       "Port": 5009,
+      "PhonePort": 5001,
       "StaticIP": "192.168.1.101",
       "ZeroconfName": "COMCENTRE",
       "ZeroconfType": "_flask-link._tcp.local.",

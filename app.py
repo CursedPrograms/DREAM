@@ -84,6 +84,10 @@ THIS_PORT     = comcentre_cfg.get("Port", 5009)
 # Plain-HTTP page on this PC only: localhost counts as a secure context, so the browser
 # gives the mic to /dream.html without the self-signed-certificate warning.
 LOCAL_HTTP_PORT = comcentre_cfg.get("LocalPort", 5010)
+# DREAM on your phone: her own site (/dream.html - the avatar, voice and
+# behaviours of the desktop app) on its own port, so ComCentre's dashboard
+# and API stay on THIS_PORT. Same Flask app; "/" on this port is her page.
+PHONE_PORT    = comcentre_cfg.get("PhonePort", 5001)
 
 WIFI_TRIGGERS  = [
     "check wifi","wifi scan","scan wifi","who's on the wifi","who is on the wifi",
@@ -951,6 +955,8 @@ def events():
 # ── REST endpoints ─────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
+    if request.host.rsplit(":", 1)[-1] == str(PHONE_PORT):   # DREAM's own site: straight to her
+        return render_template("dream.html", char_name=CHAR_NAME)
     return render_template("index.html", char_name=CHAR_NAME)
 
 @app.route("/settings.html")
@@ -1371,9 +1377,17 @@ if __name__ == "__main__":
 
     https_ok = ensure_self_signed_cert()
     run_kwargs = {"host": "0.0.0.0", "port": THIS_PORT, "debug": False, "threaded": True}
+    # DREAM's own site on PHONE_PORT (HTTPS when we have a certificate: a
+    # phone only gives the page the microphone over a secure connection).
+    phone_kwargs = {"host": "0.0.0.0", "port": PHONE_PORT, "debug": False, "threaded": True, "use_reloader": False}
+    if https_ok:
+        phone_kwargs["ssl_context"] = (CERT_PATH, KEY_PATH)
+    threading.Thread(target=lambda: app.run(**phone_kwargs), daemon=True).start()
+    scheme = "https" if https_ok else "http"
+    print(f"[ComCentre] DREAM on your phone: {scheme}://{MY_IP}:{PHONE_PORT}")
     if https_ok:
         run_kwargs["ssl_context"] = (CERT_PATH, KEY_PATH)
-        print(f"[ComCentre] HTTPS enabled — open https://{MY_IP}:{THIS_PORT}/dream.html on your phone")
+        print(f"[ComCentre] HTTPS enabled — dashboard on https://{MY_IP}:{THIS_PORT}")
         print("[ComCentre] (accept the one-time self-signed certificate warning)")
         threading.Thread(
             target=lambda: app.run(host="127.0.0.1", port=LOCAL_HTTP_PORT, debug=False, threaded=True, use_reloader=False),

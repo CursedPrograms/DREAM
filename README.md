@@ -71,7 +71,7 @@ Mic → Whisper → boundaries + memory + mood (dream_mind) → Ollama → Piper
 | **Everything (start here)** | `run.bat` | Sets up `venv311` the first time (and again when `requirements.txt` changes), then starts `app.py` (minimised window) **and** `dream.py` together - so DREAM registers with RIFT and her sensor board works. Closing DREAM closes the server too | Python 3.11, Ollama, Piper |
 | **Desktop app** | `python scripts/dream.py` (or option `1` in `python main.py`) | Fullscreen avatar video, "Hey DREAM" wake word, sleep and wake, sensor board, voice commands, inner life | The venv, Ollama, Piper, microphone, speakers, a display |
 | **In the browser** | `python scripts/dream.py --web` (option `1w`) | Starts `app.py` if needed and opens `http://localhost:5010/dream.html`. Same behaviours, using the browser's microphone and speakers | The venv, Ollama, Piper, a browser |
-| **Web server and dashboard** | `python app.py` (option `5`) | Dashboard at `https://<this-pc>:5009`, the avatar page for phones, the API, and it owns the sensor board | The venv, Ollama, Piper |
+| **Web server and dashboard** | `python app.py` (option `5`) | Dashboard and API at `https://<this-pc>:5009`, **DREAM on your phone** at `https://<this-pc>:5001`, and it owns the sensor board | The venv, Ollama, Piper |
 | **One program (C++)** | `cpp_dream\build\dream.exe` | Fullscreen avatar, wake word, sensors, timers, memories, stats and network scan in one `.exe` | Built with `cpp_dream\build.bat` |
 
 Which to pick: `dream.py` is the full experience on the PC with the screen. Start `app.py` first if you want the dashboard and the sensor board, because `dream.py` reads the board *through* `app.py`. The browser version is for a phone or a second screen. `dream.exe` is the standalone build and opens the sensor board itself, so **don't run it at the same time as `app.py`** (only one program can hold a serial port).
@@ -88,7 +88,7 @@ The robots talk in **Brainfuck**: every phrase is a Brainfuck program that print
          |  USB serial
          v
    +-----------------------------------------------------------------------------+
-   |  app.py  (Flask, ports 5009 HTTPS / 5010 HTTP-localhost)                     |
+   |  app.py  (Flask, ports 5009 HTTPS / 5001 DREAM / 5010 HTTP-localhost)        |
    |  owns the sensor board · /events stream · /api/* · dashboard · /dream.html   |
    +--------+-----------------------------+--------------------------+-----------+
             | events, commands            | browsers / phones        | RIFT, NORA
@@ -465,7 +465,7 @@ CMake downloads the Whisper model too, using `curl` (included with Windows 10/11
 Not ported: MuseTalk lip-sync (she uses the talking clips instead) and the deep-dream image generation while asleep. A spoken command ends after 1.5 seconds of silence rather than always recording 16 seconds, and short lines like "Yes?" and "Bye for now." are cached after the first time so they play instantly.
 
 ### DREAM in the browser
-`python scripts/dream.py --web` (or menu option `1w` in `main.py`) starts `app.py` if it isn't already running and opens `http://localhost:5010/dream.html`. That address is a plain-HTTP listener on this PC only, so the browser gives you the microphone with no certificate warning; other devices on the network use `https://<this-pc>:5009/dream.html` and accept the one-time self-signed certificate warning.
+`python scripts/dream.py --web` (or menu option `1w` in `main.py`) starts `app.py` if it isn't already running and opens `http://localhost:5010/dream.html`. That address is a plain-HTTP listener on this PC only, so the browser gives you the microphone with no certificate warning; other devices use DREAM's own site, `https://<this-pc>:5001` (straight to her), and accept the one-time self-signed certificate warning.
 
 Tap the start screen once (browsers only allow sound and the microphone after a tap). Then the page behaves like the desktop `dream.py`:
 
@@ -483,7 +483,7 @@ Files: `templates/dream.html`, `static/js/dream.js`, `scripts/web_launcher.py` (
 
 ### RIFT Integration
 `app.py` (ComCentre) registers DREAM with [RIFT](https://github.com/CursedPrograms/RIFT) every few seconds, so start it (or `run.bat`, which starts it with DREAM). RIFT reaches her on:
-* `https://<this-pc>:5009` (`http://localhost:5010` on this PC)
+* `https://<this-pc>:5009` (`http://localhost:5010` on this PC); DREAM's own site is on `https://<this-pc>:5001`
 
 </details>
 
@@ -904,6 +904,7 @@ To test the real `dream.py` (its actual `main()` and `voice_loop()`, with only t
 | Port | What | Notes |
 |---|---|---|
 | **5009** | Main server, all network interfaces | HTTPS with a self-signed certificate (made on first run into `certs/`, good for this PC's LAN address). Falls back to plain HTTP if a certificate can't be made. Set by `ComCentre.Port` |
+| **5001** | DREAM on your phone: her own site, all network interfaces | `/` opens her straight away (the avatar, voice and behaviours of the desktop app). Same server and certificate as 5009, so the phone gets the microphone. Set by `ComCentre.PhonePort`. Allow it through the Windows firewall if the phone can't reach it |
 | **5010** | Same server, this PC only, plain HTTP | No certificate warning, and `localhost` counts as secure for the microphone. Set by `ComCentre.LocalPort` (default 5010) |
 | 5000 | RIFT (fleet registry) | `ComCentre.RiftPort`; `app.py` announces itself to it every few seconds |
 
