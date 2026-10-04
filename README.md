@@ -68,6 +68,7 @@ Mic → Whisper → boundaries + memory + mood (dream_mind) → Ollama → Piper
 
 | How | Command | What you get | Needs |
 |---|---|---|---|
+| **Everything (start here)** | `run.bat` | Sets up `venv311` the first time (and again when `requirements.txt` changes), then starts `app.py` (minimised window) **and** `dream.py` together - so DREAM registers with RIFT and her sensor board works. Closing DREAM closes the server too | Python 3.11, Ollama, Piper |
 | **Desktop app** | `python scripts/dream.py` (or option `1` in `python main.py`) | Fullscreen avatar video, "Hey DREAM" wake word, sleep and wake, sensor board, voice commands, inner life | The venv, Ollama, Piper, microphone, speakers, a display |
 | **In the browser** | `python scripts/dream.py --web` (option `1w`) | Starts `app.py` if needed and opens `http://localhost:5010/dream.html`. Same behaviours, using the browser's microphone and speakers | The venv, Ollama, Piper, a browser |
 | **Web server and dashboard** | `python app.py` (option `5`) | Dashboard at `https://<this-pc>:5009`, the avatar page for phones, the API, and it owns the sensor board | The venv, Ollama, Piper |
