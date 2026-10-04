@@ -152,7 +152,16 @@ void setup() {
   }
 }
 
+// ---- TALKING: the fleet's conversations, in Brainfuck ----
+// "TALK:<u>" says utterance u (0-6 phrases, 7-13 replies; see talk_bf.h):
+// a Brainfuck program that prints the words, beeped one tone per symbol.
+// TALK_VOICE_PCT pitches it to DREAM's voice (deep and slow).
+#include "talk_bf.h"
+const uint8_t TALK_VOICE_PCT = 60;
+
 void loop() {
+  talkStep(BUZZER_PIN, TALK_VOICE_PCT);
+
   // --------- Alarm: PIR edge only ---------
   int motionState = digitalRead(PIR_PIN);
   if (motionState == HIGH && lastMotionState == LOW) {
@@ -207,6 +216,9 @@ void loop() {
     cmd.trim();
     if (cmd.equalsIgnoreCase("WHO")) {
       Serial.println("I am Dream");
+    } else if (cmd.startsWith("TALK:")) {
+      // the alarm and the manual tone own the buzzer while they're on
+      if (!alarmActive && !toneActive) talkStart(cmd.substring(5).toInt());
     } else if (cmd.equalsIgnoreCase("BUZZER")) {
       toneActive = true;
       toneStart  = millis();

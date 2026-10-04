@@ -118,7 +118,8 @@ NORA_CHECK_INTERVAL = 30             # seconds between reachability checks
 RIFT_HOST           = comcentre_cfg.get("RiftHost", "localhost")
 RIFT_PORT           = comcentre_cfg.get("RiftPort", 5000)
 RIFT_HEARTBEAT_SECS = 10
-FLEET_CAPABILITIES  = ["voice_chat", "tts", "stt", "llm"]
+FLEET_CAPABILITIES  = ["voice_chat", "tts", "stt", "llm",
+                       f"talk:{THIS_PORT}"]   # RIFT's conversations: /chirp?u= on this port
 
 # Fleet heartbeat transport: "wifi" (default) registers with RIFT over HTTP,
 # same as always. "bluetooth" registers directly with NORA instead, over a
@@ -1253,6 +1254,20 @@ def api_alarm_set():
 
 # Commands scripts/dream.py (or anything else on this PC) may send to the board.
 _SENSOR_COMMANDS = {"BUZZER", "ALARM ON", "ALARM OFF", "RGB OFF", "RGB RAINBOW"}
+
+@app.route("/chirp")
+def chirp():
+    """RIFT's fleet conversations: /chirp?u=<0-13> says that utterance (a
+    Brainfuck phrase, see dream_sensors/talk_bf.h) on the sensor board's
+    buzzer, in DREAM's deep voice. The board stays quiet during an alarm."""
+    try:
+        u = int(request.args.get("u", ""))
+    except ValueError:
+        u = -1
+    if not 0 <= u <= 13:
+        return jsonify({"ok": False, "error": "use /chirp?u=0-13"}), 400
+    return jsonify({"ok": send_sensor_command(f"TALK:{u}")})
+
 
 @app.route("/api/sensor/command", methods=["POST"])
 def api_sensor_command():
