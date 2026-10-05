@@ -963,6 +963,10 @@ def index():
 def settings_page():
     return render_template("settings.html", char_name=CHAR_NAME)
 
+@app.route("/dreams.html")
+def dreams_page():
+    return render_template("dreams.html", char_name=CHAR_NAME)
+
 @app.route("/dream.html")
 def dream_page():
     return render_template("dream.html", char_name=CHAR_NAME)
@@ -1235,6 +1239,36 @@ def api_dream_image(name):
         return "", 404
     from dream_mind import store as _mind_store
     return send_from_directory(str(_mind_store.IMAGES_DIR), name)
+
+@app.route("/api/dreams")
+def api_dreams():
+    """Every dream, newest first, with her pictures of it (painting, walk, vision,
+    the re-imagined frames), and the night films (dreams_<time>.mp4)."""
+    if MIND is None:
+        return jsonify({"error": "inner life unavailable"}), 503
+    from dream_mind import store as _mind_store
+    images = _mind_store.IMAGES_DIR
+    dreams = []
+    for d in reversed(_mind_store.read_jsonl("dreams.jsonl")):
+        item = {k: d.get(k) for k in ("ts", "text", "tone", "seeds", "image", "animation", "image_mode",
+                                      "image_world", "vision", "shared")}
+        for k in ("image", "animation", "vision"):        # only pictures that still exist
+            if item[k] and not (images / item[k]).exists():
+                item[k] = None
+        folder = images / "frames" / d["frames"] if d.get("frames") else None
+        item["frame_files"] = [f"frames/{d['frames']}/{p.name}" for p in sorted(folder.glob("vision_*.jpg"))] if folder and folder.is_dir() else []
+        dreams.append(item)
+    nights = []
+    if images.is_dir():
+        for p in sorted(images.glob("dreams_*.mp4"), reverse=True):
+            stamp = p.stem[len("dreams_"):]
+            try:
+                ts = time.mktime(time.strptime(stamp, "%Y%m%d_%H%M%S"))
+            except ValueError:
+                ts = p.stat().st_mtime
+            poster = next((v.name for v in sorted(images.glob(f"vision_{stamp[:8]}*.jpg"))), None)
+            nights.append({"file": p.name, "ts": ts, "poster": poster})
+    return jsonify({"dreams": dreams, "nights": nights})
 
 @app.route("/api/mind")
 def api_mind():

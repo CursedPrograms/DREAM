@@ -155,6 +155,14 @@ She bridges static code and emergent autonomous behavior.
 </div>
 <br>
 
+<div align="center">
+  <img src="demo_images/dream_vision_guitar.jpg" alt="DREAM's vision of a dream: a guitar standing in a flooded library, fish flying past" width="400"/>
+  <p><i>"I was walking through a library made of water, and the books kept turning into fish. My grandfather's guitar floated past and played the sound of rain."</i><br>her dream, seen by the Image-Generator</p>
+  <img src="demo_images/dream_walk_into_vision.jpg" alt="Her spiral walk through latent space turning into the dream" width="600"/>
+  <p><i>her spiral walk turning into the dream, frame by frame</i></p>
+</div>
+<br>
+
 ## Core Characteristics
 
 - Fully local voice chatbot pipeline (offline capable)
@@ -244,6 +252,7 @@ A 2.5D parallax on her avatar videos, like After Effects' Displacement Map. Each
 - Each dream is a short story built from her real memories, and is **painted** by the latent-space dream engine (`latent_space.py`), with a still and an animation
 - **Dream visions:** the dream's own words go to the [Image-Generator](https://github.com/CursedPrograms/Image-Generator) (`scripts/generate.py`): a picture of the dream (`output/dreams/vision_*.jpg`), and 8 frames of her latent walk re-imagined with the same prompt. Model: `DreamImageModel` in `config.json` (`auto` = SDXL-Turbo with 12 GB of RAM or more, else SD-Turbo; or `sd-turbo` / `sdxl-turbo` / any Hugging Face id)
 - **The night's film:** when she wakes, every frame of the night (each dream's walk, then its visions crossfading) becomes `output/dreams/dreams_<time>.mp4`
+- **See them:** the **DREAMS** button in ComCentre (`/dreams.html`, API `/api/dreams`) shows every dream, newest first: its text, the painting or walk, her vision of it and the re-imagined frames, plus the night films
 - **She tells you first thing:** after each dream, while still asleep, she renders what she'll say about it (voice, and lipsync if MuseTalk is on) into her speech cache, so on waking she says it at once
 - **She learns her own dream world:** while awake and idle she trains a copy of her dream network on her photos and painted dreams (a small GAN, 5-minute bursts, stopped the moment she's needed). The spiral dreams keep the untrained network's abstract look; the others walk through what she's learned once it's had 3000 steps (`output/dreams/dream_world_learning.jpg` shows how far she's got)
 - Someone appearing at the sensor, or "wake up", wakes her

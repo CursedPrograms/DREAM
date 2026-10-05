@@ -959,3 +959,26 @@ body.settings-page {
   border-radius: 4px;
   opacity: .9;
 }
+
+/* ── Dreams page (templates/dreams.html) ───────────────────────────────── */
+.dreams-main { max-width: 980px; margin: 0 auto; padding: 32px 24px 64px; }
+.dreams-nights { margin-bottom: 28px; }
+.night-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 10px; }
+.night-list video { width: 100%; border: 1px solid var(--border); background: #000; }
+.dream-list { display: flex; flex-direction: column; gap: 18px; margin-top: 10px; }
+.dream-card { border: 1px solid var(--border); border-left: 3px solid var(--glow); background: var(--panel); padding: 16px 18px; }
+.dream-card.tone-pleasant { border-left-color: var(--ok); }
+.dream-card.tone-nightmare { border-left-color: var(--danger); }
+.dream-card.tone-strange { border-left-color: var(--glow3); }
+.dream-meta { display: flex; flex-wrap: wrap; gap: 12px; font: 11px var(--font-mono); color: var(--dim); letter-spacing: 1px; }
+.dream-tone { color: var(--glow); text-transform: uppercase; }
+.dream-tag { border: 1px solid var(--border); padding: 0 6px; }
+.dream-text { margin: 10px 0 12px; line-height: 1.6; font-size: 16px; }
+.dream-pics { display: flex; flex-wrap: wrap; gap: 12px; }
+.dream-pics figure { margin: 0; flex: 1 1 260px; max-width: 360px; }
+.dream-pics img { width: 100%; display: block; border: 1px solid var(--border); image-rendering: auto; }
+.dream-pics figcaption, .night-list figcaption { font: 10px var(--font-mono); color: var(--dim); letter-spacing: 1px; margin-top: 4px; text-transform: uppercase; }
+.dream-frames { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-top: 10px; }
+.dream-frames img { width: 100%; display: block; border: 1px solid var(--border); }
+.dream-seeds { margin-top: 10px; font: 11px var(--font-mono); color: var(--dim); }
+@media (max-width: 600px) { .dream-frames { grid-template-columns: repeat(4, 1fr); } }

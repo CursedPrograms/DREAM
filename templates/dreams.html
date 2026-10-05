@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>{{ char_name }} — Dreams</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body class="settings-page">
+
+  <header class="settings-header">
+    <div class="logo">{{ char_name | upper }} <span>DREAMS</span></div>
+    <a href="/" class="settings-back">&larr; BACK</a>
+  </header>
+
+  <main class="dreams-main">
+    <!-- the night films: every frame of a night's dreams, made when she wakes -->
+    <section id="nights" class="dreams-nights" style="display:none">
+      <div class="settings-card-title">NIGHTS</div>
+      <div id="night-list" class="night-list"></div>
+    </section>
+
+    <div class="settings-card-title">DREAMS</div>
+    <div id="dream-list" class="dream-list"><div class="dim-note">Loading her dreams…</div></div>
+  </main>
+
+  <script>
+    const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const img = n => '/api/dream_image/' + encodeURIComponent(n);
+    const when = ts => new Date(ts * 1000).toLocaleString([], {weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
+
+    function dreamCard(d) {
+      // her vision of it first (the Image-Generator), then the painting and the walk
+      const pics = [];
+      if (d.vision) pics.push(`<figure><img src="${img(d.vision)}" loading="lazy" alt="vision"><figcaption>vision</figcaption></figure>`);
+      if (d.animation) pics.push(`<figure><img src="${img(d.animation)}" loading="lazy" alt="the walk"><figcaption>walk${d.image_mode ? ' · ' + esc(d.image_mode) : ''}</figcaption></figure>`);
+      else if (d.image) pics.push(`<figure><img src="${img(d.image)}" loading="lazy" alt="painting"><figcaption>painting</figcaption></figure>`);
+      const frames = (d.frame_files || []).map(f => `<img src="${img(f)}" loading="lazy" alt="">`).join('');
+      return `
+        <article class="dream-card tone-${esc(d.tone)}">
+          <div class="dream-meta"><span class="dream-tone">${esc(d.tone)}</span><span>${when(d.ts)}</span>
+            ${d.image_world === 'learned' ? '<span class="dream-tag">learned world</span>' : ''}${d.shared ? '' : '<span class="dream-tag">not told yet</span>'}</div>
+          <p class="dream-text">${esc(d.text)}</p>
+          ${pics.length ? `<div class="dream-pics">${pics.join('')}</div>` : ''}
+          ${frames ? `<div class="dream-frames">${frames}</div>` : ''}
+          ${d.seeds && d.seeds.length ? `<div class="dream-seeds">from: ${d.seeds.map(esc).join(' · ')}</div>` : ''}
+        </article>`;
+    }
+
+    fetch('/api/dreams').then(r => r.json()).then(d => {
+      const list = document.getElementById('dream-list');
+      list.innerHTML = d.dreams.length ? d.dreams.map(dreamCard).join('') : '<div class="dim-note">She hasn\'t dreamed yet. She needs to sleep for that.</div>';
+      if (d.nights.length) {
+        document.getElementById('nights').style.display = '';
+        document.getElementById('night-list').innerHTML = d.nights.map(n =>
+          `<figure><video src="${img(n.file)}" controls preload="none" poster="${n.poster ? img(n.poster) : ''}"></video><figcaption>${when(n.ts)}</figcaption></figure>`).join('');
+      }
+    }).catch(() => {
+      document.getElementById('dream-list').innerHTML = '<div class="dim-note">Her inner life isn\'t running, so there are no dreams to show.</div>';
+    });
+  </script>
+</body>
+</html>
