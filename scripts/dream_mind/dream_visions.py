@@ -42,6 +42,7 @@ GENERATOR = Path(os.environ.get("DREAM_IMAGE_GENERATOR", store.ROOT.parent / "Im
 VISION_SIZE = 512
 VISION_FRAMES = 8                 # latent-walk frames re-imagined per dream
 STRENGTH = {"pleasant": 0.45, "strange": 0.55, "nightmare": 0.6}   # how far each frame strays from the walk
+BLEND = 0.6                       # frames are mixed with the vision, up to this much by the last: the walk turns into the dream
 MIN_FREE_RAM_GB = 2.5
 FIRST_RUN_TIMEOUT_S = 1800        # the first run may still be downloading the model
 TIMEOUT_S = 900
@@ -114,7 +115,7 @@ def usable():
 def prompt_for(dream):
     """The dream's words, trimmed to what the text encoder reads (~75 tokens), in its tone's style."""
     text = re.sub(r"\s+", " ", dream["text"]).strip()
-    text = re.sub(r"\b(I'm|I was|myself|my|me|I)\b", "", text)   # 'I' means nothing to a picture
+    text = re.sub(r"\b(I'm|I was|myself|my|me|I)\b", "", text, flags=re.I)   # 'I' means nothing to a picture
     words = re.sub(r"\s+", " ", text).split()[:45]
     return f"{TONE_STYLE.get(dream['tone'], TONE_STYLE['strange'])}, {' '.join(words)}"
 
@@ -146,6 +147,7 @@ def visualize(dream, stop=None):
         "strength": STRENGTH.get(dream["tone"], 0.55),
         "size": VISION_SIZE,
         "seed": int(dream["ts"]) % 2**31,
+        "blend": BLEND,
     }
     job_path = d / "job.json"
     job_path.write_text(json.dumps(job, indent=1), encoding="utf-8")
