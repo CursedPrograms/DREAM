@@ -1,5 +1,5 @@
 /**
- * ComCentre v2.7 — main.js
+ * DREAM v2.7 — main.js
  *
  * Responsibilities:
  *  - SSE connection for live state / transcript / stats / wifi / node events

@@ -91,7 +91,7 @@ MUSETALK_OUT_DIR    = os.path.join(BASE_DIR, "musetalk_out")
 os.makedirs(MUSETALK_OUT_DIR, exist_ok=True)
 
 # Pre-generated startup lipsync video + audio (generated once, reused every run)
-STARTUP_TEXT = "ComCentre online. DREAM is ready. Say Hey DREAM to wake me."
+STARTUP_TEXT = "DREAM online. Say Hey DREAM to wake me."
 STARTUP_VID  = os.path.join(VIDEOS_DIR, "startup_intro.mp4")
 STARTUP_WAV  = os.path.join(AUDIO_DIR,  "startup.wav")
 
@@ -656,7 +656,7 @@ def startup_banner():
     piper_ok = os.path.exists(PIPER_BIN)
     voice_ok = VOICE_MODEL is not None
     console.print(Panel.fit(
-        "[bold cyan]ComCentre v2.7[/bold cyan]\n"
+        "[bold cyan]DREAM v2.7[/bold cyan]\n"
         "[dim]DREAM - Local AI Voice Assistant[/dim]\n\n"
         f"[green]LLM:[/green]      {MODEL}\n"
         f"[green]STT:[/green]      Whisper tiny\n"
@@ -1337,7 +1337,7 @@ def _farewell():
 # {"type": "sensor", "line": ...}; serial_watcher() below listens to that, and
 # send_sensor_command() writes back through POST /api/sensor/command.
 # So app.py has to be running for the sensor to work.
-_HUB_PORT   = config["Config"]["ComCentre"].get("Port", 5009)
+_HUB_PORT   = (config["Config"].get("Dashboard") or config["Config"]["ComCentre"]).get("Port", 5009)
 _hub_scheme = "https"   # app.py serves HTTPS when it has a cert, else HTTP; remembered once one answers
 
 try:

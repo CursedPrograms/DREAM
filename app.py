@@ -72,20 +72,20 @@ with open(CONFIG_PATH) as f:
     cfg = json.load(f)
 
 dream_cfg     = cfg["Config"]["DREAM"]
-comcentre_cfg = cfg["Config"]["ComCentre"]
+comcentre_cfg = cfg["Config"].get("Dashboard") or cfg["Config"]["DREAM"]   # "DREAM" in older configs
 
 CHAR_NAME     = dream_cfg["CharName"]
 SYSTEM_PROMPT = dream_cfg["SystemPrompt"].format(name=CHAR_NAME)
 
-# ── Zeroconf / ComCentre identity ──────────────────────────────────────────────
+# ── Zeroconf / dashboard identity ──────────────────────────────────────────────
 ZEROCONF_TYPE = comcentre_cfg.get("ZeroconfType", "_flask-link._tcp.local.")
-THIS_NAME     = comcentre_cfg.get("ZeroconfName", "COMCENTRE")
+THIS_NAME     = comcentre_cfg.get("ZeroconfName", "DREAM")
 THIS_PORT     = comcentre_cfg.get("Port", 5009)
 # Plain-HTTP page on this PC only: localhost counts as a secure context, so the browser
 # gives the mic to /dream.html without the self-signed-certificate warning.
 LOCAL_HTTP_PORT = comcentre_cfg.get("LocalPort", 5010)
 # DREAM on your phone: her own site (/dream.html - the avatar, voice and
-# behaviours of the desktop app) on its own port, so ComCentre's dashboard
+# behaviours of the desktop app) on its own port, so the dashboard
 # and API stay on THIS_PORT. Same Flask app; "/" on this port is her page.
 PHONE_PORT    = comcentre_cfg.get("PhonePort", 5001)
 
@@ -104,9 +104,9 @@ ALARM_SERIAL_PORT = None   # None = find the board that answers "I am Dream" (se
 ALARM_SERIAL_BAUD = 9600
 
 # ── NORA (fleet robot) ──────────────────────────────────────────────────────────
-# ComCentre is the fleet's voice/chat interface, not its network gateway —
+# DREAM's dashboard is the fleet's voice/chat interface, not its network gateway —
 # RIFT is the one that joins NORA's WiFi AP and shares internet to the fleet
-# (see the NORA-Robot-v00 / RIFT repos). ComCentre just talks to NORA's web
+# (see the NORA-Robot-v00 / RIFT repos). It just talks to NORA's web
 # API over whatever route already gets there.
 NORA_HOST           = "192.168.4.1"  # NORA's fixed WiFi AP address
 NORA_PORT           = 5002           # NORA's robot web API (drive/UV/music/serial/message)
@@ -114,11 +114,11 @@ NORA_FLEET_PORT     = 5000           # NORA's fleet-registry port (distinct from
 NORA_CHECK_INTERVAL = 30             # seconds between reachability checks
 
 # ── RIFT (fleet registry) ─────────────────────────────────────────────────────
-# ComCentre's own peer discovery above is zeroconf-only, so RIFT and NORA's
+# The dashboard's own peer discovery above is zeroconf-only, so RIFT and NORA's
 # HTTP-polling fleet registry (see RIFT/Fleet/register.py, NORA's
 # scripts/esp32/esp32.ino) never see DREAM. Announce the same way NORA's
 # fleet-authority heartbeat does, so DREAM shows up in RIFT's dashboard too.
-# Configurable since RIFT typically runs on a separate machine from ComCentre.
+# Configurable since RIFT typically runs on a separate machine from DREAM.
 RIFT_HOST           = comcentre_cfg.get("RiftHost", "localhost")
 RIFT_PORT           = comcentre_cfg.get("RiftPort", 5000)
 RIFT_HEARTBEAT_SECS = 10
@@ -236,15 +236,15 @@ def ensure_self_signed_cert():
         subprocess.run(
             ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
              "-keyout", KEY_PATH, "-out", CERT_PATH, "-days", "825",
-             "-subj", "/CN=comcentre.local",
-             "-addext", f"subjectAltName=DNS:localhost,DNS:comcentre.local,IP:127.0.0.1,IP:{MY_IP}"],
+             "-subj", "/CN=dream.local",
+             "-addext", f"subjectAltName=DNS:localhost,DNS:dream.local,IP:127.0.0.1,IP:{MY_IP}"],
             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=30, check=True,
         )
         return True
     except FileNotFoundError:
-        print("[ComCentre] openssl not found — can't generate a TLS cert; HTTPS disabled")
+        print("[DREAM] openssl not found — can't generate a TLS cert; HTTPS disabled")
     except subprocess.CalledProcessError as e:
-        print(f"[ComCentre] Cert generation failed: {e.stderr.decode(errors='ignore')}")
+        print(f"[DREAM] Cert generation failed: {e.stderr.decode(errors='ignore')}")
     return False
 
 class _PeerListener:
@@ -374,7 +374,7 @@ try:
     MIND = get_mind()
 except Exception as _mind_error:
     MIND = mind_llm = mind_voice = None
-    print(f"[ComCentre] Inner life unavailable ({_mind_error}) - running without it")
+    print(f"[DREAM] Inner life unavailable ({_mind_error}) - running without it")
 
 # ── LLM ───────────────────────────────────────────────────────────────────────
 def ask_llm(prompt, history, context=""):
@@ -647,7 +647,7 @@ def sensor_watcher():
         time.sleep(2)  # board resets when the port opens; let it finish booting
         with _sensor_serial_lock:
             _sensor_serial = ser
-        print(f"[ComCentre] Sensor board connected on {ser.port}")
+        print(f"[DREAM] Sensor board connected on {ser.port}")
         _sensor_status.update(connected=True, radar_ok=True)
         _log_sensor("system", f"Sensor board connected on {ser.port}")
         push_event({"type": "sensor_status", **_sensor_snapshot()})
@@ -778,7 +778,7 @@ NEAR_DISTANCE_M    = 1.0   # wake-up greeting bands (meters)
 FAR_DISTANCE_M     = 3.0
 WAKE_SECONDS       = 3     # length of each wake-word listening clip
 RECORD_SECONDS     = 16    # longest a spoken command can be
-STARTUP_TEXT       = "ComCentre online. DREAM is ready. Say Hey DREAM to wake me."
+STARTUP_TEXT       = "DREAM online. Say Hey DREAM to wake me."
 
 WAKE_WORDS = ["hey dream", "hey, dream", "hi dream", "hi, dream", "okay dream", "ok dream", "dream"]
 SLEEP_WAKE_WORDS = ["wake up", "wake up dream", "wake up, dream"]   # only heard while sleeping
@@ -1380,16 +1380,16 @@ def api_nora_mode_set():
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    print(f"[ComCentre] Platform : {'Windows' if IS_WINDOWS else 'Linux'}")
-    print(f"[ComCentre] My IP    : {MY_IP}")
-    print(f"[ComCentre] Port     : {THIS_PORT}")
-    print(f"[ComCentre] Piper    : {PIPER_BIN}")
-    print(f"[ComCentre] Piper SR : {PIPER_SR} Hz")
-    print(f"[ComCentre] scan_wifi: {'scripts/scan_wifi.py loaded' if SCAN_WIFI_AVAILABLE else 'NOT FOUND — using inline fallback'}")
-    print(f"[ComCentre] DREAM static IP: {dream_cfg.get('StaticIP', 'not set')}")
+    print(f"[DREAM] Platform : {'Windows' if IS_WINDOWS else 'Linux'}")
+    print(f"[DREAM] My IP    : {MY_IP}")
+    print(f"[DREAM] Port     : {THIS_PORT}")
+    print(f"[DREAM] Piper    : {PIPER_BIN}")
+    print(f"[DREAM] Piper SR : {PIPER_SR} Hz")
+    print(f"[DREAM] scan_wifi: {'scripts/scan_wifi.py loaded' if SCAN_WIFI_AVAILABLE else 'NOT FOUND — using inline fallback'}")
+    print(f"[DREAM] DREAM static IP: {dream_cfg.get('StaticIP', 'not set')}")
 
     _zc_instance, _zc_info = _start_zeroconf()
-    print(f"[ComCentre] Zeroconf registered as {THIS_NAME} on port {THIS_PORT}")
+    print(f"[DREAM] Zeroconf registered as {THIS_NAME} on port {THIS_PORT}")
 
     threading.Thread(target=sensor_watcher, daemon=True).start()
     threading.Thread(target=dream_watcher, daemon=True).start()
@@ -1402,12 +1402,12 @@ if __name__ == "__main__":
             "state": lambda: {"sleeping": _dream["sleeping"], "state": _state["value"],
                               "present": _dream["presence_seen"] or _sensor_status["present"]},
         }):
-            print("[ComCentre] Inner life started (mood, needs, memory, dreams)")
+            print("[DREAM] Inner life started (mood, needs, memory, dreams)")
         else:
-            print("[ComCentre] Another DREAM already runs the inner life - this one stays passive")
+            print("[DREAM] Another DREAM already runs the inner life - this one stays passive")
     threading.Thread(target=nora_watcher, daemon=True).start()
     threading.Thread(target=rift_heartbeat, daemon=True).start()
-    print(f"[ComCentre] Announcing to RIFT at {RIFT_HOST}:{RIFT_PORT} every {RIFT_HEARTBEAT_SECS}s")
+    print(f"[DREAM] Announcing to RIFT at {RIFT_HOST}:{RIFT_PORT} every {RIFT_HEARTBEAT_SECS}s")
 
     https_ok = ensure_self_signed_cert()
     run_kwargs = {"host": "0.0.0.0", "port": THIS_PORT, "debug": False, "threaded": True}
@@ -1418,18 +1418,18 @@ if __name__ == "__main__":
         phone_kwargs["ssl_context"] = (CERT_PATH, KEY_PATH)
     threading.Thread(target=lambda: app.run(**phone_kwargs), daemon=True).start()
     scheme = "https" if https_ok else "http"
-    print(f"[ComCentre] DREAM on your phone: {scheme}://{MY_IP}:{PHONE_PORT}")
+    print(f"[DREAM] DREAM on your phone: {scheme}://{MY_IP}:{PHONE_PORT}")
     if https_ok:
         run_kwargs["ssl_context"] = (CERT_PATH, KEY_PATH)
-        print(f"[ComCentre] HTTPS enabled — dashboard on https://{MY_IP}:{THIS_PORT}")
-        print("[ComCentre] (accept the one-time self-signed certificate warning)")
+        print(f"[DREAM] HTTPS enabled — dashboard on https://{MY_IP}:{THIS_PORT}")
+        print("[DREAM] (accept the one-time self-signed certificate warning)")
         threading.Thread(
             target=lambda: app.run(host="127.0.0.1", port=LOCAL_HTTP_PORT, debug=False, threaded=True, use_reloader=False),
             daemon=True,
         ).start()
-        print(f"[ComCentre] On this PC, no warning: http://localhost:{LOCAL_HTTP_PORT}/dream.html")
+        print(f"[DREAM] On this PC, no warning: http://localhost:{LOCAL_HTTP_PORT}/dream.html")
     else:
-        print(f"[ComCentre] HTTPS unavailable — mic access on /dream.html will only work from localhost")
+        print(f"[DREAM] HTTPS unavailable — mic access on /dream.html will only work from localhost")
 
     try:
         app.run(**run_kwargs)
@@ -1437,4 +1437,4 @@ if __name__ == "__main__":
         if _zc_instance and _zc_info:
             _zc_instance.unregister_service(_zc_info)
             _zc_instance.close()
-            print("[ComCentre] Zeroconf unregistered.")
+            print("[DREAM] Zeroconf unregistered.")

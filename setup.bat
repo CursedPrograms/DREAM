@@ -1,7 +1,7 @@
 @echo off
 SETLOCAL ENABLEDELAYEDEXPANSION
 REM ============================================================
-REM  ComCentre - Windows Venv + Dependencies Setup
+REM  DREAM - Windows Venv + Dependencies Setup
 REM ============================================================
 
 REM Set the FRIDAY_DIR to your project folder

@@ -1,6 +1,6 @@
 """
 Bluetooth-serial link to NORA, used by register.py's heartbeat loop when
-ComCentre's settings page "Fleet heartbeat link" is switched to Bluetooth
+DREAM's settings page "Fleet heartbeat link" is switched to Bluetooth
 instead of the default HTTP-over-WiFi path.
 
 Speaks the fleet-registration half of NORA's Bluetooth protocol

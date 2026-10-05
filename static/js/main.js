@@ -1,5 +1,5 @@
 /**
- * ComCentre v2.8 — main.js
+ * DREAM v2.8 — main.js
  *
  * Fixes applied:
  *  - Assistant messages only rendered via SSE (single source of truth).
@@ -14,7 +14,7 @@
 
 const $ = id => document.getElementById(id);
 const CHAR_NAME = (document.currentScript || { dataset: {} }).dataset.char || 'FRIDAY';
-const NODE_NAME = (document.currentScript || { dataset: {} }).dataset.node || 'COMCENTRE';
+const NODE_NAME = (document.currentScript || { dataset: {} }).dataset.node || 'DREAM';
 
 /* ── State ──────────────────────────────────────────────────────────────── */
 let recording = false;

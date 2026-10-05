@@ -2,14 +2,14 @@
 set -e  # Stop on any error
 
 # ============================================================
-#  ComCentre - Master Start Script
+#  DREAM - Master Start Script
 # ============================================================
 
 FRIDAY_DIR="/home/cursed/Desktop/ComCentre"
 
 echo ""
 echo "╔══════════════════════════════════════╗"
-echo "║          Starting ComCentre...       ║"
+echo "║            Starting DREAM...         ║"
 echo "╚══════════════════════════════════════╝"
 echo ""
 
@@ -52,4 +52,4 @@ $VENV_PYTHON webserver.py | tee "$LOG_FILE"
 # When webserver exits, EXIT trap triggers
 # ---------------------------
 echo ""
-echo "[*] ComCentre session ended."
+echo "[*] DREAM session ended."

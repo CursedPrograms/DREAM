@@ -205,7 +205,8 @@ class Dreamer:
             import urllib.request
             try:
                 with open(store.ROOT / "config.json", encoding="utf-8") as f:
-                    cc = _json.load(f)["Config"].get("ComCentre", {})
+                    c = _json.load(f)["Config"]
+                cc = c.get("Dashboard") or c.get("ComCentre", {})
                 host, port = cc.get("RiftHost", "localhost"), cc.get("RiftPort", 5000)
                 kind = "a nightmare" if dream["tone"] == "nightmare" else f"a {dream['tone']} dream"
                 body = _json.dumps({"who": "DREAM", "text": f"DREAM had {kind}: {first_sentences(dream['text'], 200)}"}).encode()

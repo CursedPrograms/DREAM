@@ -1,7 +1,7 @@
 @echo off
 SETLOCAL ENABLEDELAYEDEXPANSION
 REM ============================================================
-REM  ComCentre - Master Start Script (Windows)
+REM  DREAM - Master Start Script (Windows)
 REM ============================================================
 
 REM Change this to your ComCentre/FRIDAY directory
@@ -9,7 +9,7 @@ SET FRIDAY_DIR=C:\Users\cursed\Desktop\ComCentre
 
 ECHO.
 ECHO ╔══════════════════════════════════════╗
-ECHO ║          Starting ComCentre...       ║
+ECHO ║            Starting DREAM...         ║
 ECHO ╚══════════════════════════════════════╝
 ECHO.
 
@@ -67,5 +67,5 @@ ECHO.
 ECHO [*] Web server stopped. Tearing down hotspot...
 CALL "%FRIDAY_DIR%\stop_hotspot.bat"
 
-ECHO [*] ComCentre session ended.
+ECHO [*] DREAM session ended.
 PAUSE

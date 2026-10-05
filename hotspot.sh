@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================
-#  ComCentre Hotspot Script
+#  DREAM Hotspot Script
 #  Chipset: Realtek RTL8192EU (D-Link DWA-131 Rev E1)
 #  Interface: wlxf48ceb5115ef
 # ============================================================
@@ -9,18 +9,18 @@
 set -e
 
 IFACE="wlxf48ceb5115ef"
-SSID="ComCentre"
+SSID="DREAM"
 PASS="comcentre123"
 HOTSPOT_IP="192.168.4.1"
 DHCP_RANGE="192.168.4.10,192.168.4.50,12h"
 INTERNET_IFACE="enp4s0"
 
-HOSTAPD_CONF="/etc/hostapd/comcentre.conf"
-DNSMASQ_CONF="/etc/dnsmasq.d/comcentre.conf"
+HOSTAPD_CONF="/etc/hostapd/dream.conf"
+DNSMASQ_CONF="/etc/dnsmasq.d/dream.conf"
 
 echo ""
 echo "╔══════════════════════════════════════╗"
-echo "║      ComCentre Hotspot Startup       ║"
+echo "║        DREAM Hotspot Startup         ║"
 echo "╚══════════════════════════════════════╝"
 echo ""
 
@@ -85,7 +85,7 @@ echo ""
 echo "╔══════════════════════════════════════╗"
 echo "║       Hotspot is LIVE ✓              ║"
 echo "╠══════════════════════════════════════╣"
-echo "║  SSID     : ComCentre               ║"
+echo "║  SSID     : DREAM                   ║"
 echo "║  Password : comcentre123            ║"
 echo "║  URL      : http://192.168.4.1      ║"
 echo "╚══════════════════════════════════════╝"

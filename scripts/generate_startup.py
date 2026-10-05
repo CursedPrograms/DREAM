@@ -17,7 +17,7 @@ os.environ["TORCH_FORCE_WEIGHTS_ONLY_LOAD"] = "0"
 BASE_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(BASE_DIR, "scripts"))
 
-STARTUP_TEXT   = "ComCentre online. DREAM is ready. Say Hey DREAM to wake me."
+STARTUP_TEXT   = "DREAM online. Say Hey DREAM to wake me."
 AUDIO_DIR      = os.path.join(BASE_DIR, "audio")
 VIDEOS_DIR     = os.path.join(BASE_DIR, "videos")
 MODELS_DIR     = os.path.join(BASE_DIR, "models")

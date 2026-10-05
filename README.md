@@ -20,7 +20,6 @@
 
 # **DREAM**
 ## Distributed Runtime for Ethereal Autonomous Memories
-## **Dream@ComCentre**
 ### A DREAM Robotics Agentic-Consciousness
 
 - Robot Type: Agentic-Consciousness
@@ -134,7 +133,7 @@ The same commands work typed into the dashboard chat and the browser avatar page
 <details>
 <summary><b>Overview</b></summary>
 
-DREAM is a localized agentic-consciousness embedded robotic system and the cognitive core of the ComCentre ecosystem.
+DREAM is a localized agentic-consciousness embedded robotic system and the cognitive core of the DREAM Robotics ecosystem.
 
 Operating as a sovereign offline entity, she serves as the primary command-and-control interface for the KIDA and NORA robotic lineages through the RIFT neural protocol.
 
@@ -252,7 +251,7 @@ A 2.5D parallax on her avatar videos, like After Effects' Displacement Map. Each
 - Each dream is a short story built from her real memories, and is **painted** by the latent-space dream engine (`latent_space.py`), with a still and an animation
 - **Dream visions:** the dream's own words go to the [Image-Generator](https://github.com/CursedPrograms/Image-Generator) (`scripts/generate.py`): a picture of the dream (`output/dreams/vision_*.jpg`), and 8 frames of her latent walk re-imagined with the same prompt. Model: `DreamImageModel` in `config.json` (`auto` = SDXL-Turbo with 12 GB of RAM or more, else SD-Turbo; or `sd-turbo` / `sdxl-turbo` / any Hugging Face id)
 - **The night's film:** when she wakes, every frame of the night (each dream's walk, then its visions crossfading) becomes `output/dreams/dreams_<time>.mp4`
-- **See them:** the **DREAMS** button in ComCentre (`/dreams.html`, API `/api/dreams`) shows every dream, newest first: its text, the painting or walk, her vision of it and the re-imagined frames, plus the night films
+- **See them:** the **DREAMS** button on her dashboard (`/dreams.html`, API `/api/dreams`) shows every dream, newest first: its text, the painting or walk, her vision of it and the re-imagined frames, plus the night films
 - **She tells you first thing:** after each dream, while still asleep, she renders what she'll say about it (voice, and lipsync if MuseTalk is on) into her speech cache, so on waking she says it at once
 - **She learns her own dream world:** while awake and idle she trains a copy of her dream network on her photos and painted dreams (a small GAN, 5-minute bursts, stopped the moment she's needed). The spiral dreams keep the untrained network's abstract look; the others walk through what she's learned once it's had 3000 steps (`output/dreams/dream_world_learning.jpg` shows how far she's got)
 - Someone appearing at the sensor, or "wake up", wakes her
@@ -276,7 +275,7 @@ A 2.5D parallax on her avatar videos, like After Effects' Displacement Map. Each
 
 <br>
 <div align="center">
-  <img src="demo_images/comcentre.png" alt="DREAM" width="800"/>
+  <img src="demo_images/comcentre.png" alt="DREAM's dashboard" width="800"/>
 </div>
 <br>
 
@@ -499,7 +498,7 @@ Differences from the desktop app: no MuseTalk lip-sync (she uses the generic tal
 Files: `templates/dream.html`, `static/js/dream.js`, `scripts/web_launcher.py` (the launcher).
 
 ### RIFT Integration
-`app.py` (ComCentre) registers DREAM with [RIFT](https://github.com/CursedPrograms/RIFT) every few seconds, so start it (or `run.bat`, which starts it with DREAM). RIFT reaches her on:
+`app.py` (her dashboard) registers DREAM with [RIFT](https://github.com/CursedPrograms/RIFT) every few seconds, so start it (or `run.bat`, which starts it with DREAM). RIFT reaches her on:
 * `https://<this-pc>:5009` (`http://localhost:5010` on this PC); DREAM's own site is on `https://<this-pc>:5001`
 
 </details>
@@ -921,11 +920,11 @@ To test the real `dream.py` (its actual `main()` and `voice_loop()`, with only t
 | Port | What | Notes |
 |---|---|---|
 | **5009** | Main server, all network interfaces | HTTPS with a self-signed certificate (made on first run into `certs/`, good for this PC's LAN address). Falls back to plain HTTP if a certificate can't be made. Set by `ComCentre.Port` |
-| **5001** | DREAM on your phone: her own site, all network interfaces | `/` opens her straight away (the avatar, voice and behaviours of the desktop app). Same server and certificate as 5009, so the phone gets the microphone. Set by `ComCentre.PhonePort`. Allow it through the Windows firewall if the phone can't reach it |
-| **5010** | Same server, this PC only, plain HTTP | No certificate warning, and `localhost` counts as secure for the microphone. Set by `ComCentre.LocalPort` (default 5010) |
-| 5000 | RIFT (fleet registry) | `ComCentre.RiftPort`; `app.py` announces itself to it every few seconds |
+| **5001** | DREAM on your phone: her own site, all network interfaces | `/` opens her straight away (the avatar, voice and behaviours of the desktop app). Same server and certificate as 5009, so the phone gets the microphone. Set by `Dashboard.PhonePort`. Allow it through the Windows firewall if the phone can't reach it |
+| **5010** | Same server, this PC only, plain HTTP | No certificate warning, and `localhost` counts as secure for the microphone. Set by `Dashboard.LocalPort` (default 5010) |
+| 5000 | RIFT (fleet registry) | `Dashboard.RiftPort`; `app.py` announces itself to it every few seconds |
 
-The server also registers itself on the network as `COMCENTRE` (zeroconf) and discovers its peers.
+The server also registers itself on the network as `DREAM` (zeroconf) and discovers its peers.
 
 ### Pages
 
@@ -988,10 +987,10 @@ The server also registers itself on the network as `COMCENTRE` (zeroconf) and di
 | `Config.DREAM.CharName`, `SystemPrompt` | Her name and personality prompt (`{name}` is filled in) |
 | `Config.DREAM.LipsyncEnabled` | MuseTalk lip-sync (needs its own setup; off by default) |
 | `Config.DREAM.DepthEffect` | 2.5D parallax on the avatar videos ([Avatar depth effect](#avatar-depth-effect); off by default) |
-| `Config.ComCentre.Port` | Main server port (default 5009) |
-| `Config.ComCentre.LocalPort` | The no-warning localhost port (default 5010) |
-| `Config.ComCentre.RiftHost`, `RiftPort` | Where the RIFT registry is |
-| `Config.ComCentre.ZeroconfName`, `ZeroconfType` | How the server announces itself |
+| `Config.Dashboard.Port` | Main server port (default 5009) |
+| `Config.Dashboard.LocalPort` | The no-warning localhost port (default 5010) |
+| `Config.Dashboard.RiftHost`, `RiftPort` | Where the RIFT registry is |
+| `Config.Dashboard.ZeroconfName`, `ZeroconfType` | How the server announces itself |
 
 **In the code** (near the top of `scripts/dream.py` and `app.py`)
 
@@ -1115,10 +1114,10 @@ DREAM/
 ## Screenshots
 
 <div align="center">
-  <img src="images/screenshots/comcentre-dashboard.png" alt="ComCentre dashboard" width="640"/>
+  <img src="images/screenshots/comcentre-dashboard.png" alt="DREAM's dashboard" width="640"/>
 </div>
 
-<p align="center"><i>ComCentre dashboard. Captured without a robot connected, so live values show their offline state.</i></p>
+<p align="center"><i>DREAM's dashboard. Captured without a robot connected, so live values show their offline state.</i></p>
 
 ---
 

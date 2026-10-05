@@ -86,7 +86,7 @@ def startup_banner(cuda_ok):
     gpu_line = "[green]CUDA active — GTX 1050 Ti[/green]" if cuda_ok else "[yellow]CPU only[/yellow]"
 
     console.print(Panel.fit(
-        "[bold cyan]ComCentre v2.5[/bold cyan]\n"
+        "[bold cyan]DREAM v2.5[/bold cyan]\n"
         "[dim]DREAM — Local AI Voice Assistant[/dim]\n\n"
         f"[green]LLM:[/green]      {MODEL} ({GPU_LAYERS} layers on GPU)\n"
         f"[green]STT:[/green]      Whisper {WHISPER_MODEL} ({'CUDA' if cuda_ok else 'CPU'})\n"
@@ -313,7 +313,7 @@ def main():
         sys.exit(1)
 
     get_whisper(cuda_ok)
-    speak("ComCentre online. DREAM is ready.")
+    speak("DREAM online.")
 
     history = []
 

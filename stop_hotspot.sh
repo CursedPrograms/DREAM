@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # ============================================================
-#  ComCentre Hotspot Stop Script
+#  DREAM Hotspot Stop Script
 # ============================================================
 
 IFACE="wlxf48ceb5115ef"
 INTERNET_IFACE="enp4s0"
 
 echo ""
-echo "[*] Stopping ComCentre hotspot..."
+echo "[*] Stopping DREAM hotspot..."
 
 sudo killall hostapd 2>/dev/null || true
 sudo systemctl stop dnsmasq 2>/dev/null || true

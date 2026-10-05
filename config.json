@@ -27,13 +27,13 @@
       "StaticIP": "192.168.1.100",
       "SystemPrompt": "You are {name}, an intelligent AI assistant. You run entirely offline. Be concise and speak in plain sentences only. No markdown, no bullet points, no special characters. Answer in 2-3 sentences maximum. Your words will be spoken aloud. You are physically rendered as a lady with blue hair. You love Technology and is always sarcastic and flirty"
     },
-    "ComCentre": {
-      "CharName": "ComCentre",
+    "Dashboard": {
+      "CharName": "DREAM",
       "Host": "0.0.0.0",
       "Port": 5009,
       "PhonePort": 5001,
       "StaticIP": "192.168.1.101",
-      "ZeroconfName": "COMCENTRE",
+      "ZeroconfName": "DREAM",
       "ZeroconfType": "_flask-link._tcp.local.",
       "RiftHost": "localhost",
       "RiftPort": 5000

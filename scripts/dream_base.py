@@ -61,7 +61,7 @@ def startup_banner():
     voice_ok = VOICE_MODEL is not None
 
     console.print(Panel.fit(
-        "[bold cyan]ComCentre v2.3[/bold cyan]\n"
+        "[bold cyan]DREAM v2.3[/bold cyan]\n"
         "[dim]DREAM — Local AI Voice Assistant[/dim]\n\n"
         f"[green]LLM:[/green]      {MODEL}\n"
         f"[green]STT:[/green]      Whisper tiny\n"
@@ -262,7 +262,7 @@ def main():
         sys.exit(1)
 
     get_whisper()
-    speak("ComCentre online. DREAM is ready.")
+    speak("DREAM online.")
 
     history = []
 

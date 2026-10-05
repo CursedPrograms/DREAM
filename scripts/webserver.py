@@ -14,8 +14,8 @@ from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser
 import whisper
 
 # ── Config & Directories ──────────────────────────────────────
-COMCENTRE_DIR = os.path.dirname(os.path.abspath(__file__))
-VOICES_DIR    = os.path.join(COMCENTRE_DIR, "voices")
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+VOICES_DIR    = os.path.join(ROOT_DIR, "voices")
 VOICE_MODEL   = os.path.join(VOICES_DIR, "en_US-amy-high.onnx")
 OLLAMA_URL    = "http://localhost:11434/api/generate"
 VISION_MODEL  = "llava:13b"
@@ -28,7 +28,7 @@ TYPE = "_flask-link._tcp.local."
 found_servers = {}
 
 # Ensure we have the config loaded
-CONFIG_PATH = os.path.join(COMCENTRE_DIR, "config.json")
+CONFIG_PATH = os.path.join(ROOT_DIR, "config.json")
 if os.path.exists(CONFIG_PATH):
     with open(CONFIG_PATH) as f:
         cfg = json.load(f)
@@ -79,9 +79,9 @@ zeroconf.register_service(info)
 browser = ServiceBrowser(zeroconf, TYPE, MyListener())
 
 # ── AI Models ─────────────────────────────────────────────────
-print("[ComCentre] Loading Whisper...")
+print("[DREAM] Loading Whisper...")
 whisper_model = whisper.load_model("large")
-print("[ComCentre] Whisper ready.")
+print("[DREAM] Whisper ready.")
 
 conversation_history = []
 history_lock = threading.Lock()

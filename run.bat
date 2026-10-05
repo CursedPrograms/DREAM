@@ -1,7 +1,7 @@
 @echo off
 REM run.bat - DREAM's entry point. Sets up .\venv311 (Python 3.11) the first
 REM time (and again whenever requirements.txt changes), then starts BOTH:
-REM   app.py           - the ComCentre web server: dashboard, sensor board,
+REM   app.py           - DREAM's web server: dashboard, sensor board,
 REM                      RIFT registration (in its own minimised window)
 REM   scripts\dream.py - DREAM herself (avatar, wake word, voice)
 REM Closing DREAM closes the server too. Arguments go to dream.py (e.g. --web).
@@ -28,9 +28,9 @@ if errorlevel 1 (
 
 where ollama >nul 2>&1 || echo Ollama not found - install it from https://ollama.com for DREAM's voice chat.
 
-start "DREAM ComCentre" /min "%PY%" app.py
+start "DREAM Dashboard" /min "%PY%" app.py
 "%PY%" scripts\dream.py %*
-taskkill /fi "WINDOWTITLE eq DREAM ComCentre*" /t /f >nul 2>&1
+taskkill /fi "WINDOWTITLE eq DREAM Dashboard*" /t /f >nul 2>&1
 exit /b
 
 :nopython

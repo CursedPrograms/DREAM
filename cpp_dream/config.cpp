@@ -12,7 +12,7 @@
 namespace fs = std::filesystem;
 using dream::fileExists;
 
-const char* STARTUP_TEXT = "ComCentre online. DREAM is ready. Say Hey DREAM to wake me.";
+const char* STARTUP_TEXT = "DREAM online. Say Hey DREAM to wake me.";
 
 const std::vector<std::string> WAKE_WORDS = {
     "hey dream", "hey, dream", "hi dream", "hi, dream", "okay dream", "ok dream", "dream",
