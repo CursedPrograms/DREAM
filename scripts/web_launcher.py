@@ -23,7 +23,7 @@ START_TIMEOUT_S = 90  # first start loads models and can be slow
 def _config():
     with open(os.path.join(BASE_DIR, "config.json"), encoding="utf-8") as f:
         c = json.load(f)["Config"]
-        return c.get("Dashboard") or c["ComCentre"]
+        return c["Dashboard"]
 
 
 def _up(url):

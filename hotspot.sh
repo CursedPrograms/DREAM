@@ -10,7 +10,7 @@ set -e
 
 IFACE="wlxf48ceb5115ef"
 SSID="DREAM"
-PASS="comcentre123"
+PASS="dream12345"
 HOTSPOT_IP="192.168.4.1"
 DHCP_RANGE="192.168.4.10,192.168.4.50,12h"
 INTERNET_IFACE="enp4s0"
@@ -86,7 +86,7 @@ echo "╔═══════════════════════�
 echo "║       Hotspot is LIVE ✓              ║"
 echo "╠══════════════════════════════════════╣"
 echo "║  SSID     : DREAM                   ║"
-echo "║  Password : comcentre123            ║"
+echo "║  Password : dream12345              ║"
 echo "║  URL      : http://192.168.4.1      ║"
 echo "╚══════════════════════════════════════╝"
 echo ""

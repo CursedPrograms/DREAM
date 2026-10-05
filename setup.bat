@@ -5,7 +5,7 @@ REM  DREAM - Windows Venv + Dependencies Setup
 REM ============================================================
 
 REM Set the FRIDAY_DIR to your project folder
-SET FRIDAY_DIR=C:\Users\cursed\Desktop\ComCentre
+SET FRIDAY_DIR=%~dp0
 
 REM ---------------------------
 REM Check Python 3.12

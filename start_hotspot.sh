@@ -5,7 +5,7 @@ set -e  # Stop on any error
 #  DREAM - Master Start Script
 # ============================================================
 
-FRIDAY_DIR="/home/cursed/Desktop/ComCentre"
+FRIDAY_DIR="$(cd "$(dirname "$0")" && pwd)"   # DREAM's folder
 
 echo ""
 echo "╔══════════════════════════════════════╗"

@@ -4,8 +4,8 @@ REM ============================================================
 REM  DREAM - Master Start Script (Windows)
 REM ============================================================
 
-REM Change this to your ComCentre/FRIDAY directory
-SET FRIDAY_DIR=C:\Users\cursed\Desktop\ComCentre
+REM DREAM's folder: the one this script is in
+SET FRIDAY_DIR=%~dp0
 
 ECHO.
 ECHO ╔══════════════════════════════════════╗

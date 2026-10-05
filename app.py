@@ -72,22 +72,22 @@ with open(CONFIG_PATH) as f:
     cfg = json.load(f)
 
 dream_cfg     = cfg["Config"]["DREAM"]
-comcentre_cfg = cfg["Config"].get("Dashboard") or cfg["Config"]["DREAM"]   # "DREAM" in older configs
+dashboard_cfg = cfg["Config"]["Dashboard"]
 
 CHAR_NAME     = dream_cfg["CharName"]
 SYSTEM_PROMPT = dream_cfg["SystemPrompt"].format(name=CHAR_NAME)
 
 # ── Zeroconf / dashboard identity ──────────────────────────────────────────────
-ZEROCONF_TYPE = comcentre_cfg.get("ZeroconfType", "_flask-link._tcp.local.")
-THIS_NAME     = comcentre_cfg.get("ZeroconfName", "DREAM")
-THIS_PORT     = comcentre_cfg.get("Port", 5009)
+ZEROCONF_TYPE = dashboard_cfg.get("ZeroconfType", "_flask-link._tcp.local.")
+THIS_NAME     = dashboard_cfg.get("ZeroconfName", "DREAM")
+THIS_PORT     = dashboard_cfg.get("Port", 5009)
 # Plain-HTTP page on this PC only: localhost counts as a secure context, so the browser
 # gives the mic to /dream.html without the self-signed-certificate warning.
-LOCAL_HTTP_PORT = comcentre_cfg.get("LocalPort", 5010)
+LOCAL_HTTP_PORT = dashboard_cfg.get("LocalPort", 5010)
 # DREAM on your phone: her own site (/dream.html - the avatar, voice and
 # behaviours of the desktop app) on its own port, so the dashboard
 # and API stay on THIS_PORT. Same Flask app; "/" on this port is her page.
-PHONE_PORT    = comcentre_cfg.get("PhonePort", 5001)
+PHONE_PORT    = dashboard_cfg.get("PhonePort", 5001)
 
 WIFI_TRIGGERS  = [
     "check wifi","wifi scan","scan wifi","who's on the wifi","who is on the wifi",
@@ -119,8 +119,8 @@ NORA_CHECK_INTERVAL = 30             # seconds between reachability checks
 # scripts/esp32/esp32.ino) never see DREAM. Announce the same way NORA's
 # fleet-authority heartbeat does, so DREAM shows up in RIFT's dashboard too.
 # Configurable since RIFT typically runs on a separate machine from DREAM.
-RIFT_HOST           = comcentre_cfg.get("RiftHost", "localhost")
-RIFT_PORT           = comcentre_cfg.get("RiftPort", 5000)
+RIFT_HOST           = dashboard_cfg.get("RiftHost", "localhost")
+RIFT_PORT           = dashboard_cfg.get("RiftPort", 5000)
 RIFT_HEARTBEAT_SECS = 10
 FLEET_CAPABILITIES  = ["voice_chat", "tts", "stt", "llm",
                        f"talk:{THIS_PORT}"]   # RIFT's conversations: /chirp?u= on this port

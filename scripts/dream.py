@@ -1337,7 +1337,7 @@ def _farewell():
 # {"type": "sensor", "line": ...}; serial_watcher() below listens to that, and
 # send_sensor_command() writes back through POST /api/sensor/command.
 # So app.py has to be running for the sensor to work.
-_HUB_PORT   = (config["Config"].get("Dashboard") or config["Config"]["ComCentre"]).get("Port", 5009)
+_HUB_PORT   = config["Config"]["Dashboard"].get("Port", 5009)
 _hub_scheme = "https"   # app.py serves HTTPS when it has a cert, else HTTP; remembered once one answers
 
 try:

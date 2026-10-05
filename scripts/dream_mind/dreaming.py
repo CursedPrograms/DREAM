@@ -206,7 +206,7 @@ class Dreamer:
             try:
                 with open(store.ROOT / "config.json", encoding="utf-8") as f:
                     c = _json.load(f)["Config"]
-                cc = c.get("Dashboard") or c.get("ComCentre", {})
+                cc = c.get("Dashboard", {})
                 host, port = cc.get("RiftHost", "localhost"), cc.get("RiftPort", 5000)
                 kind = "a nightmare" if dream["tone"] == "nightmare" else f"a {dream['tone']} dream"
                 body = _json.dumps({"who": "DREAM", "text": f"DREAM had {kind}: {first_sentences(dream['text'], 200)}"}).encode()
