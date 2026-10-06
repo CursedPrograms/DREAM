@@ -1508,9 +1508,26 @@ class VideoPlayer:
             pygame.surfarray.blit_array(self._surface, rgb.swapaxes(0, 1))
 
     def get_frame(self, now_ms):
-        if not self.finished and now_ms - self._last_ms >= self.ms_frame:
-            self._read_next()
+        # Advance the video by real elapsed time, not one frame per display
+        # tick. The display loop runs at ~30 fps (33 ms) while these clips are
+        # 25 fps (40 ms); the old "one frame per tick, reset _last_ms = now_ms"
+        # aliased to ~15 fps, so the picture crawled ~60% speed while the audio
+        # (played separately, in real time) ran ahead and the lips drifted.
+        # Accumulating ms_frame keeps the long-term rate exactly the clip's fps
+        # and locks it to the wall clock; the catch-up loop skips frames when a
+        # tick runs long so audio and video stay together. The cap stops a bad
+        # stall from spinning here forever.
+        if self.finished:
+            return self._surface
+        if self._last_ms == 0.0:
             self._last_ms = now_ms
+        advanced = 0
+        while now_ms - self._last_ms >= self.ms_frame and advanced < 6:
+            self._read_next()
+            self._last_ms += self.ms_frame
+            advanced += 1
+            if self.finished:
+                break
         return self._surface
 
     def release(self):
