@@ -121,6 +121,18 @@ class Dreamer:
                 break
             self._stir(report)
         report["ended"] = time.time()
+        # Memory consolidation: in her sleep she compresses long-term memory when it
+        # gets too much or too old — the night packing the past down to its gist, the
+        # same move CRUSH makes on a file. Guarded so it can never disturb her sleep.
+        try:
+            import os as _os, sys as _sys
+            _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+            import memory_archive
+            arc = memory_archive.auto_archive()
+            if arc:
+                report["consolidated"] = arc
+        except Exception:
+            pass
         if images:   # every frame of the night, as one video (dream_visions.py)
             dream_visions.session_video_later(report["dreams"], report["started"])
         return report
