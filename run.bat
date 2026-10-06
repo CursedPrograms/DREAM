@@ -4,7 +4,7 @@ REM time (and again whenever requirements.txt changes), then starts BOTH:
 REM   app.py           - DREAM's web server: dashboard, sensor board,
 REM                      RIFT registration (in its own minimised window)
 REM   scripts\dream.py - DREAM herself (avatar, wake word, voice)
-REM   memory_server.py - the fleet's long-term memory (Hindsight), which TARA uses
+REM   memory_server.py - the fleet's long-term memory (Hindsight), which TINA uses
 REM                      too - only if Config.DREAM.Memory.Hindsight is true
 REM Closing DREAM closes the server too. Arguments go to dream.py (e.g. --web).
 REM Model weights for lip-sync are separate: download_weights.bat.

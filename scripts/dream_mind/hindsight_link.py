@@ -2,7 +2,7 @@
 hindsight_link.py - DREAM's memories, also kept in Hindsight (bank "dream").
 
 Her own memory (memory.py) stays the one she relies on. Hindsight, the memory
-server she shares with TARA, adds recall by meaning across everything you've
+server she shares with TINA, adds recall by meaning across everything you've
 ever told her, and it learns facts about you from it. So:
 
   each exchange   is also sent to Hindsight - from a background queue, never

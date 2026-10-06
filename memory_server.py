@@ -3,18 +3,18 @@ memory_server.py - the fleet's long-term memory (Hindsight), hosted by DREAM.
 
 DREAM is the Distributed Runtime for Ethereal Autonomous Memories, so the
 fleet's memory lives with her: run.bat starts this when
-Config.DREAM.Memory.Hindsight is true, and TARA (wherever she runs) connects
+Config.DREAM.Memory.Hindsight is true, and TINA (wherever she runs) connects
 to it over the network.
 
-One server, one bank per agent: "tara" (TARA's projects and decisions) and
+One server, one bank per agent: "tina" (TINA's projects and decisions) and
 "dream" (DREAM's life with you). Fully local: the language model it uses to
 pull facts out of memories is Ollama's, embeddings and reranking run on the
 CPU with ONNX (no PyTorch), and the database is Hindsight's embedded Postgres
 (in its default place).
 
-NOTE(move): this is meant to run on the other PC, next to TARA, where it can
+NOTE(move): this is meant to run on the other PC, next to TINA, where it can
 use a bigger model and the GPU. Moving it = run this there, then point
-TARA's HindsightUrl and DREAM's Memory.HindsightUrl at that PC.
+TINA's HindsightUrl and DREAM's Memory.HindsightUrl at that PC.
 
     hindsight-venv\\Scripts\\python.exe hindsight_server.py      (run.bat does this)
 """
