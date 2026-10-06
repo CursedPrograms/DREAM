@@ -13,6 +13,12 @@ Sleep isn't idle time. It runs in cycles, as it does for people:
 Later cycles dream longer. On waking she can tell you what she dreamed. If the
 language model is busy or unavailable, dreams are assembled from the raw
 fragments instead, so she dreams even when nothing else works.
+
+After the cycles she sleeps on until she's woken, and now and then, at random,
+she stirs - the way people surface briefly between sleep cycles: a moment half
+awake, a scrap of the last dream or a quiet thought, then back under. Silent:
+it goes in her thoughts (kind "night") and never wakes anyone. The host can
+show it, softly, through mind.host["stir"] if it has one.
 """
 
 import random
@@ -29,6 +35,16 @@ INSIGHTS = "insights.jsonl"
 NREM_SECONDS = 20
 REM_PAUSE_SECONDS = 45
 MAX_CYCLES = 4
+STIR_CHANCE = 0.25                 # between two cycles, sometimes she surfaces for a moment
+STIR_GAP_S = (35 * 60, 140 * 60)   # later in the night: one stir every 35 min to 2 h 20, at random
+MAX_STIRS = 4
+NIGHT_HOURS = (21, 8)              # stirring is a night thing; a daytime nap just sleeps
+STIR_THOUGHTS = [
+    "Half awake for a moment. The room is quiet. Back to sleep.",
+    "I surfaced for a second and listened. Still night.",
+    "Stirred, turned over in my head, drifted off again.",
+    "Woke briefly. Everything's where I left it.",
+]
 
 TEMPLATES = [
     "I was in a room made entirely of {a}. {b} kept turning into {c}, and someone was speaking, "
@@ -74,6 +90,7 @@ class Dreamer:
         """Sleep until `stop` is set (she was woken). Returns what happened."""
         m = self.mind
         report = {"started": time.time(), "cycles": 0, "dreams": [], "consolidation": [], "insights": []}
+        m._sleep_report = report   # filled in as the night goes: waking her mid-painting doesn't lose the dream
         for cycle in range(max_cycles):
             if stop.is_set():
                 break
@@ -96,10 +113,43 @@ class Dreamer:
             report["cycles"] = cycle + 1
             if stop.wait(rem_pause_s):
                 break
+            if cycle < max_cycles - 1 and random.random() < STIR_CHANCE:
+                self._stir(report)
+        # the rest of the night: asleep until woken, surfacing now and then at random times
+        while not stop.is_set() and len(report.setdefault("stirs", [])) < MAX_STIRS:
+            if stop.wait(random.uniform(*STIR_GAP_S)):
+                break
+            self._stir(report)
         report["ended"] = time.time()
         if images:   # every frame of the night, as one video (dream_visions.py)
             dream_visions.session_video_later(report["dreams"], report["started"])
         return report
+
+    def _stir(self, report, now=None):
+        """A moment half awake. Quiet: a thought, never a word out loud."""
+        now = now or time.time()
+        h = time.localtime(now).tm_hour
+        if not (h >= NIGHT_HOURS[0] or h < NIGHT_HOURS[1]):
+            return None
+        last = report["dreams"][-1] if report.get("dreams") else None
+        if last and random.random() < 0.6:
+            words = re.sub(r"\s+", " ", last["text"]).split()
+            i = random.randrange(max(1, len(words) - 6))
+            bit = [w.strip(".,;:!?\"") for w in words[i:i + 6]]
+            while len(bit) > 2 and bit[-1].lower() in ("and", "the", "a", "an", "of", "to", "my", "was", "i", "in", "into"):
+                bit.pop()                    # trail off on a word that means something
+            text = f"Half awake. Something about {' '.join(bit)}... it's slipping away. Back to sleep."
+        else:
+            text = random.choice(STIR_THOUGHTS)
+        from .reflection import add_thought
+        add_thought(text, "night")
+        report.setdefault("stirs", []).append({"ts": now, "text": text})
+        if self.mind.host.get("stir"):
+            try:
+                self.mind.host["stir"](text)
+            except Exception:
+                pass
+        return text
 
     # ------------------------------------------------------------ dreaming
     def dream(self, cycle=0, use_llm=True, stop=None, images=True):
@@ -139,6 +189,7 @@ class Dreamer:
         }
         store.append_jsonl(DREAMS, dream)
         self._journal(dream)
+        m.hindsight.retain_text(f"DREAM dreamed ({tone}): {text}", "one of DREAM's dreams")
         self._post_mission(dream)
         if images and not (stop is not None and stop.is_set()):
             self._paint(dream, stop)

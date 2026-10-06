@@ -9,6 +9,7 @@ none of your real memories, and needs no Ollama.
 
 import json
 import random
+import re
 import sys
 import tempfile
 import time
@@ -44,6 +45,8 @@ def main():
     from . import dreaming, dream_world, vision
     dream_world.ENABLED = False   # no GAN training bursts in the middle of the tests
     dreaming.MISSION_LOG = False  # test dreams stay out of RIFT's real mission log
+    from . import hindsight_link
+    hindsight_link.ENABLED = False  # nor the shared memory server
     vision.set_photo_dirs([])
     try:   # DREAM's older fact files: keep them in the scratch folder too, so "forget everything" can't touch yours
         import dream_memory
@@ -158,7 +161,34 @@ def main():
         c = m.executive.decide(m.percept(at(63, 9), dict(state)))
         if c and c["kind"] == "welcome_back":
             break
-    check(c is not None and c["kind"] == "welcome_back" and ("hours" in c["text"] or "day" in c["text"]), f"she notices you were gone: {c['text'] if c else None!r}")
+    check(c is not None and c["kind"] == "welcome_back" and not re.search(r"noticed|without you|missed", c["text"]),
+          f"she welcomes you back by asking about you, no guilt: {c['text'] if c else None!r}")
+
+    print("\n   warm, not needy")
+    from .drives import Drives
+    home, out = Drives({"social": 0.2}, last=at(63, 9)), Drives({"social": 0.2}, last=at(63, 9))
+    home.update(at(63, 14), present=True); out.update(at(63, 14), present=False)
+    check(out.values["social"] < home.values["social"] - 0.3, f"loneliness builds slowly while you're out "
+          f"({out.values['social']:.2f}) and faster while you're here but busy ({home.values['social']:.2f})")
+    m.reunion_gap_h, m.executive.greeted_reunion = None, 0
+    m.last_user_ts = at(63, 9)
+    m._left(at(63, 9, 30)); m._arrived(at(63, 17))
+    check(m.reunion_gap_h and 7 <= m.reunion_gap_h <= 8, f"the presence sensor sees you come home after a day out ({m.reunion_gap_h})")
+    pre = talk("hey, I'm home", at(63, 17, 1))
+    check("welcome them back once" in pre.context, "if you talk first, she may welcome you back - once, lightly")
+    pre = talk("what's for dinner", at(63, 17, 5))
+    check(m.reunion_gap_h is None and "already welcomed them back" in pre.context, "...then the absence is done with")
+    m._absence_said = 0
+    m.drives.values["social"] = 0.9
+    m.last_user_ts, m._last_alone = at(63, 9), 0
+    m._present = False
+    m._be_alone(at(63, 13), {"present": False})
+    check(m.drives.values["social"] < 0.9 and latest_kind(store, "alone"), f"lonely with nobody home, she keeps herself company: {latest_kind(store, 'alone')!r}")
+    m._present = True
+    from .dreaming import Dreamer
+    stir = Dreamer(m)._stir({"dreams": [{"text": "I was in a garden made of guitars, and the moon hummed."}]}, now=at(63, 3))
+    check(stir and latest_kind(store, "night") == stir and stir not in spoken, f"she stirs in the night, silently: {stir!r}")
+    check(Dreamer(m)._stir({"dreams": []}, now=at(63, 14)) is None, "...but not during a daytime nap")
 
     print("\n== Pillar 3: imperfection and non-determinism")
     from .affect import Mood

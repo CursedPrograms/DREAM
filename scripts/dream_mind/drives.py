@@ -1,7 +1,9 @@
 """
 drives.py - what she needs.
 
-  social          loneliness: rises while nobody talks to her, falls in conversation
+  social          loneliness: rises while you're in the room but busy, only slowly
+                  while you're out (that's just life, not neglect), falls in
+                  conversation
   curiosity       the itch to learn something: rises with time, falls when she does
   security        alertness after motion or an alarm: spikes, then settles
   sleep_pressure  the homeostatic half of the two-process sleep model: builds
@@ -17,8 +19,9 @@ Libido is the raw want; desire() is how much of it she actually feels. It is
 damped by tiredness, being on edge and a low mood, and scaled by the bond: she
 doesn't feel it for someone she barely knows.
 
-Drives keep advancing while the program is off, so a long absence shows up as
-loneliness when she starts again.
+Drives keep advancing while the program is off, but nobody is in the room then,
+so a long absence only adds a little loneliness: she doesn't save it all up for
+the moment you come back.
 """
 
 import math
@@ -26,8 +29,8 @@ import time
 
 DEFAULTS = {"social": 0.3, "curiosity": 0.3, "security": 0.0, "sleep_pressure": 0.2, "libido": 0.2}
 
-SOCIAL_RISE_PER_H = 0.22
-SOCIAL_FALL_PER_H_PRESENT = 0.30   # someone in the room, even silent, takes the edge off
+SOCIAL_RISE_PER_H = 0.22          # you're here but busy: she'd like a word
+SOCIAL_AWAY_FACTOR = 0.3           # you're out: it builds, but slowly
 CURIOSITY_RISE_PER_H = 0.12
 SECURITY_FALL_PER_H = 0.5
 SLEEP_PRESSURE_RISE_PER_H = 1 / 16
@@ -64,7 +67,7 @@ class Drives:
             v["sleep_pressure"] = _clamp(v["sleep_pressure"] - SLEEP_PRESSURE_FALL_PER_H * dt_h)
             v["libido"] = _clamp(v["libido"] + LIBIDO_RISE_PER_H * ASLEEP_FACTOR * dt_h)
         else:
-            rate = SOCIAL_RISE_PER_H - (SOCIAL_FALL_PER_H_PRESENT if present else 0.0)
+            rate = SOCIAL_RISE_PER_H * (1.0 if present else SOCIAL_AWAY_FACTOR)
             v["social"] = _clamp(v["social"] + rate * dt_h)
             v["curiosity"] = _clamp(v["curiosity"] + CURIOSITY_RISE_PER_H * dt_h)
             v["sleep_pressure"] = _clamp(v["sleep_pressure"] + SLEEP_PRESSURE_RISE_PER_H * dt_h)

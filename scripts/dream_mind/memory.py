@@ -295,6 +295,7 @@ class Memory:
         """Delete every episode that mentions `phrase`. Returns how many."""
         p = phrase.lower().strip()
         doomed = [e for e in self.episodes if p and p in self._text(e).lower()]
+        self.last_forgotten_ids = [e["id"] for e in doomed]   # so the mind can forget them in Hindsight too
         for e in doomed:
             self._drop(e)
         if doomed:

@@ -27,6 +27,7 @@ import time
 from . import llm, store
 from .affect import Mood, affection, disclosure, sentiment
 from .dreaming import Dreamer, first_sentences
+from .hindsight_link import HindsightLink
 from .dream_world import IDLE_AFTER_S, WorldTrainer
 from .drives import Drives, hour_of_day
 from .expression import ExpressionSensor
@@ -94,6 +95,7 @@ class Mind:
         self._last_body = 0.0
         self.self_model = SelfModel()
         self.dreamer = Dreamer(self)
+        self.hindsight = HindsightLink()       # the memory server she shares with VERA (off unless enabled in config)
         self.world = WorldTrainer(self)        # learns her dream world from her pictures while she's idle
         self.tools = ToolBox()
         self.executive = Executive(self, self.tools)
@@ -113,6 +115,9 @@ class Mind:
         self._last_save = 0.0
         self._present = False
         self._present_since = 0.0
+        self._absent_since = None       # when the presence sensor last saw them leave
+        self._absence_said = 0.0        # when she last welcomed them back: an absence is mentioned once
+        self._last_alone = 0.0
         self._sleep_thread = None
         self._sleep_stop = None
         self._sleep_report = None
@@ -245,6 +250,7 @@ class Mind:
             self._maybe_reflect(now, hs)
             self._cope(now, hs)
             self._tend(now, hs)
+            self._be_alone(now, hs)
             if now - self._last_initiative > INITIATIVE_EVERY_S and self.host.get("speak"):
                 self._last_initiative = now
                 self._maybe_act(now, hs)
@@ -351,13 +357,11 @@ class Mind:
     def on_sensor(self, line):
         now = self.now()
         if line == "PRESENT":
-            if not self._present:
-                self._present_since = now
-            self._present = True
+            self._arrived(now)
             self.mood.appraise(0.15, 0.3)
             self.drives.satisfy("social", 0.05)
         elif line == "ABSENT":
-            self._present = False
+            self._left(now)
         elif line == "MOTION":
             self.drives.bump("security", 0.6)
             self.mood.appraise(-0.3, 0.6)
@@ -377,7 +381,30 @@ class Mind:
         return default_s * max(0.33, min(1.5, 0.4 + 1.2 * (1.0 - s)))
 
     def set_present(self, present):
-        self._present = bool(present)
+        now = self.now()
+        self._arrived(now) if present else self._left(now)
+
+    def _arrived(self, now):
+        """Someone's in the room. If they'd been gone for hours (out for the day, not
+        just busy), that's a reunion: she'll welcome them back, once."""
+        if not self._present:
+            self._present_since = now
+            away = now - self._absent_since if self._absent_since else 0.0
+            if away >= 3 * 3600 and now - self.last_user_ts >= 3 * 3600:
+                self.reunion_gap_h = away / 3600.0
+        self._present, self._absent_since = True, None
+
+    def _left(self, now):
+        if self._present or self._absent_since is None:
+            self._absent_since = now
+        self._present = False
+
+    def absence_mentioned(self, now):
+        """She has welcomed them back (or they talked first and she could): the
+        absence is done with - no bringing it up again, no guilt."""
+        self.reunion_gap_h = None
+        self._absence_said = now
+        self.executive.greeted_reunion = now
 
     # ---- speech in / out
     def pre_reply(self, text, cues=None):
@@ -461,6 +488,8 @@ class Mind:
         if p["cues"]:
             voice_summary = {k: p["cues"][k] for k in ("arousal", "hesitation", "pitch_hz", "rate")}
         now = self.now()
+        if p.get("reunion"):
+            self.absence_mentioned(now)
         if p.get("ephemeral") or p.get("handled"):
             # "forget ..." commands, boundaries, reminders and questions about herself are things said *to her*,
             # not shared history: they count as company but aren't kept as memories.
@@ -468,7 +497,8 @@ class Mind:
                 self.conversations += 1
             self.save()
             return
-        self.memory.add_episode(p["user"], reply, p["valence"], p["intensity"], p["facts"], voice_summary, now=now)
+        ep = self.memory.add_episode(p["user"], reply, p["valence"], p["intensity"], p["facts"], voice_summary, now=now)
+        self.hindsight.retain_episode(ep)
         if p["used"]:
             self.memory.mark_recalled(p["used"], now)
         self.conversations += 1
@@ -568,6 +598,13 @@ class Mind:
         if need:
             lines.append({"social": "You've been lonely.", "curiosity": "You're restless with curiosity.",
                           "security": "You're on edge after something moved.", "sleep": "You're sleepy."}[need[0]])
+        if self.reunion_gap_h:      # they talked first, before she could welcome them back
+            lines.append(f"They've just come back after {_ago_words(self.reunion_gap_h * 3600)} away. If it fits, welcome them "
+                         "back once, lightly, and ask about them: no guilt, no 'I missed you so much'. Then let it go.")
+            if self._pending is not None:
+                self._pending["reunion"] = True
+        elif now - self._absence_said < 6 * 3600:
+            lines.append("You've already welcomed them back: don't bring up that they were away.")
         if not self.flirt_ok:
             lines.append("They asked you not to flirt: keep it warm but friendly.")
         elif self.desire(now) > 0.6:
@@ -583,6 +620,8 @@ class Mind:
         for e, _, via in recalled:
             when = _ago_words(now - e["ts"])
             lines.append(f"You remember (from {when}): they said \"{_clip(e['user'], 90)}\".")
+        for fact in self.hindsight.recall(text):   # what the shared memory learned about them (never waits long)
+            lines.append(f"You also know: {_clip(fact, 140)}")
         views = self.opinions.view_on(text)
         if views:
             lines.append(views)
@@ -634,7 +673,7 @@ class Mind:
             self.mood.appraise(0.4, 0.4)
             self.drives.satisfy("social", 0.1)
         elif event == "arrived":
-            self._present = True
+            self._arrived(self.now())
             self.mood.appraise(0.15, 0.3)
         elif event == "drowsy":
             add_thought("They look tired.", "note")
@@ -708,6 +747,34 @@ class Mind:
         add_thought(text, "activity")
         self.drives.satisfy("curiosity", 0.2)
 
+    # ------------------------------------------------------------ alone: fine on her own
+    def _be_alone(self, now, hs):
+        """Lonely with nobody home, she doesn't save it all up for when you're back: she
+        keeps herself company - goes over a good memory, thinks something through, or
+        daydreams - and it takes the edge off. Quietly: these are her own."""
+        import random
+        if hs.get("sleeping") or self.conversation_active or self._present or hs.get("present"):
+            return
+        if now - self.last_user_ts < 1800 or now - self._last_alone < 1200 or self.drives.values["social"] < 0.6:
+            return
+        self._last_alone = now
+        good = [e for e in self.memory.active() if e["valence"] > 0.2 and e["strength"] > 0.2]
+        options = (["remember"] if good else []) + ["think", "daydream"]
+        choice = random.choice(options)
+        if choice == "remember":
+            e = random.choices(good, weights=[g["strength"] for g in good], k=1)[0]
+            self.memory.mark_recalled([e], now)
+            text = f"I went back over when they said \"{_clip(e['user'], 60)}\". It made me smile."
+        elif choice == "think":
+            qs = self.self_model.open_questions or [f"what {t} means to them" for t in self.memory.topics(2)] or ["what I'd like to learn next"]
+            text = f"I spent a while thinking about {random.choice(qs)}."
+        else:
+            seeds = [_clip(e["user"], 30) for e in random.sample(good, min(3, len(good)))] or ["the window", "a long road", "music"]
+            text = "I daydreamed: " + self.dreamer._template_dream(seeds)
+        add_thought(text, "alone")
+        self.drives.satisfy("social", 0.15)
+        self.mood.appraise(0.15, 0.1)
+
     def token_budget(self, default=150):
         """How much she can say: tiredness shortens her replies (down to about 60%)."""
         s = self.drives.sleepiness(hour_of_day(self.now()))
@@ -735,6 +802,8 @@ class Mind:
             return "That would erase every conversation and everything I've learned about you. Are you sure? Say yes to confirm."
         if re.search(r"\bforget (that|what i just said|the last thing)\b", t):
             e = self.memory.forget_last()
+            if e:
+                self.hindsight.forget_episodes([e["id"]])
             return "Okay, it's gone." if e else "There was nothing to forget."
         m = re.search(r"\bforget (?:about |what i (?:said|told you) about )(?P<what>.{2,40}?)[.?!]?$", t)
         if m:
@@ -871,6 +940,7 @@ class Mind:
     # ------------------------------------------------------------ forgetting
     def forget_matching(self, phrase):
         n = self.memory.forget_matching(phrase)
+        self.hindsight.forget_episodes(getattr(self.memory, "last_forgotten_ids", []))
         try:
             import dream_memory as dm
             p = phrase.lower()
@@ -891,6 +961,7 @@ class Mind:
 
     def forget_everything(self):
         n = self.memory.forget_all()
+        self.hindsight.forget_all()
         for name in ("visual.jsonl", "dreams.jsonl", "thoughts.jsonl", "initiatives.jsonl", "insights.jsonl", "vision_state.json"):
             store.remove(name)
         self.self_model.forget_user()

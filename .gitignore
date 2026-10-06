@@ -204,3 +204,7 @@ scripts/models/*.part
 
 # Depth videos for the avatar depth effect (built by scripts/depth_effect.py)
 videos/depth/
+/memories
+/memories
+
+hindsight-venv/

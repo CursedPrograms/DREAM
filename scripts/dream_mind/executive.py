@@ -332,9 +332,11 @@ class Executive:
                 line = random.choice([f"Good morning. Happy {wd}." if wd else "Good morning.",
                                       "Morning. Did you sleep well?",
                                       f"Good morning. It's {p['clock']}." if p.get("clock") else "Good morning, you."])
-            else:
-                line = random.choice([f"Welcome back. It's been {gap}. I missed you a little.",
-                                      f"There you are. {gap.capitalize()} without you. I noticed."])
+            else:   # about them, not about her: glad, curious, no guilt (and the absence comes up only this once)
+                line = random.choice(["There you are. How did it go?",
+                                      "Welcome back. Anything good happen while you were out?",
+                                      f"Hey, you're back. How were the last {gap}?",
+                                      "There you are. Tell me one good thing about your day."])
             add("welcome_back", 0.95, f"someone came back after {gap}", line, after=("greeted_reunion", p["now"]))
 
         if p["unspoken_dream"] and (p["present"] or p["since_user_s"] < RECENT_INTERACTION_S):
