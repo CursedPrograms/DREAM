@@ -19,6 +19,11 @@ console = Console()
 CAM_BACKEND = cv2.CAP_DSHOW if sys.platform == "win32" else cv2.CAP_ANY
 # Added a 'blind_mode' flag to state
 _state = {"running": True, "enabled": True, "blind_mode": False}
+# Opening the camera from two threads at once crashes OpenCV's DirectShow
+# backend (heap corruption) when no webcam is present - so opens take turns,
+# and motion detection waits for surveillance's probe before trying.
+_cam_lock = threading.Lock()
+_probed = threading.Event()
 
 def start_surveillance():
     """Starts the camera loop. If no camera is found, DREAM continues in blind mode."""
@@ -29,14 +34,16 @@ def start_surveillance():
         os.makedirs(SAVE_DIR, exist_ok=True)
 
         # Try to capture camera (DirectShow on Windows, V4L2 on Linux)
-        cap = cv2.VideoCapture(0, CAM_BACKEND)
-        
-        if not cap.isOpened():
-            console.print("[yellow]Surveillance: No webcam detected. DREAM is now in 'Blind Mode'.[/yellow]")
-            _state["enabled"] = False
-            _state["blind_mode"] = True
-            # We don't return; we let the thread finish naturally or wait for a signal
-            return 
+        with _cam_lock:
+            cap = cv2.VideoCapture(0, CAM_BACKEND)
+            if not cap.isOpened():
+                cap.release()
+                console.print("[yellow]Surveillance: No webcam detected. DREAM is now in 'Blind Mode'.[/yellow]")
+                _state["enabled"] = False
+                _state["blind_mode"] = True
+                _probed.set()
+                return
+        _probed.set()
 
         console.print(f"[green]Surveillance started — saving to '{FOLDER_NAME}'[/green]")
 
@@ -69,6 +76,7 @@ def start_surveillance():
 def start_motion_detection():
     """Starts motion detection. If no camera is found, exits loop but keeps system alive."""
     def loop():
+        _probed.wait(timeout=15)
         if _state["blind_mode"]:
             return # Exit silently if surveillance already confirmed no camera
 
@@ -77,8 +85,10 @@ def start_motion_detection():
         SAVE_DIR = os.path.join(BASE_DIR, "output", FOLDER_NAME)
         os.makedirs(SAVE_DIR, exist_ok=True)
 
-        cap = cv2.VideoCapture(0, CAM_BACKEND)
+        with _cam_lock:
+            cap = cv2.VideoCapture(0, CAM_BACKEND)
         if not cap.isOpened():
+            cap.release()
             console.print("[yellow]Motion detection: Disabled (No Camera).[/yellow]")
             return
 
