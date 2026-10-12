@@ -151,6 +151,13 @@ async function say(text, audioUrl) {
   if (audioUrl) await playAudio(audioUrl);
 }
 
+/* Tell app.py how a line to another robot is going ('speaking', then 'done'). */
+function peerLine(id, status) {
+  return fetch('/api/dream/peer_line', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }),
+  }).catch(() => {});
+}
+
 /* Show a line and have the server voice it. */
 async function sayText(text) {
   showCaption(text);
@@ -386,6 +393,12 @@ function connectSSE() {
         break;
       case 'speak':   // e.g. the goodbye when someone leaves
         if (started && !busy) runExclusive(() => say(d.text, d.audio_url));
+        break;
+      case 'peer_line':   // her line to KIDA (peer_talk.py): said like any reply; app.py waits for "done"
+        if (started && !busy && !sleeping) runExclusive(async () => {
+          await peerLine(d.id, 'speaking');
+          try { await say(d.text, d.audio_url); } finally { await peerLine(d.id, 'done'); }
+        });
         break;
       case 'flirt':   // idle for a while: one flirty clip
         if (started && !busy && !sleeping) runExclusive(() => playOnce(d.clip, 'FLIRTING'));

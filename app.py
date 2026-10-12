@@ -123,7 +123,8 @@ RIFT_HOST           = dashboard_cfg.get("RiftHost", "localhost")
 RIFT_PORT           = dashboard_cfg.get("RiftPort", 5000)
 RIFT_HEARTBEAT_SECS = 10
 FLEET_CAPABILITIES  = ["voice_chat", "tts", "stt", "llm",
-                       f"talk:{THIS_PORT}"]   # RIFT's conversations: /chirp?u= on this port
+                       f"talk:{THIS_PORT}",   # RIFT's conversations: /chirp?u= on this port
+                       "peer"]                # ...and real ones with KIDA-01 (/peer, see peer_talk.py)
 
 # Fleet heartbeat transport: "wifi" (default) registers with RIFT over HTTP,
 # same as always. "bluetooth" registers directly with NORA instead, over a
@@ -796,12 +797,16 @@ _dream = {
     "flirt_played":  False,
     "presence_seen": False,  # mmWave PRESENT currently active — for the ABSENT farewell edge
     "distance_m":    None,
+    "last_user_ts":  time.time(),  # last time someone (not a robot) was with her
+    "peer_until":    0.0,    # she's saying a line to another robot until then (peer_talk.py)
 }
 
 def touch_interaction():
     """Call whenever the user actually interacts — resets all idle timers."""
     _dream["last_wake_ts"] = time.time()
     _dream["flirt_played"] = False
+    if time.time() > _dream["peer_until"]:   # a page busy playing her line to KIDA isn't you
+        _dream["last_user_ts"] = time.time()
 
 def enter_sleep():
     if not _dream["sleeping"]:
@@ -992,7 +997,12 @@ def api_dream_config():
 def api_dream_activity():
     """A page reports whether it's busy (recording/thinking/speaking) so the
     idle timers and the farewell don't fire in the middle of a conversation."""
-    busy = bool((request.get_json(silent=True) or {}).get("busy"))
+    data = request.get_json(silent=True) or {}
+    if data.get("user"):     # scripts/dream.py heard someone (it has its own mic, not this page's)
+        _dream["peer_until"] = 0.0
+        touch_interaction()
+        return jsonify({"ok": True})
+    busy = bool(data.get("busy"))
     _dream["busy"] = busy
     if busy:
         touch_interaction()
@@ -1295,17 +1305,104 @@ def api_alarm_set():
 # Commands scripts/dream.py (or anything else on this PC) may send to the board.
 _SENSOR_COMMANDS = {"BUZZER", "ALARM ON", "ALARM OFF", "RGB OFF", "RGB RAINBOW"}
 
+# ── Talking with KIDA-01 (peer_talk.py) ────────────────────────────────────────
+# When RIFT pairs her with another robot that has a mind, they play rock paper
+# scissors and the winner picks words or Brainfuck. Only while nobody's around:
+# the mmWave says no one's here and hasn't for PEER_QUIET_SENSOR_S, or - with no
+# working sensor - nobody has talked to her for PEER_QUIET_NO_SENSOR_S.
+import peer_talk
+
+PEER_QUIET_SENSOR_S    = 5 * 60
+PEER_QUIET_NO_SENSOR_S = 10 * 60
+PEER_PERSONA = ("the companion who lives in the house: reflective and a little dreamy. You don't move; "
+                "you watch the room through a camera, talk with the people who live here, and dream at night.")
+
+def _peer_available():
+    if _dream["sleeping"]:
+        return False, "asleep"
+    if _state["value"] != "idle" or (_dream["busy"] and time.time() > _dream["peer_until"]):
+        return False, "busy"
+    sensing = _sensor_status["connected"] and _sensor_status["radar_ok"]
+    if sensing and (_dream["presence_seen"] or _sensor_status["present"]):
+        return False, "someone's here"
+    quiet = time.time() - _dream["last_user_ts"]
+    if quiet < (PEER_QUIET_SENSOR_S if sensing else PEER_QUIET_NO_SENSOR_S):
+        return False, f"someone was with me {int(quiet // 60)} min ago"
+    return True, "alone" if sensing else "nobody's talked to me for a while (no presence sensor)"
+
+def _peer_keep_awake(seconds):
+    """Her own lines keep her awake, but don't count as someone being here."""
+    _dream["peer_until"] = time.time() + seconds
+    _dream["last_wake_ts"] = time.time()
+
+PEER_LINE_TIMEOUT_S = 120   # longest she may take over one line (MuseTalk lip-sync renders first)
+PEER_ACK_S          = 6     # whoever voices her says "on it" within this, or nobody will
+_peer_lines = {}            # line id -> {"ack": Event, "done": Event}, set by POST /api/dream/peer_line
+
+def _peer_speak(text):
+    """Says her line exactly as she answers you: scripts/dream.py speaks it (Piper,
+    MuseTalk lip-sync, talking clips), or the /dream page in the browser. Returns once
+    it's been said, so KIDA answers when she has finished."""
+    line_id = f"{time.time():.6f}"
+    line = _peer_lines[line_id] = {"ack": threading.Event(), "done": threading.Event()}
+    _peer_keep_awake(PEER_LINE_TIMEOUT_S)
+    try:
+        push_event({"type": "peer_line", "id": line_id, "text": text, "peer": (PEER.session or {}).get("peer"),
+                    "audio_url": _audio_url_for(text)})
+        if line["ack"].wait(PEER_ACK_S):
+            line["done"].wait(PEER_LINE_TIMEOUT_S)
+        else:
+            print(f"[DREAM] Nobody voiced her line to {(PEER.session or {}).get('peer')} "
+                  "(start scripts/dream.py or open /dream): " + text)
+    finally:
+        _peer_lines.pop(line_id, None)
+        _peer_keep_awake(10)
+
+@app.route("/api/dream/peer_line", methods=["POST"])
+def api_dream_peer_line():
+    """dream.py or the /dream page: {"id", "status": "speaking" | "done"} for a peer line."""
+    data = request.get_json(silent=True) or {}
+    line = _peer_lines.get(str(data.get("id")))
+    if line:
+        line["ack"].set()
+        if data.get("status") == "done":
+            line["done"].set()
+    return jsonify({"ok": bool(line)})
+
+def _peer_chirp(u):
+    _peer_keep_awake(10)
+    return send_sensor_command(f"TALK:{u}")
+
+def _peer_generate(prompt, **kw):
+    if mind_llm is not None:
+        return mind_llm.generate(prompt, **kw)
+    options = {"temperature": kw.get("temperature", 0.7), "num_predict": kw.get("num_predict", 70)}
+    if kw.get("stop"):
+        options["stop"] = kw["stop"]
+    r = _req.post(OLLAMA_URL, json={"model": MODEL, "prompt": prompt, "stream": False, "options": options},
+                  timeout=kw.get("timeout", 90))
+    return r.json().get("response", "")
+
+def _peer_thought(text, kind):
+    if MIND is not None:
+        from dream_mind.reflection import add_thought
+        add_thought(text, kind)
+
+PEER = peer_talk.PeerTalk(THIS_NAME, PEER_PERSONA, MIND, _peer_generate, _peer_thought,
+                          _peer_speak, _peer_chirp, _peer_available)
+peer_talk.register_routes(app, PEER)
+
 @app.route("/chirp")
 def chirp():
-    """RIFT's fleet conversations: /chirp?u=<0-13> says that utterance (a
+    """RIFT's fleet conversations: /chirp?u=<0-16> says that utterance (a
     Brainfuck phrase, see dream_sensors/talk_bf.h) on the sensor board's
     buzzer, in DREAM's deep voice. The board stays quiet during an alarm."""
     try:
         u = int(request.args.get("u", ""))
     except ValueError:
         u = -1
-    if not 0 <= u <= 13:
-        return jsonify({"ok": False, "error": "use /chirp?u=0-13"}), 400
+    if not 0 <= u <= 16:   # 0-13 the phrasebook, 14-16 rock / paper / scissors
+        return jsonify({"ok": False, "error": "use /chirp?u=0-16"}), 400
     return jsonify({"ok": send_sensor_command(f"TALK:{u}")})
 
 

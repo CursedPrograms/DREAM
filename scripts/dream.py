@@ -830,6 +830,7 @@ def listen_for_wake_word():
             console.print("[bold green]Wake word detected![/bold green]")
             _state["wake_active"] = False
             touch_interaction()
+            _tell_hub_someone_is_here()
             return "__WAKE__"
 
         if any(t in text for t in WIFI_TRIGGERS):
@@ -1367,6 +1368,37 @@ def send_sensor_command(cmd: str) -> bool:
         console.print(f"[yellow]Sensor command failed: {e}[/yellow]")
         return False
 
+def _tell_hub_someone_is_here():
+    """app.py decides when she's alone enough to chat with KIDA (peer_talk.py); this
+    program has its own mic, so it tells app.py when someone talks to her."""
+    def post():
+        try:
+            _hub_request("post", "/api/dream/activity", json={"user": True}, timeout=5)
+        except Exception:
+            pass
+    threading.Thread(target=post, daemon=True).start()
+
+def _say_peer_line(evt):
+    """A line of hers to another robot (app.py's peer_talk.py): said like any reply -
+    Piper, lip-sync and the talking clips. app.py waits until it's "done" before the
+    other robot answers."""
+    text = str(evt.get("text") or "").strip()
+    if _state["sleeping"] or not text:
+        console.print(f"[dim](asleep - not saying to {evt.get('peer')}: {text})[/dim]")
+        return
+
+    def report(status):
+        try:
+            _hub_request("post", "/api/dream/peer_line", json={"id": evt.get("id"), "status": status}, timeout=5)
+        except Exception:
+            pass
+    report("speaking")
+    try:
+        console.print(f"[magenta]DREAM -> {evt.get('peer') or 'another robot'}[/magenta]")
+        speak(text)
+    finally:
+        report("done")
+
 def _handle_sensor_line(line: str):
     if MIND:
         MIND.on_sensor(line)
@@ -1427,6 +1459,8 @@ def serial_watcher():
                         continue
                     if evt.get("type") == "sensor":
                         _handle_sensor_line(str(evt.get("line", "")).strip())
+                    elif evt.get("type") == "peer_line":
+                        threading.Thread(target=_say_peer_line, args=(evt,), daemon=True).start()
         except Exception as e:
             console.print(f"[yellow]Sensor hub error: {e} — reconnecting[/yellow]")
             time.sleep(2)
@@ -1727,6 +1761,7 @@ def voice_loop():
             console.print(f"\n[bold green]You:[/bold green] {user_text}")
             set_state("idle")
             touch_interaction()
+            _tell_hub_someone_is_here()
             cues = None
             if MIND:
                 MIND.note_interaction()
