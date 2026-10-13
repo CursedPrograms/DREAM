@@ -142,16 +142,22 @@ _fleet_transport_mode = "wifi"
 _fleet_bt_port        = None
 _bt_fleet_link        = None
 
+_rift_ok = None   # last heartbeat result, so a change (and only a change) is printed
+
 def _fleet_heartbeat_wifi():
+    global _rift_ok
+    url = f"http://{RIFT_HOST}:{RIFT_PORT}/register"
     try:
-        _req.post(
-            f"http://{RIFT_HOST}:{RIFT_PORT}/register",
-            data={"name": THIS_NAME, "type": "ai_assistant",
-                  "capabilities": ",".join(FLEET_CAPABILITIES)},
-            timeout=2,
-        )
-    except _req.RequestException:
-        pass
+        r = _req.post(url, data={"name": THIS_NAME, "type": "ai_assistant",
+                                 "capabilities": ",".join(FLEET_CAPABILITIES)},
+                      timeout=2)
+        ok, why = r.ok, f"HTTP {r.status_code}"   # e.g. 404: something else is on RIFT's port
+    except _req.RequestException as e:
+        ok, why = False, type(e).__name__
+    if ok != _rift_ok:
+        print(f"[DREAM] Registered with RIFT at {url}" if ok else
+              f"[DREAM] Can't register with RIFT at {url} ({why}); retrying every {RIFT_HEARTBEAT_SECS}s")
+        _rift_ok = ok
 
 def _fleet_heartbeat_bluetooth(bt_port):
     global _bt_fleet_link
