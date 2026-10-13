@@ -20,7 +20,7 @@ sys.modules["pkg_resources"] = pkg_mock
 
 # --- CONFIGURATION ---
 # Target folder with your kaleidoscopic frames
-INPUT_SESSION = r'D:\cc\Friday\output\dreams\dream_20260412_191749_interpolate'
+INPUT_SESSION = str(Path(__file__).resolve().parent.parent / 'output' / 'dreams' / 'dream_20260412_191749_interpolate')
 # DeepDream aggressive layers
 DREAM_LAYERS = ['mixed7', 'mixed8'] 
 # Performance / Intensity
