@@ -16,7 +16,7 @@
       "CharName": "DREAM",
       "LipsyncEnabled": false,
       "DreamImageModel": "auto",
-      "WhisperModel": "tiny",
+      "WhisperModel": "small.en",
       "WhisperDevice": "cpu",
       "LlmModel": "phi3:mini",
       "VisionModel": "gemma3:4b-it-qat",
