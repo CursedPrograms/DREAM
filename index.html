@@ -133,6 +133,7 @@ Webcam &rarr; face prints (who is there) + a vision model (what is there) &rarr;
     <p class="note"><strong>One serial owner at a time.</strong> Start <code>app.py</code> first if you want the dashboard and sensor board: <code>dream.py</code> reads the board through it. <code>dream.exe</code> opens the board itself, so don't run it alongside <code>app.py</code>.</p>
     <h3 class="sub">Talking, in Brainfuck</h3>
     <p class="muted">Every phrase is a <strong>Brainfuck</strong> program that prints its words &mdash; hello is <code>++++++++[&gt;+++++++++++++&lt;-]&gt;.+.</code> &rarr; <code>hi</code> &mdash; and a robot says it by beeping the program on its buzzer, one tone per symbol, in its own voice. <a href="https://cursedprograms.github.io/RIFT/">RIFT</a> runs the conversations and asks each robot to speak with <code>GET /chirp?u=&lt;0-13&gt;</code> (phrases 0&ndash;6, replies 7&ndash;13). DREAM&rsquo;s voice is deep and slow: <code>app.py</code> sends <code>TALK:&lt;u&gt;</code> to the sensor board, which beeps it on its buzzer (not during an alarm).</p>
+    <p class="muted">With another robot that has a mind (DREAM, KIDA-01, TINA), RIFT holds a <strong>real conversation</strong> when nobody is using them: rock paper scissors, then the winner picks words or Brainfuck (<code>peer_talk.py</code>). In Brainfuck the chat opens with hello and only says goodbye at the end.</p>
     <h3 class="sub">Voice commands</h3>
     <div class="table-wrap">
       <table>
