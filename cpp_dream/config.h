@@ -12,15 +12,15 @@ struct Config {
 
     std::string ollamaHost = "localhost";
     int ollamaPort = 11434;
-    std::string model = "phi3:mini";
+    std::string model = "phi3:mini";   // LlmModel in config.json
 
     std::string videosDir;     // <root>/videos
     std::string voicesDir;     // <root>/voices
     std::string memoriesDir;   // <root>/memories
     std::string audioDir;      // <root>/audio (intro1.wav)
     std::string piperExe;      // piper.exe (from the venv, or next to dream.exe)
-    std::string voiceModel;    // first .onnx in voices/
-    std::string whisperModel;  // ggml-tiny.en.bin
+    std::string voiceModel;    // voices/<Voice>.onnx, else the first .onnx there
+    std::string whisperModel;  // ggml-<WhisperModel>.bin, else ggml-tiny.en.bin
 };
 
 // Loaded on first use.

@@ -167,10 +167,15 @@ class Dreamer:
     def dream(self, cycle=0, use_llm=True, stop=None, images=True):
         m = self.mind
         frags = m.memory.fragments(3)
-        seeds = [_snippet(e["user"]) for e in frags]
-        for o in m.vision.core_memories(2):   # something she saw can enter a dream too
-            seeds.append(o["text"])
-        seeds = seeds[:4]
+        seeds = [_snippet(e["user"]) for e in frags][:2]
+        # what she saw enters the dream too: today's looks (who was there first), else the most striking ones
+        seen = m.vision.recent_looks(2, within_h=20, with_people=True) or m.vision.recent_looks(1, within_h=20)
+        for o in seen + m.vision.core_memories(2):
+            if o["text"] not in seeds and len(seeds) < 4:
+                seeds.append(o["text"])
+        for e in frags[2:]:
+            if len(seeds) < 4:
+                seeds.append(_snippet(e["user"]))
         if not seeds:
             return None
 

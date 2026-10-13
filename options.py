@@ -12,7 +12,8 @@ bot's options screen looks like that bot.
 Keys:  Up/Down pick   Enter open / toggle / edit   Left/Right change a value
        (Shift = 10x)  Esc back   Ctrl+S save   Ctrl+Z revert   mouse works too
 Values: on/off for true/false, < 12 > for numbers, typing for text, and a
-fixed list wherever options_choices.json names the choices, e.g.
+dropdown (Enter or click opens it, Left/Right steps through it) wherever
+options_choices.json names the choices, e.g.
     {"Config/DREAM/DreamImageModel": ["auto", "sd-turbo", "sdxl-turbo"]}
 Saving keeps the old file as config.json.bak.
 """
@@ -141,6 +142,7 @@ class Options:
         self.sel = 0
         self.scroll = 0
         self.editing = None       # (key, text) while typing a value
+        self.dropdown = None      # {"key", "opts", "sel", "scroll"} while a list is open
         self.message, self.message_t = "", 0
         self.choices = load_choices()
         self.f_title = pygame.font.SysFont("consolas,couriernew,monospace", 30, bold=True)
@@ -186,8 +188,8 @@ class Options:
             self.sel, self.scroll = 0, 0
         elif isinstance(v, bool):
             self.set_value(key, not v)
-        elif self.key_path(key) in self.choices:
-            self.change(key, +1)
+        elif self.choices.get(self.key_path(key)):
+            self.open_dropdown(key)
         else:
             self.editing = (key, v if isinstance(v, str) else json.dumps(v))
 
@@ -206,6 +208,16 @@ class Options:
         elif isinstance(v, (int, float)):
             nv = v + direction * step_for(v, big)
             self.set_value(key, int(nv) if isinstance(v, int) else round(nv, 6))
+
+    def open_dropdown(self, key):
+        opts = self.choices[self.key_path(key)]
+        v = self.node()[key]
+        self.dropdown = {"key": key, "opts": opts, "sel": opts.index(v) if v in opts else 0, "scroll": 0}
+
+    def pick_dropdown(self, i=None):
+        d = self.dropdown
+        self.set_value(d["key"], d["opts"][d["sel"] if i is None else i])
+        self.dropdown = None
 
     def commit_edit(self):
         key, text = self.editing
@@ -375,7 +387,54 @@ class Options:
         else:
             self.text("↑↓ pick  Enter open/edit  ←→ change  Esc back  Ctrl+S save",
                       self.f_small, c["text_dim"], (150, by + 10), W - 440)
+        if self.dropdown:
+            self.draw_dropdown()
         pygame.display.flip()
+
+    def dropdown_rect(self):
+        """Where the open list goes: under its row, or above it if there's no room."""
+        d = self.dropdown
+        item_h = 34
+        row_y = TOP + (self.sel - self.scroll) * ROW_H
+        room_below = H - BOTTOM - (row_y + ROW_H)
+        room_above = row_y - TOP
+        shown = min(len(d["opts"]), max(room_below, room_above, item_h) // item_h)
+        h = shown * item_h + 8
+        w = max(240, max(self.f_row.size(str(o))[0] for o in d["opts"]) + 60)
+        x = W - 40 - w
+        y = row_y + ROW_H if room_below >= h or room_below >= room_above else row_y - h
+        return pygame.Rect(x, y, w, h), shown, item_h
+
+    def draw_dropdown(self):
+        c, d = self.c, self.dropdown
+        box, shown, item_h = self.dropdown_rect()
+        d["sel"] = max(0, min(d["sel"], len(d["opts"]) - 1))
+        if d["sel"] < d["scroll"]:
+            d["scroll"] = d["sel"]
+        elif d["sel"] >= d["scroll"] + shown:
+            d["scroll"] = d["sel"] - shown + 1
+        self.hit.append((pygame.Rect(0, 0, W, H), ("dropdown_close",)))   # click outside closes it
+        self.hit.append((box, ("dropdown_noop",)))
+        pygame.draw.rect(self.screen, c["panel"], box, border_radius=6)
+        pygame.draw.rect(self.screen, c["accent"], box, 1, border_radius=6)
+        current = self.node()[d["key"]]
+        mouse = pygame.mouse.get_pos()
+        for j, opt in enumerate(d["opts"][d["scroll"]:d["scroll"] + shown]):
+            i = d["scroll"] + j
+            r = pygame.Rect(box.x + 4, box.y + 4 + j * item_h, box.w - 8, item_h)
+            if i == d["sel"] or r.collidepoint(mouse):
+                pygame.draw.rect(self.screen, c["button_hover_bg"], r, border_radius=4)
+            if opt == current:
+                pygame.draw.rect(self.screen, c["accent"], (r.x + 2, r.y + 8, 4, item_h - 16), border_radius=2)
+            colour = c["accent_hover"] if i == d["sel"] else (c["text"] if opt == current else c["text_sec"])
+            self.text(str(opt), self.f_row, colour, (r.x + 16, r.y + 7), r.w - 24)
+            self.hit.append((r, ("dropdown_pick", i)))
+        if len(d["opts"]) > shown:   # scrollbar
+            track = pygame.Rect(box.right - 7, box.y + 4, 3, box.h - 8)
+            pygame.draw.rect(self.screen, c["divider"], track)
+            th = max(16, track.h * shown // len(d["opts"]))
+            ty = track.y + (track.h - th) * d["scroll"] // max(1, len(d["opts"]) - shown)
+            pygame.draw.rect(self.screen, c["accent2"], (track.x, ty, 3, th))
 
     def button_small(self, label, rect, action, active):
         c = self.c
@@ -405,6 +464,26 @@ class Options:
                         self.editing = (key, t + clip.decode("utf-8", "ignore").rstrip("\x00"))
                 except Exception:
                     pass
+            return True
+        if self.dropdown:
+            d = self.dropdown
+            n = len(d["opts"])
+            if ev.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+                self.pick_dropdown()
+            elif ev.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE):
+                self.dropdown = None
+            elif ev.key == pygame.K_UP:
+                d["sel"] = (d["sel"] - 1) % n
+            elif ev.key == pygame.K_DOWN:
+                d["sel"] = (d["sel"] + 1) % n
+            elif ev.key == pygame.K_PAGEUP:
+                d["sel"] = max(0, d["sel"] - 8)
+            elif ev.key == pygame.K_PAGEDOWN:
+                d["sel"] = min(n - 1, d["sel"] + 8)
+            elif ev.key == pygame.K_HOME:
+                d["sel"] = 0
+            elif ev.key == pygame.K_END:
+                d["sel"] = n - 1
             return True
         rows = self.rows()
         if ctrl and ev.key == pygame.K_s:
@@ -437,7 +516,13 @@ class Options:
             if not rect.collidepoint(pos):
                 continue
             kind = action[0]
-            if kind == "select":
+            if kind == "dropdown_pick":
+                self.pick_dropdown(action[1])
+            elif kind == "dropdown_close":
+                self.dropdown = None
+            elif kind == "dropdown_noop":
+                pass
+            elif kind == "select":
                 rows = self.rows()
                 if self.sel == action[1] and rows:
                     self.activate(rows[action[1]])
@@ -483,6 +568,9 @@ class Options:
                     self.editing = (self.editing[0], self.editing[1] + ev.text)
                 elif ev.type == pygame.MOUSEBUTTONDOWN:
                     running = self.on_click(ev.pos, ev.button)
+                elif ev.type == pygame.MOUSEWHEEL and self.dropdown:
+                    d = self.dropdown
+                    d["sel"] = max(0, min(len(d["opts"]) - 1, d["sel"] - ev.y))
                 elif ev.type == pygame.MOUSEWHEEL:
                     self.sel = max(0, min(len(self.rows()) - 1, self.sel - ev.y))
             self.draw()

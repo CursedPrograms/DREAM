@@ -16,6 +16,15 @@
       "CharName": "DREAM",
       "LipsyncEnabled": false,
       "DreamImageModel": "auto",
+      "WhisperModel": "tiny",
+      "WhisperDevice": "cpu",
+      "LlmModel": "phi3:mini",
+      "VisionModel": "gemma3:4b-it-qat",
+      "AutoLook": {
+        "Enabled": true,
+        "EverySeconds": 60
+      },
+      "Voice": "en_US-amy-medium",
       "DepthEffect": {
         "Enabled": false,
         "Strength": 14,

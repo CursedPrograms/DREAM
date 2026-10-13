@@ -6,7 +6,8 @@ import time
 import random
 
 OLLAMA_URL     = "http://localhost:11434/api/generate"
-MODEL          = "phi3:mini"
+import dream_models
+MODEL          = dream_models.llm()   # LlmModel in config.json (options.py)
 
 def load_prompts(json_file_path):
     try:

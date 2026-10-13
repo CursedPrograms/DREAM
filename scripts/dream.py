@@ -61,6 +61,7 @@ console = Console()
 
 from dream_memory import extract_memories, remember, memory_prompt_block
 import depth_effect
+import dream_mode
 
 # ==================== PLATFORM ====================
 IS_WINDOWS = sys.platform == "win32"
@@ -149,7 +150,8 @@ surveillance.start_motion_detection()
 
 # ==================== CONFIG ====================
 OLLAMA_URL     = "http://localhost:11434/api/generate"
-MODEL          = "phi3:mini"
+import dream_models
+MODEL          = dream_models.llm()   # LlmModel in config.json (options.py)
 SAMPLE_RATE    = 16000
 CHANNELS       = 1
 RECORD_SECONDS = 16
@@ -223,6 +225,8 @@ def _match_light_color(lower: str) -> str | None:
 
 with open(os.path.join(BASE_DIR, "config.json")) as f:
     config = json.load(f)
+# mode.json; xxx_version is "yes" only while the xxx.json key points at an installed add-on pack
+MODE = dream_mode.load_mode()
 
 CHAR_NAME       = config["Config"]["DREAM"]["CharName"]
 SYSTEM_PROMPT   = config["Config"]["DREAM"]["SystemPrompt"].format(name=CHAR_NAME)
@@ -238,12 +242,7 @@ console.print(f"[cyan]CUDA available:[/cyan] {CUDA_AVAILABLE} "
 # ==================== VOICE MODEL ====================
 
 def find_voice_model():
-    if not os.path.isdir(VOICES_DIR):
-        return None
-    for fname in sorted(os.listdir(VOICES_DIR)):
-        if fname.endswith(".onnx"):
-            return os.path.join(VOICES_DIR, fname)
-    return None
+    return dream_models.voice_path()   # Voice in config.json, else the first in voices/
 
 VOICE_MODEL = find_voice_model()
 
@@ -613,6 +612,7 @@ def run_musetalk(audio_wav_path: str) -> str | None:
         console.print("[dim]MuseTalk inference...[/dim]")
         fp  = _mt_ref_fp
         idx = 0
+        written = 0
         gen = datagen(
             whisper_chunks     = whisper_chunks,
             vae_encode_latents = latent_list_cycle,
@@ -640,7 +640,14 @@ def run_musetalk(audio_wav_path: str) -> str | None:
                     composite = get_image(ori_frame, rf_resized, [x1, y1, x2, y2],
                                           mode="jaw", fp=fp)
                     writer.append_data(cv2.cvtColor(composite, cv2.COLOR_BGR2RGB))
+                    written += 1
         writer.close()
+
+        if written == 0:
+            # Every frame was skipped: an empty mp4 that can't be opened
+            console.print("[yellow]MuseTalk wrote no frames — lipsync skipped[/yellow]")
+            os.unlink(output_vid)
+            return None
 
         console.print(f"[green]MuseTalk →[/green] {os.path.basename(output_vid)}")
         return output_vid
@@ -747,15 +754,15 @@ _whisper_model = None
 def get_whisper():
     global _whisper_model
     if _whisper_model is None:
-        console.print("[dim]Loading Whisper (CPU — keeps GPU free for MuseTalk)...[/dim]")
-        import whisper
-        _whisper_model = whisper.load_model("tiny", device="cpu")
-        console.print("[green]OK[/green] Whisper ready (device=cpu)")
+        console.print("[dim]Loading Whisper...[/dim]")
+        import whisper_model
+        _whisper_model, desc = whisper_model.load()
+        console.print(f"[green]OK[/green] {desc}")
     return _whisper_model
 
 def transcribe_file(filepath):
     try:
-        result = get_whisper().transcribe(filepath, language="en", fp16=False)
+        result = get_whisper().transcribe(filepath, language="en", fp16=get_whisper().device.type == "cuda")
         return result["text"].strip()
     except Exception as e:
         console.print(f"[red]STT error: {e}[/red]")
@@ -1580,6 +1587,7 @@ class VideoStateManager:
         self._current_state  = None
         self._prev_idle_path = None
         self._force_player: VideoPlayer | None = None
+        self._force_path     = None
 
     def _pick_random(self, pool, avoid=None):
         if not pool:
@@ -1602,21 +1610,33 @@ class VideoStateManager:
 
     def get_frame(self, now_ms, state):
         # Force video (lipsync output or flirt clip) takes priority
+        # A new path replaces whatever force clip is still running: a lipsync
+        # video that lands mid intro/flirt clip used to be ignored, then wiped
+        # when that clip ended, so she spoke with no lipsync.
         force_path = _state.get("force_video")
-        if force_path and self._force_player is None:
+        if force_path and force_path != self._force_path:
+            if self._force_player is not None:
+                self._force_player.release()
+                self._force_player = None
+            self._force_path = force_path
             try:
                 self._force_player = VideoPlayer(force_path, self.sw, self.sh, loop=False)
                 console.print(f"[magenta]Playing force video: {os.path.basename(force_path)}[/magenta]")
             except Exception as e:
                 console.print(f"[red]Force video error: {e}[/red]")
-                _state["force_video"] = None
+                self._force_path = None
+                if _state.get("force_video") == force_path:
+                    _state["force_video"] = None
 
         if self._force_player is not None:
             frame = self._force_player.get_frame(now_ms)
             if self._force_player.finished:
                 self._force_player.release()
                 self._force_player = None
-                _state["force_video"] = None
+                # Only clear our own path, never one queued while this played
+                if _state.get("force_video") == self._force_path:
+                    _state["force_video"] = None
+                self._force_path = None
                 console.print("[magenta]Force video done.[/magenta]")
             return frame
 

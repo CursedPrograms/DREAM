@@ -30,7 +30,7 @@ huggingface-cli download stabilityai/sd-vae-ft-mse \
   --include "config.json" "diffusion_pytorch_model.bin" \
   --local-dir-use-symlinks False
 
-# 3. Whisper
+# 3. Whisper (MuseTalk's lip-sync encoder, always tiny)
 huggingface-cli download openai/whisper-tiny \
   --local-dir "$CheckpointsDir/whisper" \
   --include "config.json" "pytorch_model.bin" "preprocessor_config.json" \
@@ -53,6 +53,10 @@ echo "Downloading Face Parse weights..."
 gdown --id 154JgKpzCPW82qINcVieuPH3fZ2e0P812 -O "$CheckpointsDir/face-parse-bisent/79999_iter.pth"
 curl -L https://download.pytorch.org/models/resnet18-5c106cde.pth \
   -o "$CheckpointsDir/face-parse-bisent/resnet18-5c106cde.pth"
+
+# 7. Whisper speech model: the one WhisperModel in config.json picks (set it with options.sh)
+unset HF_ENDPOINT
+python3 scripts/whisper_model.py --download
 
 echo "------------------------------------------------"
 echo "✅ All weights have been downloaded successfully!"

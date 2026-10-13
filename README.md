@@ -41,7 +41,7 @@
 | **What she is** | [Overview](#-overview) - [System awareness](#system-awareness) - [Depth vision](#depth-vision) - [Autonomous behavior](#autonomous-behavior) - [Inner Life](#inner-life) |
 | **Hardware** | [Prerequisites](#prerequisites) - [Pinouts](#-technical-pinouts) - [Sensor board](#sensor-board) |
 | **Other front ends** | [DREAM in the browser](#dream-in-the-browser) - [DREAM as one program (C++)](#dream-as-one-program-c) |
-| **Reference** | [Web server and API](#web-server-and-api) - [Data and memory files](#data-and-memory-files) - [Configuration](#configuration) - [Testing](#testing) - [Environment notes](#environment-notes) - [Repository layout](#repository-layout) - [Troubleshooting](#troubleshooting) - [Privacy and safety](#privacy-and-safety) |
+| **Reference** | [Web server and API](#web-server-and-api) - [Data and memory files](#data-and-memory-files) - [Configuration](#configuration) - [Testing](#testing) - [Experiments](#experiments) - [Environment notes](#environment-notes) - [Repository layout](#repository-layout) - [Troubleshooting](#troubleshooting) - [Privacy and safety](#privacy-and-safety) |
 
 ---
 
@@ -72,7 +72,7 @@ Mic → Whisper → boundaries + memory + mood (dream_mind) → Ollama → Piper
 
 ## Options
 
-`options.bat` opens a game-style options menu for `config.json` (the same menu every bot has): sections as menus, on/off toggles, number steppers, text fields, and fixed choices from `options_choices.json`. Saving keeps `config.json.bak`.
+`options.bat` (or `options.ps1`, `options.sh`) opens a game-style options menu for `config.json` (the same menu every bot has): sections as menus, on/off toggles, number steppers, text fields, and dropdowns for fixed choices from `options_choices.json`. Saving keeps `config.json.bak`.
 
 ## Ways to run DREAM
 
@@ -115,6 +115,12 @@ The robots talk in **Brainfuck**: every phrase is a Brainfuck program that print
 
 Everything runs on this PC. Ollama serves the language model, Piper speaks, Whisper listens, and nothing is sent to the internet during use (only setup downloads models).
 
+<br>
+<div align="center">
+  <img src="images/character/angles%20(1).jpeg" alt="DREAM from several angles" width="400"/>
+</div>
+<br>
+
 ## Voice commands
 
 | You say | What happens |
@@ -132,6 +138,12 @@ Everything runs on this PC. Ollama serves the language model, Piper speaks, Whis
 | "Forget that", "forget about X", "forget everything" | Erases memories (the last one asks you to confirm first) |
 | "Stop talking on your own" / "you can speak up on your own" | Switches her unprompted remarks off or on |
 | "Watch my face while we talk" / "stop watching my face" | Turns expression reading on or off (off by default) |
+| "My name is Kimmie" (facing the camera) | She learns your face, and greets you by name when she sees you again |
+| "Who am I?" / "Do you recognise me?" | She tells you who she sees |
+| "What do you see?" / "Look at this" / "What am I holding?" | She takes a picture and describes it, by name if she knows you |
+| "Forget my face" / "forget all faces" | Deletes the face prints |
+| "Stop looking around" / "you can look around" | Turns her photo-a-minute off or on |
+| "What did you see today?" | She answers from what she remembers seeing |
 
 The same commands work typed into the dashboard chat and the browser avatar page. Anything else goes to the language model.
 
@@ -148,11 +160,15 @@ DREAM does not simply execute commands — she observes, remembers, and “dream
 
 She bridges static code and emergent autonomous behavior.
 
-- phi3:mini
+Pick her model in the options menu (`LlmModel`); `download_weights.bat` pulls it. Some picks:
+
+- phi3:mini: the default.
 - gemma3:4b: usually the most natural conversational voice at this size.
-- qwen3:4b: strong at following instructions. It has a thinking mode, so turn that off for speech.
 - llama3.2:3b: fast and reliable, with less personality.
 - phi4-mini: the newer Phi, better than phi3:mini but with the same style.
+- gemma3:12b, mistral-nemo:12b, gemma3:27b: for a GPU with 12 GB or more.
+
+Thinking models (qwen3, deepseek-r1, gpt-oss) aren't in her list: tested with qwen3:4b, the reply came back empty (it spent it all thinking), or it thought out loud. They're fine for the memory server's `Memory.LlmModel`, which nobody hears.
 
 <br>
 <div align="center">
@@ -180,6 +196,12 @@ She bridges static code and emergent autonomous behavior.
 - Finds her own hardware: boards introduce themselves over serial, so no fixed COM ports
 
 </details>
+
+<br>
+<div align="center">
+  <img src="images/character/angles%20(2).jpeg" alt="DREAM from several angles" width="400"/>
+</div>
+<br>
 
 ---
 
@@ -433,14 +455,14 @@ Open a terminal in the `cpp_dream` folder and run:
 ```bat
 setup.bat
 ```
-Gets everything that isn't in the repo. It only downloads what's missing, so it is safe to run again:
+Gets everything that isn't in the repo, using the models picked in the options menu (`WhisperModel`, `Voice`, `LlmModel`). It only downloads what's missing, so it is safe to run again, for example after picking a different model:
 
 | What | Size | Where it goes |
 |---|---|---|
 | C++ compiler + CMake + Ninja (WinLibs, via `winget`) and Git | - | your PATH |
-| Whisper speech model `ggml-tiny.en.bin` | 77 MB | `cpp_dream/models/` |
-| Piper (standalone, no Python) and the `en_US-amy-medium` voice | 22 + 63 MB | `piper/` and `voices/` in the repo root |
-| Ollama, and the `phi3:mini` model | - | Ollama's own folder |
+| Whisper speech model `ggml-<WhisperModel>.bin` | 77 MB (tiny) to 3 GB (large) | `cpp_dream/models/` |
+| Piper (standalone, no Python) and the voice (default `en_US-amy-medium`) | 22 + 63 MB | `piper/` and `voices/` in the repo root |
+| Ollama, and the model (default `phi3:mini`) | - | Ollama's own folder |
 
 If `setup.bat` installed new tools, **close the terminal and open a new one** so Windows picks them up. Then:
 
@@ -700,9 +722,11 @@ python detect.py
 <details>
 <summary><b>Whisper Setup</b></summary>
 
+Pick the model in the options menu (`WhisperModel`, and `WhisperDevice` for CPU or GPU), then run `download_weights.bat`. Or download it by hand:
+
 ```bash
-python3 -c "import whisper; whisper.load_model('large')"
-python3 -c "import whisper; whisper.load_model('tiny')"
+python scripts/whisper_model.py              # which model config.json picks
+python scripts/whisper_model.py --download   # download it
 ```
 
 </details>
@@ -826,6 +850,9 @@ DREAM is no longer just a voice in a box that answers when spoken to. `scripts/d
 | **Tiredness with consequences** | Past a point she doesn't only sound tired: her replies get shorter (down to about 60%), and when she is exhausted she can say so, end the conversation and actually go to sleep (video included). She won't do it twice in half an hour, and never for the alarm, lights, quit or forget. | `identity.py`, `mind.py` |
 | **Somewhere to go when it's too much** | If her mood stays very low she does something about it: she thinks of a good memory (and it helps), and if she is really distressed or panicking she asks for quiet, goes to sleep and declines small talk for a few minutes. Distress has an exit. | `mind.py` |
 | **Something to do alone** | Left alone and curious she doesn't only wait: she looks around the room, goes back over old memories, or wonders about something, quietly, and it eases her curiosity. It shows on the dashboard as what she has been doing. | `mind.py` |
+| **Knowing who you are** | Tell her your name while you face the camera ("my name is Kimmie") and she keeps a face print: 128 numbers from OpenCV's SFace model, never a picture. Every couple of seconds she checks who is in front of the camera; when someone she knows comes back after 15 minutes or more, she says hello by name (through the same rules as everything she says on her own: not mid-conversation, not at night). Her replies know who is there, and a welcome back after hours away uses your name. Only people who introduced themselves are known; "forget my face" deletes the prints, and "forget everything" includes them. Tested: every picture of her recognised (similarity 0.55-0.96), none of 146 other faces mistaken for her (threshold 0.45) | `faces.py`, `models/faces/` |
+| **Seeing** | "What do you see?", "look at this", "what am I holding?": she takes a picture and the vision model (`VisionModel` in `config.json`, default `gemma3:4b-it-qat`) describes it in her own voice, naming anyone she recognises. About 8 s on an RTX 2060 once the model is loaded. Each look is kept in `scripts/output/looks/` (the photo and what she said) | `sight.py` |
+| **Looking around on her own** | While she's awake and idle, she takes a photo every minute (`AutoLook` in `config.json`) and checks who's in it. When something is new (other people, a changed scene) she writes herself one past-tense sentence about it ("Kimmie was at the desk, playing a guitar.") and keeps it as a visual memory; looks with someone she knows are core memories. Unchanged minutes are skipped, so the GPU isn't busy and the disk doesn't fill. She answers "what did you see today?" from them, and her dreams use them: the story's seeds and the photo the dream picture is painted from. Ordinary looks are trimmed to the newest 400; "forget everything" deletes them all | `mind.py`, `sight.py`, `vision.py`, `dreaming.py` |
 | **Reading your face (off by default)** | If you ask ("watch my face while we talk"), she reads camera frames about once a second for a smile, presence and tiredness, and adjusts. Only numbers are kept, never pictures. "Stop watching my face" turns it off. | `expression.py`, `frames.py` |
 | **Reflection** | Now and then she steps back from recent conversations and writes one honest thought, what she has learned about you, and who she is becoming. That lives in a small editable "core memory" always in her prompt. | `reflection.py` |
 
@@ -880,6 +907,9 @@ Just talk to her:
 | "How's your body?" / "How are you running?" | how the computer feels to her: load, memory, heat, battery, uptime |
 | "How long have we known each other?" / "How long have you been awake?" | since you met / since she started |
 | "Watch my face while we talk" / "stop watching my face" | turns expression reading on or off |
+| "My name is ..." / "who am I?" / "forget my face" | learns, recognises or forgets your face |
+| "What do you see?" / "look at this" / "what am I holding?" | takes a picture and describes it |
+| "Stop looking around" / "you can look around" | her photo-a-minute off or on |
 
 ### Your control
 
@@ -981,7 +1011,7 @@ The server also registers itself on the network as `DREAM` (zeroconf) and discov
 | `voices/` | Piper voices (`.onnx` and `.json`) | Ignored |
 | `certs/` | The self-signed certificate | Ignored |
 | `audio/` | Temporary recordings and speech | Mostly ignored |
-| `cpp_dream/models/` | The Whisper model used by `dream.exe` | Ignored |
+| `cpp_dream/models/` | The Whisper model used by `dream.exe` (`ggml-<WhisperModel>.bin`, else `ggml-tiny.en.bin`) | Ignored |
 
 ---
 
@@ -993,17 +1023,31 @@ The server also registers itself on the network as `DREAM` (zeroconf) and discov
 |---|---|
 | `Config.DREAM.CharName`, `SystemPrompt` | Her name and personality prompt (`{name}` is filled in) |
 | `Config.DREAM.LipsyncEnabled` | MuseTalk lip-sync (needs its own setup; off by default) |
+| `Config.DREAM.WhisperModel` | The speech-recognition model, picked from a dropdown in the options menu: `tiny.en`, `tiny` (default), `base.en`, `base`, `small.en`, `small`, `medium.en`, `medium`, `large-v1`, `large-v2`, `large-v3`, `large`, `large-v3-turbo`, `turbo`. Bigger hears better and runs slower; `turbo` is close to `large-v3` at several times the speed. `download_weights.bat` downloads the chosen one, and every DREAM (`dream.py`, `app.py`, `dream_app.py`, `webserver.py`, `dream.exe`) uses it |
+| `Config.DREAM.LlmModel` | The Ollama model she talks with (default `phi3:mini`), picked from a dropdown in the options menu. `download_weights.bat` pulls it, and every DREAM uses it. Any other Ollama model works too: type it into `config.json` |
+| `Config.DREAM.VisionModel` | The Ollama model she looks with ("what do you see?"; default `gemma3:4b-it-qat`), from 14 vision models, `moondream:1.8b` up to `gemma3:27b`. `download_weights.bat` pulls it. Picking the same model as `LlmModel` (a gemma3 one) means only one model in the GPU, so no swapping between talking and looking |
+| `Config.DREAM.AutoLook` | `Enabled` (default on) and `EverySeconds` (default 60, at least 15): her photo-a-minute. She only looks while awake, idle and not talking; "stop looking around" turns it off too |
+| `Config.DREAM.Voice` | Her Piper voice (default `en_US-amy-medium`), from all 37 English voices. `download_weights.bat` downloads it into `voices/`; if it isn't there, she uses the first voice that is |
+| `Config.DREAM.Memory.LlmModel` | The model the memory server thinks with (default `qwen3:4b`); pulled by `download_weights.bat` when `Memory.Hindsight` is on |
+| `Config.DREAM.WhisperDevice` | Where Whisper runs: `cpu` (default; keeps the GPU free for the LLM and lip-sync), `cuda` (the GPU), or `auto` (the GPU when there is one). `cuda` without a GPU falls back to the CPU |
 | `Config.DREAM.DepthEffect` | 2.5D parallax on the avatar videos ([Avatar depth effect](#avatar-depth-effect); off by default) |
 | `Config.Dashboard.Port` | Main server port (default 5009) |
 | `Config.Dashboard.LocalPort` | The no-warning localhost port (default 5010) |
 | `Config.Dashboard.RiftHost`, `RiftPort` | Where the RIFT registry is |
 | `Config.Dashboard.ZeroconfName`, `ZeroconfType` | How the server announces itself |
 
+**`mode.json`**
+
+| Key | Meaning |
+|---|---|
+| `xxx_version` | `"no"` (default) or `"yes"`. Turns on an optional add-on pack sold separately on itch.io (not part of this repo). You don't set it by hand: the pack comes with a key file, `xxx.json`. Set its `path` to the pack's folder (a relative path is read from DREAM's folder, so `../DREAM_XXX` works when the two sit side by side) and copy only `xxx.json` into DREAM's folder. `dream.py` and `app.py` set it to `"yes"` when they start and the key points at an installed pack, and back to `"no"` when it doesn't. Check it with `python scripts/dream_mode.py` |
+
+The pack's files (`xxx.json`, `videos/xxx/`, `images/xxx/`, `xxx/`) are gitignored, so they can never be committed by accident.
+
 **In the code** (near the top of `scripts/dream.py` and `app.py`)
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `MODEL` | `phi3:mini` | The Ollama model (change it in both files) |
 | `FLIRT_IDLE_TIMEOUT` | 600 s | Idle time before the flirty clip |
 | `SLEEP_IDLE_TIMEOUT` | 900 s | Idle time before she sleeps (scaled by how sleepy she is) |
 | `NEAR_DISTANCE_M`, `FAR_DISTANCE_M` | 1.0 m, 3.0 m | Bands for the distance-based greeting |
@@ -1028,6 +1072,97 @@ All of these use scratch folders and never touch your real memories.
 
 ---
 
+## Experiments
+
+### 3D head from photos (EMOCA)
+
+`emoca_test/emoca_to_obj.py` turns photos of DREAM into a textured 3D head. It is a separate test program and DREAM doesn't use it yet. It runs [EMOCA](https://github.com/radekd91/emoca)'s encoders on each photo for a first guess, then fits one [FLAME](https://flame.is.tue.mpg.de) head to all the photos together. It needs no pytorch3d, so it runs in `venv311` on Windows with any CUDA GPU (6 GB is enough).
+
+> **Licence:** EMOCA and FLAME are free for **non-commercial research only**. Register and accept their terms at [flame.is.tue.mpg.de](https://flame.is.tue.mpg.de) and [emoca.is.tue.mpg.de](https://emoca.is.tue.mpg.de) before downloading. The heads it makes can't be used in anything sold.
+
+**Setup** (about 600 MB; the code and models stay out of git, what it makes in `emoca_test/output/` is committed): run `download_weights.bat` and answer **Y** at step 5. Or by hand:
+
+```bat
+git clone --depth 1 https://github.com/radekd91/emoca emoca_test\emoca
+mkdir emoca_test\assets\EMOCA\models
+curl -L -o emoca_test\assets\FLAME.zip https://download.is.tue.mpg.de/emoca/assets/FLAME.zip
+curl -L -o emoca_test\assets\EMOCA\models\EMOCA_v2_lr_mse_20.zip https://download.is.tue.mpg.de/emoca/assets/EMOCA/models/EMOCA_v2_lr_mse_20.zip
+```
+
+Unzip `FLAME.zip` in `emoca_test\assets\` and the EMOCA zip in `emoca_test\assets\EMOCA\models\`. `download_weights.bat` also fetches flame-head-tracker's [ear landmarker](https://github.com/PeizhiYan/flame-head-tracker/releases/download/resource/ear_landmarker.pth) (research use only) into `emoca_test\assets\ear\`; without it the fit still runs, from her face and outline only.
+
+**Run:**
+
+```bat
+venv311\Scripts\python emoca_test\emoca_to_obj.py
+venv311\Scripts\python emoca_test\emoca_to_obj.py --images images\dream.jpg
+```
+
+By default it uses the bald reference photos `images/bald_front.jpeg`, `bald.jpeg` (a profile) and `bald_back.jpeg`, so the skin texture covers the scalp with no hair painted on. The profile is also used flipped (`--mirror bald`) for the other side: one well-fitted profile mirrored beats a second, worse-fitting one (`bald2` fits less well and is lit from behind). It writes to `emoca_test/output/`:
+
+| File | What |
+|---|---|
+| `<photo>.obj` (+ `.mtl`, `.png`) | The head as it is in that photo: shape, expression and pose, textured from that photo |
+| `<photo>_fit.png` | The photo crop next to the fitted mesh drawn over it, to check the fit |
+| `<photo>_flame.npz` | The FLAME parameters (shape, expression, pose, camera), for animating it later |
+| `dream_head.obj` (+ `.mtl`, `.png`) | The combined head: her fitted shape, neutral expression, texture blended from every photo |
+| `dream_head_flame.npz` | Its FLAME shape, plus `fix`: the per-vertex detail offsets (see below) `make_rig.py` applies |
+| `texture_sources.png` | Which photo textured what: red the front, green the sides, blue the back, black filled in |
+| `dream_rig.blend`, `dream_rig.fbx`, `dream_rig_views.png` | The rigged head and its preview (see below) |
+
+<div align="center">
+  <img src="emoca_test/output/bald_front_fit.png" alt="The bald front photo next to the fitted head drawn over it" width="800"/>
+  <p><i>The front photo, and the fitted head drawn over it</i></p>
+  <img src="emoca_test/output/bald_fit.png" alt="The profile photo next to the fitted head drawn over it, the mesh's ear on hers" width="800"/>
+  <p><i>The profile: the mesh's ear sits on hers</i></p>
+  <img src="emoca_test/output/dream_rig_views.png" alt="The rigged head from the front, three-quarter, side and back" width="800"/>
+  <p><i>The rigged head from the front, ¾, side and back</i></p>
+</div>
+
+**Side views.** Face detectors can't find a full 90° profile, so those photos get a hand-placed square crop with `--crop name=centre_x,centre_y,size`. The defaults are `bald=1450,780,1450` and `bald2=1150,880,1250` (plus `dream_profile=1500,880,1350` for the older photo).
+
+**Back views.** There is no face for EMOCA to read, so photos named with `--back` (default `bald_back`) start from the head turned 180° and lined up with her silhouette. This needs a plain black background. Side views get the same start after EMOCA's first guess (its angle for a full profile is only roughly right).
+
+**One head for all the photos** (`emoca_test/multiview_fit.py`). EMOCA reads each photo on its own, and no average of those makes the photos agree (her ears ended up in a different place in each). So one shared FLAME shape, plus each photo's head angle, jaw, expression and camera, is fitted to all of them at once:
+- the front photo's 68 face landmarks, weighted most (her likeness is there), with her eyelids and chin counting extra
+- 20 landmarks on her ear in each side photo, from flame-head-tracker's ear landmarker, tied to FLAME's ear vertices
+- her outline in every photo: the mesh's silhouette edge and the photo's are pulled onto each other (crop and photo edges don't count, nor does her neck, which FLAME cuts off)
+- priors that keep the shape near the front photo's reading and the expressions near EMOCA's
+
+FLAME's 100 shape sliders can't reach every detail (her eyes are narrower than any nearby FLAME face), so a last **detail pass** lets each vertex move a few millimetres on its own, kept smooth, onto her landmarks, ears and outline. Each eyeball moves with its lids. After it, her eyelid openings, eye width and chin match the photo to within half a percent.
+
+**Who textures what.** The front photo owns the face and the eyes, so a side photo's slightly misplaced brows or lips can't add a second set. The side and back photos texture the scalp, ears and neck, and the side photos' colours are matched to the front photo where they overlap, so the skin tone carries across the cheeks. The profiles fade out behind the ear, where the back of her skull is in shadow in them, and skin seen nearly edge-on is left to the fill. `texture_sources.png` shows the result.
+
+**Eyes.** Only the front photo textures the eyes: what's inside her eye outline goes onto the eyeballs, never the lids, and the part of the eyeballs her lids hide gets the white of her eyes. If `images/eye.jpeg` exists (a front-on eyeball picture, `--eye-texture`), it is wrapped onto the eyeballs instead, with each iris aimed at the middle of her eye opening; the photos only show a sliver of each eye between the lids.
+
+Hair isn't modelled (FLAME is the head and face only), which is why the bald photos are the default: groom hair on top in Blender instead. Each photo fades out towards its edges so they blend without seams, and background pixels are skipped where the mesh is slightly bigger than her outline. Areas no photo shows (about a quarter of the head) are filled with a smooth blend of the colours around them.
+
+#### Rigged head (Blender and FBX)
+
+The OBJs are static. `emoca_test\make_rig.bat` rebuilds the head from the FLAME model with its rig and writes `emoca_test\output\dream_rig.blend` and `dream_rig.fbx`. It needs Blender 4.x, which it finds by itself (or pass `--blender path\to\blender.exe`).
+
+```bat
+emoca_test\make_rig.bat                               :: rig the head from the last fit
+emoca_test\make_rig.bat --fit                         :: refit from the photos first, then rig
+emoca_test\make_rig.bat --fit --images images\a.jpg   :: refit from other photos
+emoca_test\make_rig.bat --neck 7                      :: keep 7 cm of neck below the chin (default 5)
+```
+
+Each run also renders `dream_rig_views.png`, the front, ¾, side and back preview above.
+
+The rig contains:
+- **An armature** with FLAME's five joints (`root`, `neck`, `jaw`, `eye.L`, `eye.R`), weighted to the mesh. Rotate `jaw` on X to open the mouth.
+- **Shape keys** `exp_00`…`exp_49`: EMOCA's 50 expression components (range -3 to 3). They are statistical blends, not named poses like "smile", so you'll need to experiment to find each one's effect. `photo_expression` is her resting expression from the front photo, on by default (FLAME's neutral face has the lids wider open than hers); set it to 0 for FLAME's neutral.
+- **Two materials** sharing the texture: `DREAM_skin`, and a glossy `DREAM_eyes` on the eyeballs, so the eyes can be tweaked or swapped on their own. The texture is packed into the `.blend` and embedded in the `.fbx`.
+- **The detail offsets** from `dream_head_flame.npz`, so the rig matches the textured head.
+- **A shorter neck:** FLAME's runs about 10 cm below the chin, almost to the shoulders; the rig keeps 5 cm (`--neck`).
+
+Hair isn't included. Groom it on top in Blender (particle hair or hair curves). The FBX can't carry Blender hair, so for a game engine convert it to cards, or use the engine's own strand system (Unreal's Groom via Alembic, or TressFX).
+
+FLAME's pose-corrective shapes aren't included, so a very wide-open jaw looks a little less natural than in FLAME. The same non-commercial licence applies to these files.
+
+---
+
 ## Environment notes
 
 - **Python.** Windows uses the repo's `venv311` (Python 3.11); Linux uses Python 3.12. Run scripts with that interpreter.
@@ -1047,7 +1182,9 @@ All of these use scratch folders and never touch your real memories.
 DREAM/
 ├── app.py                     Flask server: dashboard, avatar page, API, owns the sensor board
 ├── main.py                    Menu launcher (options 1, 1w, 5 ...)
+├── options.bat / .ps1 / .sh   The options menu for config.json (options.py)
 ├── config.json                Ports, names, the personality prompt
+├── mode.json                  xxx_version for the optional add-on pack (see Configuration)
 ├── requirements.txt           Python packages (numpy<2, tensorflow 2.16.1, torch ...)
 ├── dream_sensors/
 │   └── dream_sensors.ino      Arduino sketch: PIR alarm, mmWave presence, buzzer, RGB lights
@@ -1056,6 +1193,9 @@ DREAM/
 │   ├── web_launcher.py        `dream.py --web`
 │   ├── board_id.py            Finds a board by asking it WHO
 │   ├── dream_memory.py        The facts memory (name, pets ...) shared by dream.py and app.py
+│   ├── dream_mode.py          Reads mode.json; sets xxx_version from the xxx.json key and the pack it points at
+│   ├── whisper_model.py       The Whisper model and device config.json picks; --download fetches it
+│   ├── dream_models.py        The LLM, vision model and voice config.json picks; --download-voice fetches the voice
 │   ├── dream_mind/            The inner life (below)
 │   ├── latent_space.py        The dream world: latent-space walks (spiral, pulse ...)
 │   ├── deep_dream*.py, nightmare_dreamer.py   Manual DeepDream tools
@@ -1065,6 +1205,7 @@ DREAM/
 │   ├── depth_effect.py        Avatar depth effect: builds videos/depth/, warps frames on playback
 │   └── scan_wifi.py           Network scanner
 ├── cpp_dream/                 DREAM as one C++ program (setup.bat, build.bat, dream.exe)
+├── emoca_test/                3D head from photos (see Experiments; its models aren't in git, its output is)
 ├── templates/, static/        Dashboard and avatar page (HTML, JS, CSS)
 └── videos/, voices/, memories/, output/, certs/    Data (mostly not in git)
 ```

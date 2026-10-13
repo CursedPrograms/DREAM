@@ -31,7 +31,8 @@ from .hindsight_link import HindsightLink
 from .dream_world import IDLE_AFTER_S, WorldTrainer
 from .drives import Drives, hour_of_day
 from .expression import ExpressionSensor
-from . import frames
+from .faces import Faces
+from . import frames, sight
 from .executive import Executive, GoalBook, ToolBox, parse_reminder
 from .identity import Identity
 from .memory import Memory
@@ -51,6 +52,20 @@ INITIATIVE_EVERY_S = 20
 VISION_EVERY_S = 60
 SAVE_EVERY_S = 60
 BODY_EVERY_S = 30
+FACES_EVERY_S = 2         # how often she checks who's in front of the camera
+GREET_AFTER_S = 15 * 60   # gone this long, then seen again: she says hello
+
+# Spoken commands about faces and looking (handle_meta)
+_STOP_NAMES = {"not", "a", "the", "no", "is", "it", "that", "this", "so", "very", "just", "really", "going", "here"}
+ENROLL = re.compile(r"\b(?:my name is|my name'?s|call me|remember me as)\s+([a-z][a-z'-]{1,20})", re.I)
+LOOK = re.compile(r"\bwhat (?:do|can) you see\b|\blook at (?:this|me|that)\b|\bwhat am i holding\b|"
+                  r"\bwhat'?s in my hands?\b|\bdescribe what you see\b|\btake a (?:picture|photo)\b|\bhow do i look\b|"
+                  r"\bcan you see (?:me|this|that)\b", re.I)
+WHO = re.compile(r"\bwho am i\b|\bdo you (?:know|recogni[sz]e) (?:me|who i am)\b|\bwho do you see\b|\bwho'?s (?:there|here|that)\b", re.I)
+LOOKS_OFF = re.compile(r"\bstop (?:looking around|taking (?:pictures|photos)|watching the room)\b|\bdon'?t take (?:pictures|photos)\b", re.I)
+LOOKS_ON = re.compile(r"\b(?:you can|start|go ahead and) (?:look around|take (?:pictures|photos)|watch the room)\b", re.I)
+SAW = re.compile(r"\b(?:what|who) (?:did|have) you (?:see|seen|notice|noticed)\b|\bwhat have you been (?:seeing|watching)\b|\bdid you see\b", re.I)
+FORGET_FACE = re.compile(r"\bforget (?:my|our) faces?\b|\bforget what i look like\b|\bforget (?:all )?(?:the )?faces\b", re.I)
 
 NO_FLIRT = re.compile(r"\b(stop|quit|no more|don'?t|no) flirt(ing)?\b|\bnot in the mood\b|\bkeep it (friendly|professional)\b", re.I)
 
@@ -85,11 +100,13 @@ class Mind:
         self.mood = Mood.from_dict(s.get("mood"))
         self.drives = Drives.from_dict(s.get("drives"))
         self.flirt_ok = s.get("flirt_ok", True)   # the user can ask her to keep it friendly
+        self.looks_ok = s.get("looks_ok", True)   # her photo a minute; "stop looking around" turns it off
         self.opinions = Opinions()
         self.philosophy = Philosophy()
         self.identity = Identity()
         self.vision = Vision()
         self.expression = ExpressionSensor()   # off unless the user turned it on
+        self.faces = Faces()                   # only people who told her their name while she could see them
         self.milestones = Milestones()
         self.body = senses.Body()              # the computer she runs on
         self._last_body = 0.0
@@ -131,6 +148,9 @@ class Mind:
         self.withdraw_delay_s = 8.0     # she says she needs quiet, then goes
         self._expr_thread = None
         self._expr_stop = threading.Event()
+        self._faces_thread = None
+        self._faces_stop = threading.Event()
+        self._looks_thread = None
         self._register_tools()
 
     def now(self):
@@ -183,6 +203,9 @@ class Mind:
         self._thread.start()
         if self.expression.enabled:
             self._start_expression()
+        self._start_faces()
+        self._looks_thread = threading.Thread(target=self._looks_loop, args=(self._faces_stop,), daemon=True, name="dream-looks")
+        self._looks_thread.start()
         self.save()
         return True
 
@@ -190,6 +213,7 @@ class Mind:
         self._stop.set()
         self.world.stop()
         self._stop_expression()
+        self._faces_stop.set()
         self.end_sleep()
         if self._thread:
             self._thread.join(timeout=3)
@@ -199,7 +223,7 @@ class Mind:
         store.write_json(STATE_FILE, {
             "first_seen": self.first_seen, "conversations": self.conversations, "nights": self.nights,
             "last_active": time.time(), "mood": self.mood.to_dict(), "drives": self.drives.to_dict(),
-            "flirt_ok": self.flirt_ok,
+            "flirt_ok": self.flirt_ok, "looks_ok": self.looks_ok,
         })
         self.executive.save()
 
@@ -334,6 +358,7 @@ class Mind:
             "unspoken_dream": unspoken_dream, "unannounced_milestones": self.milestones.unannounced(),
             "absence_gap_h": self.reunion_gap_h, "mood_shift": self.memory.mood_shift(now),
             "reminisce": self._pick_reminiscence(now), "thought_to_share": thought["text"] if thought else None,
+            "seen_name": (self.faces.in_view(now) or [None])[0],
         }
 
     def _birthday_in(self, now):
@@ -638,6 +663,14 @@ class Mind:
         looks = self.expression.describe(now)
         if looks:
             lines.append(f"They look {looks} right now.")
+        if SAW.search(text) or re.search(r"\b(today|earlier|this morning|while i was)\b.*\b(see|saw|seen|notice)", text.lower()):
+            for o in self.vision.recent_looks(4, within_h=24, now=now):
+                lines.append(f"You saw this {_ago_words(now - o['ts'])}: {o['text']}")
+        in_view = self.faces.in_view(now)
+        if in_view:
+            lines.append(f"You can see {' and '.join(in_view)} in front of you right now: you know their face. Use their name now and then.")
+        if self.faces.known and self.faces.strangers_in_view(now):
+            lines.append("Someone you don't recognise is in view of your camera.")
         lines.append("Let this quietly colour your tone. Don't recite it, and don't mention it unless asked.")
         return "\n".join(lines)
 
@@ -667,6 +700,147 @@ class Mind:
                 self._apply_expression(self.expression.observe(frame, self.now()))
             except Exception as e:
                 print(f"[mind] expression error: {e}")
+
+    # ------------------------------------------------------------ faces (who's there)
+    def _start_faces(self):
+        if self._faces_thread is not None and self._faces_thread.is_alive():
+            return
+        self._faces_stop = threading.Event()
+        self._faces_thread = threading.Thread(target=self._faces_loop, args=(self._faces_stop,), daemon=True, name="dream-faces")
+        self._faces_thread.start()
+
+    def _faces_loop(self, stop):
+        """Every couple of seconds, while she's awake and knows someone: who's there?"""
+        last_ts = 0.0
+        streak = {}       # name -> frames in a row she's recognised them: two before she says hello
+        away = {}         # name -> how long they'd been gone when they reappeared
+        last_seen = {}    # this loop's own record (the looking loop marks faces.seen too)
+        while not stop.wait(FACES_EVERY_S):
+            if not self.faces.known or self._host_state().get("sleeping"):
+                continue
+            frame, ts = frames.latest(3.0)
+            if frame is None or ts == last_ts:
+                continue
+            last_ts = ts
+            try:
+                now = self.now()
+                names = {n for n, _ in self.faces.look(frame, now) if n}
+                for name in names:
+                    if streak.get(name, 0) == 0:
+                        away[name] = now - last_seen.get(name, 0.0)
+                    last_seen[name] = now
+                    streak[name] = streak.get(name, 0) + 1
+                    if streak[name] == 2 and away[name] >= GREET_AFTER_S:
+                        self._recognised(name, now)
+                streak = {n: c for n, c in streak.items() if n in names}
+            except Exception as e:
+                print(f"[mind] faces error: {e}")
+
+    def _looks_loop(self, stop):
+        """A photo a minute while she's awake and nothing else is going on. If it shows something
+        new (other people, a changed scene) she describes it to herself and remembers it."""
+        last_try, last_thumb, last_who = 0.0, None, None
+        while not stop.wait(5.0):
+            try:
+                enabled, every = sight.autolook_settings()
+                now = self.now()
+                if not (enabled and self.looks_ok) or now - last_try < every:
+                    continue
+                hs = self._host_state()
+                if hs.get("sleeping") or self.conversation_active or hs.get("state", "idle") != "idle" or llm.busy():
+                    continue   # talking and dreaming come first; try again in a few seconds
+                frame, _ = frames.latest(5.0)
+                if frame is None:
+                    continue
+                last_try = now
+                view = self.faces.look(frame, now) if self.faces.ready() else []
+                people = sorted({n for n, _ in view if n})
+                strangers = sum(1 for n, _ in view if n is None)
+                thumb = sight.thumb(frame)
+                who = (tuple(people), strangers)
+                if last_thumb is not None and who == last_who and sight.same_scene(thumb, last_thumb):
+                    continue   # nothing new: no need to remember it again
+                text = sight.observe(frame, people, strangers)
+                if not text:
+                    continue
+                photo = sight.keep(frame, text)
+                self.vision.remember_look(photo, text, people, strangers, now)
+                last_thumb, last_who = thumb, who
+                if people:
+                    self.drives.satisfy("social", 0.03)
+                self.drives.satisfy("curiosity", 0.03)
+            except Exception as e:
+                print(f"[mind] looking error: {e}")
+
+    def _recognised(self, name, now):
+        """Someone she knows just came into view after a while away."""
+        self._arrived(now)
+        self.mood.appraise(0.35, 0.35)
+        self.drives.satisfy("social", 0.1)
+        if self.reunion_gap_h or not self.host.get("speak"):
+            return   # a long absence: the executive's welcome back (with their name) covers it
+        import random
+        line = random.choice([f"Hi {name}.", f"Oh, hey {name}.", f"There you are, {name}.", f"Hey {name}. Good to see you."])
+        cand = {"kind": "greet", "urgency": 0.85, "reason": f"I saw {name}", "text": line, "goal": None,
+                "tool": "speak", "args": {}, "after": None, "needs_presence": False}
+        if self.executive._allowed_to_speak(self.percept(now), cand):
+            self.executive.act(cand, now)
+
+    def _face_command(self, text, t, now):
+        """'my name is ...', 'who am I?', 'what do you see?', 'forget my face', 'stop looking around'."""
+        if LOOKS_OFF.search(t):
+            self.looks_ok = False
+            self.save()
+            return "Okay. I'll stop taking pictures on my own. I'll still look if you ask me what I see."
+        if LOOKS_ON.search(t):
+            self.looks_ok = True
+            self.save()
+            return "Okay. I'll look around now and then, and remember what I see."
+        if FORGET_FACE.search(t):
+            everyone = re.search(r"\b(all|the) faces\b", t)
+            who = None if everyone else ((self.faces.in_view(now) or [None])[0] or (list(self.faces.known)[0] if len(self.faces.known) == 1 else None))
+            if not everyone and who is None:
+                return "I don't know whose face to forget. Look at me and say it again, or say 'forget all faces'."
+            gone = self.faces.forget(who)
+            if not gone:
+                return "I don't know anyone's face yet."
+            return f"Done. I've forgotten what {' and '.join(gone)} look{'s' if len(gone) == 1 else ''} like."
+
+        m = ENROLL.search(text)
+        if m and m.group(1).lower() not in _STOP_NAMES:
+            name = m.group(1).strip("'-").capitalize()
+            result = self.faces.enroll(frames.latest(5.0)[0], name)
+            if result == "new":
+                return f"Nice to meet you, {name}. I'll remember your face. Say 'forget my face' if you ever want me not to."
+            if result == "again":
+                return f"I know, {name}. I've taken another look, so I'll know you even better."
+            if result == "no_face":
+                return f"Hi {name}. I can't see your face, though. Look at the camera and tell me your name again, and I'll remember it."
+            return f"Nice to meet you, {name}. My camera isn't on, so I can't see you yet."
+
+        if WHO.search(t):
+            frame = frames.latest(5.0)[0]
+            if frame is None:
+                return "I can't see right now. My camera isn't on."
+            view = self.faces.look(frame, now)
+            names = [n for n, _ in view if n]
+            if names:
+                return f"You're {names[0]}." if len(names) == 1 and len(view) == 1 else f"I can see {' and '.join(names)}."
+            if view:
+                return "I can see you, but I don't know who you are yet. Tell me your name while you look at me."
+            return "I can't see anyone. Come where my camera can see you."
+
+        if LOOK.search(t):
+            frame = sight.take_picture()
+            names, strangers = [], 0
+            if frame is not None and self.faces.known:
+                view = self.faces.look(frame, now)
+                names, strangers = [n for n, _ in view if n], sum(1 for n, _ in view if n is None)
+            said = sight.describe(frame, question=text, people=names, strangers=strangers)
+            sight.keep(frame, said, question=text)
+            self.drives.satisfy("curiosity", 0.1)
+            return said
+        return None
 
     def _apply_expression(self, event):
         if event == "smile":
@@ -796,6 +970,10 @@ class Mind:
                 n = self.forget_everything()
                 return f"Done. I've forgotten {n} conversation{'s' if n != 1 else ''}, and everything else I knew about you. It's like we just met."
             return "Okay, I won't. Nothing has been erased."
+
+        face = self._face_command(text, t, now)
+        if face:
+            return face
 
         if re.search(r"\bforget (everything|all of (it|this)|it all)\b", t):
             self._awaiting_forget = now
@@ -966,6 +1144,12 @@ class Mind:
             store.remove(name)
         self.self_model.forget_user()
         self.vision = Vision()
+        self.faces.forget()
+        for f in sight.LOOKS_DIR.glob("look_*") if sight.LOOKS_DIR.is_dir() else []:
+            try:
+                f.unlink()
+            except OSError:
+                pass
         try:
             import dream_memory as dm
             for p in (dm.MEMORIES_PATH, dm.MILESTONES_PATH):

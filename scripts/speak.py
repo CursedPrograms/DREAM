@@ -9,7 +9,9 @@ import sounddevice as sd
 
 # ── CONFIG ────────────────────────────────────────────────
 _SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
-VOICE_MODEL  = os.path.join(_SCRIPT_DIR, "../voices/en_US-amy-medium.onnx")
+sys.path.insert(0, _SCRIPT_DIR)
+import dream_models
+VOICE_MODEL  = dream_models.voice_path()   # Voice in config.json
 PIPER_EXE = os.path.join(_SCRIPT_DIR, "../venv311/Scripts/piper.exe")
 AUDIO_DEVICE = "plughw:2,0"  # Linux only
 WAVES_DIR    = "/audio"

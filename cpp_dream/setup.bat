@@ -5,9 +5,10 @@ REM  DREAM (C++) - one-time setup
 REM
 REM  Gets everything dream.exe needs that isn't in the repo:
 REM    1. Build tools   C++ compiler + CMake + Ninja (one winget package) and Git
-REM    2. Speech model  Whisper "tiny.en" (77 MB)      -> cpp_dream\models\
-REM    3. Voice         Piper (22 MB) + a voice (63 MB) -> piper\ and voices\
-REM    4. Ollama        the app, and the phi3:mini model
+REM    2. Speech model  Whisper (WhisperModel in config.json)  -> cpp_dream\models\
+REM    3. Voice         Piper (22 MB) + the voice (Voice)       -> piper\ and voices\
+REM    4. Ollama        the app, and the model (LlmModel)
+REM  Pick the models in options.bat; run this again after changing them.
 REM  Only what's missing is downloaded, so it is safe to run again.
 REM  Afterwards run build.bat, then build\dream.exe.
 REM ============================================================
@@ -16,6 +17,14 @@ cd /d "%~dp0"
 for %%I in ("%~dp0..") do set "ROOT=%%~fI"
 set "NEWTOOLS=0"
 set "PROBLEMS=0"
+
+REM The models config.json picks (options.bat). PowerShell reads the JSON, so no Python is needed.
+set "WHISPER=tiny"
+set "VOICE=en_US-amy-medium"
+set "LLM=phi3:mini"
+for /f "usebackq tokens=1,* delims==" %%A in (`powershell -NoProfile -Command "$d=(Get-Content -Raw '%ROOT%\config.json' | ConvertFrom-Json).Config.DREAM; 'WHISPER='+$d.WhisperModel; 'VOICE='+$d.Voice; 'LLM='+$d.LlmModel"`) do if not "%%B"=="" set "%%A=%%B"
+if /i "!WHISPER!"=="large" set "WHISPER=large-v3"
+if /i "!WHISPER!"=="turbo" set "WHISPER=large-v3-turbo"
 
 echo.
 echo DREAM (C++) setup
@@ -64,9 +73,9 @@ if errorlevel 1 (
 
 REM ---------------------------------------------------------------
 echo.
-echo [2/4] Whisper speech model
-set "MODEL=%~dp0models\ggml-tiny.en.bin"
-call :download "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin" "!MODEL!" 70000000 "Whisper model, 77 MB"
+echo [2/4] Whisper speech model ^(!WHISPER!^)
+set "MODEL=%~dp0models\ggml-!WHISPER!.bin"
+call :download "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-!WHISPER!.bin" "!MODEL!" 30000000 "Whisper !WHISPER!"
 
 REM ---------------------------------------------------------------
 echo.
@@ -93,16 +102,15 @@ if defined PIPER (
     )
 )
 
-set "HAVE_VOICE=0"
-if exist "%ROOT%\voices\*.onnx" set "HAVE_VOICE=1"
-if "!HAVE_VOICE!"=="1" (
-    echo   voice ^(voices\*.onnx^): found
-) else (
-    if not exist "%ROOT%\voices" mkdir "%ROOT%\voices"
-    set "VOICE_BASE=https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium"
-    call :download "!VOICE_BASE!/en_US-amy-medium.onnx"      "%ROOT%\voices\en_US-amy-medium.onnx"      50000000 "voice en_US-amy-medium, 63 MB"
-    call :download "!VOICE_BASE!/en_US-amy-medium.onnx.json" "%ROOT%\voices\en_US-amy-medium.onnx.json" 1000     "voice settings"
+REM en_US-amy-medium lives at en/en_US/amy/medium/ in the piper-voices repo
+for /f "tokens=1-3 delims=-" %%A in ("!VOICE!") do (
+    set "V_LANG=%%A"
+    set "V_NAME=%%B"
+    set "V_QUAL=%%C"
 )
+set "VOICE_BASE=https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/!V_LANG:~0,2!/!V_LANG!/!V_NAME!/!V_QUAL!"
+call :download "!VOICE_BASE!/!VOICE!.onnx"      "%ROOT%\voices\!VOICE!.onnx"      5000000 "voice !VOICE!"
+call :download "!VOICE_BASE!/!VOICE!.onnx.json" "%ROOT%\voices\!VOICE!.onnx.json" 1000    "voice settings"
 
 REM ---------------------------------------------------------------
 echo.
@@ -121,10 +129,10 @@ if not defined OLLAMA (
     )
 )
 if defined OLLAMA (
-    echo   Pulling phi3:mini ^(skipped if you already have it^)...
-    "!OLLAMA!" pull phi3:mini
+    echo   Pulling !LLM! ^(skipped if you already have it^)...
+    "!OLLAMA!" pull !LLM!
     if errorlevel 1 (
-        echo   Couldn't pull the model. Start Ollama ^(open the Ollama app^), then run:  ollama pull phi3:mini
+        echo   Couldn't pull the model. Start Ollama ^(open the Ollama app^), then run:  ollama pull !LLM!
         set "PROBLEMS=1"
     )
 )

@@ -204,7 +204,20 @@ scripts/models/*.part
 
 # Depth videos for the avatar depth effect (built by scripts/depth_effect.py)
 videos/depth/
+
+# Optional pack from itch.io, never in this repo (see scripts/dream_mode.py)
+videos/xxx/
+images/xxx/
+/xxx/
+xxx.json
+
+# EMOCA test: its code and the models (non-commercial licence) stay out; what it makes is kept
+emoca_test/emoca/
+emoca_test/assets/
+# Blender's automatic backup of the previous save
+*.blend1
 /memories
 /memories
 
 hindsight-venv/
+/Adobe Premiere Pro Auto-Save

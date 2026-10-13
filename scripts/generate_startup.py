@@ -34,10 +34,9 @@ os.makedirs(AUDIO_DIR,  exist_ok=True)
 os.makedirs(TEMP_DIR,   exist_ok=True)
 
 # ── Find voice model ──────────────────────────────────────────────────────────
-VOICE_MODEL = next(
-    (os.path.join(VOICES_DIR, f) for f in sorted(os.listdir(VOICES_DIR)) if f.endswith(".onnx")),
-    None,
-)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import dream_models
+VOICE_MODEL = dream_models.voice_path()   # Voice in config.json, else the first in voices/
 if VOICE_MODEL is None:
     sys.exit("ERROR: No .onnx voice model found in voices/")
 

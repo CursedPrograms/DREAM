@@ -70,6 +70,8 @@ Config load() {
     c.charName = "DREAM";
     c.systemPrompt = "You are DREAM, a helpful assistant.";
 
+    std::string whisperName = "tiny";
+    std::string voiceName = "en_US-amy-medium";
     std::ifstream f(fs::path(c.root) / "config.json");
     if (f) {
         try {
@@ -79,6 +81,9 @@ Config load() {
             std::string prompt = d.value("SystemPrompt", c.systemPrompt);
             for (size_t pos; (pos = prompt.find("{name}")) != std::string::npos;) prompt.replace(pos, 6, c.charName);
             c.systemPrompt = prompt;
+            whisperName = d.value("WhisperModel", whisperName);
+            c.model = d.value("LlmModel", c.model);
+            voiceName = d.value("Voice", voiceName);
         } catch (const std::exception& e) {
             dream::logf("config.json: %s - using defaults", e.what());
         }
@@ -108,14 +113,29 @@ Config load() {
             if (e.path().extension() == ".onnx") voices.push_back(e.path().string());
         }
         std::sort(voices.begin(), voices.end());
-        if (!voices.empty()) c.voiceModel = voices.front();
+        // Voice from config.json (options.py), else the first voice there is
+        fs::path chosen = fs::path(c.voicesDir) / (voiceName + ".onnx");
+        if (fileExists(chosen.string())) {
+            c.voiceModel = chosen.string();
+        } else if (!voices.empty()) {
+            c.voiceModel = voices.front();
+            dream::logf("Voice: %s isn't in voices/ - using %s", voiceName.c_str(), fs::path(c.voiceModel).filename().string().c_str());
+        }
     }
 
-    c.whisperModel = firstFile({
-        (fs::path(exe) / "models" / "ggml-tiny.en.bin").string(),
-        (fs::path(exe) / ".." / "models" / "ggml-tiny.en.bin").lexically_normal().string(),
-        (fs::path(c.root) / "cpp_dream" / "models" / "ggml-tiny.en.bin").string(),
-    });
+    // WhisperModel from config.json (options.py), as whisper.cpp names its files;
+    // download_weights.bat fetches it. Without it, the tiny.en the build downloads.
+    if (whisperName == "large") whisperName = "large-v3";
+    if (whisperName == "turbo") whisperName = "large-v3-turbo";
+    for (const std::string file : {"ggml-" + whisperName + ".bin", std::string("ggml-tiny.en.bin")}) {
+        c.whisperModel = firstFile({
+            (fs::path(exe) / "models" / file).string(),
+            (fs::path(exe) / ".." / "models" / file).lexically_normal().string(),
+            (fs::path(c.root) / "cpp_dream" / "models" / file).string(),
+        });
+        if (!c.whisperModel.empty()) break;
+        dream::logf("Whisper: %s not found in cpp_dream/models - run download_weights.bat", file.c_str());
+    }
     return c;
 }
 

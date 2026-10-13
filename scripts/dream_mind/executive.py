@@ -249,6 +249,15 @@ def parse_reminder(text, now=None):
 
 # ----------------------------------------------------------------- the loop
 
+def _with_name(line, name):
+    """'There you are. How did it go?' -> 'There you are, Kimmie. How did it go?'"""
+    import re
+    m = re.match(r"([^.?!]*?)(, you)?([.?!])(.*)", line, re.S)
+    if not m:
+        return line
+    return f"{m.group(1)}, {name}{m.group(3)}{m.group(4)}"
+
+
 class Executive:
     def __init__(self, mind, tools: ToolBox, goals: GoalBook = None):
         self.mind = mind
@@ -277,6 +286,7 @@ class Executive:
     def _allowed_to_speak(self, p, cand):
         """Whether she may act on this now. (Wanting isn't enough.)"""
         urgent = cand["kind"] in ("reminder", "alert")
+        greeting = cand["kind"] == "greet"   # hello when someone she knows walks in: not chatter, so no gap or hourly cap
         if not self.proactive and not urgent:
             return False
         if p["sleeping"] or p["state"] != "idle" or p["conversation_active"]:
@@ -291,7 +301,7 @@ class Executive:
             return False
         if cand.get("needs_presence", True) and not (p["present"] or p["since_user_s"] < RECENT_INTERACTION_S):
             return False   # nobody there to hear it
-        if not urgent:
+        if not urgent and not greeting:
             gap = MIN_GAP_S * (2 ** min(self.ignored_streak, 4))
             if p["now"] - self.last_spoken < gap:
                 return False
@@ -337,6 +347,8 @@ class Executive:
                                       "Welcome back. Anything good happen while you were out?",
                                       f"Hey, you're back. How were the last {gap}?",
                                       "There you are. Tell me one good thing about your day."])
+            if p.get("seen_name"):   # she can see who it is
+                line = _with_name(line, p["seen_name"])
             add("welcome_back", 0.95, f"someone came back after {gap}", line, after=("greeted_reunion", p["now"]))
 
         if p["unspoken_dream"] and (p["present"] or p["since_user_s"] < RECENT_INTERACTION_S):

@@ -10,6 +10,8 @@ import wave
 import json
 import numpy as np
 from rich.console import Console
+
+import whisper_model
 from rich.panel import Panel
 
 console = Console()
@@ -33,12 +35,13 @@ SPEAKER_DEVICE = "plughw:1,0"   # ALC897 analog (card 1 after reboot)
 
 # ==================== CONFIG ====================
 OLLAMA_URL     = "http://localhost:11434/api/generate"
-MODEL          = "phi3:mini"
+import dream_models
+MODEL          = dream_models.llm()   # LlmModel in config.json (options.py)
 SAMPLE_RATE    = 16000
 CHANNELS       = 1
 RECORD_SECONDS = 5
 RMS_THRESHOLD  = 150
-WHISPER_MODEL  = "base"   # base >> tiny for accuracy
+WHISPER_MODEL  = whisper_model.name()   # WhisperModel / WhisperDevice in config.json
 
 # GPU layer offload — GTX 1050 Ti has 4GB VRAM
 # 20 layers = safe for 4GB, tune up after checking nvidia-smi
@@ -69,12 +72,7 @@ def check_gpu():
 # ==================== VOICE MODEL ====================
 
 def find_voice_model():
-    if not os.path.isdir(VOICES_DIR):
-        return None
-    for fname in sorted(os.listdir(VOICES_DIR)):
-        if fname.endswith(".onnx"):
-            return os.path.join(VOICES_DIR, fname)
-    return None
+    return dream_models.voice_path()   # Voice in config.json, else the first in voices/
 
 VOICE_MODEL = find_voice_model()
 
@@ -89,7 +87,7 @@ def startup_banner(cuda_ok):
         "[bold cyan]DREAM v2.5[/bold cyan]\n"
         "[dim]DREAM — Local AI Voice Assistant[/dim]\n\n"
         f"[green]LLM:[/green]      {MODEL} ({GPU_LAYERS} layers on GPU)\n"
-        f"[green]STT:[/green]      Whisper {WHISPER_MODEL} ({'CUDA' if cuda_ok else 'CPU'})\n"
+        f"[green]STT:[/green]      Whisper {WHISPER_MODEL} ({whisper_model.device().upper()})\n"
         f"[green]Piper:[/green]    {'[green]✓[/green]' if piper_ok else '[red]NOT FOUND[/red]'}\n"
         f"[green]Voice:[/green]    {'[green]' + os.path.basename(VOICE_MODEL) + '[/green]' if voice_ok else '[red]NOT FOUND[/red]'}\n"
         f"[green]Mic:[/green]      {MIC_DEVICE}\n"
@@ -162,11 +160,9 @@ _whisper_model = None
 def get_whisper(cuda_ok):
     global _whisper_model
     if _whisper_model is None:
-        device = "cuda" if cuda_ok else "cpu"
-        console.print(f"[dim]Loading Whisper {WHISPER_MODEL} on {device.upper()}...[/dim]")
-        import whisper
-        _whisper_model = whisper.load_model(WHISPER_MODEL, device=device)
-        console.print(f"[green]✓[/green] Whisper {WHISPER_MODEL} on {device.upper()}")
+        console.print(f"[dim]Loading Whisper {WHISPER_MODEL}...[/dim]")
+        _whisper_model, desc = whisper_model.load()
+        console.print(f"[green]✓[/green] {desc}")
     return _whisper_model
 
 def transcribe(cuda_ok):
@@ -177,7 +173,7 @@ def transcribe(cuda_ok):
         result = model.transcribe(
             AUDIO_FILE,
             language="en",
-            fp16=cuda_ok,                    # fp16 only on GPU
+            fp16=model.device.type == "cuda",   # fp16 only on GPU
             condition_on_previous_text=False, # stops hallucination loops
             no_speech_threshold=0.4,
             logprob_threshold=-1.0,

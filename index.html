@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DREAM — Distributed Runtime for Ethereal Autonomous Memories</title>
-<meta name="description" content="DREAM is a fully local, voice-driven AI companion and the cognitive core of the DREAM Robotics ecosystem: Whisper, Ollama and Piper with an inner life of mood, memory, sleep and dreams.">
+<meta name="description" content="DREAM is a fully local, voice-driven AI companion and the cognitive core of the DREAM Robotics ecosystem: Whisper, Ollama and Piper with an inner life of mood, memory, sleep and dreams. She sees through a webcam and knows your face.">
 <meta name="color-scheme" content="dark">
 <meta property="og:title" content="DREAM — Distributed Runtime for Ethereal Autonomous Memories">
 <meta property="og:description" content="A fully local AI companion with an inner life, and the core of the DREAM Robotics ecosystem.">
@@ -77,7 +77,8 @@
     <h2>Overview</h2>
     <h3 class="title">She observes, remembers, and dreams</h3>
     <p class="muted">DREAM is a localised agentic-consciousness and the cognitive core of the DREAM Robotics ecosystem. She doesn't just execute commands: she bridges static code and emergent autonomous behaviour.</p>
-<pre>Mic &rarr; Whisper &rarr; boundaries + memory + mood (dream_mind) &rarr; Ollama &rarr; Piper (voice shaped by her mood) &rarr; Speaker</pre>
+<pre>Mic &rarr; Whisper &rarr; boundaries + memory + mood (dream_mind) &rarr; Ollama &rarr; Piper (voice shaped by her mood) &rarr; Speaker
+Webcam &rarr; face prints (who is there) + a vision model (what is there) &rarr; what she knows when she answers</pre>
     <div class="grid cols-3">
       <div class="card">
         <span class="k">Local</span>
@@ -144,6 +145,12 @@
           <tr><td>&ldquo;Lights blue&rdquo;, &ldquo;rainbow mode&rdquo;, &ldquo;lights off&rdquo;</td><td>Sets the RGB strip</td></tr>
           <tr><td>&ldquo;Remind me to call mum in 20 minutes&rdquo;</td><td>Sets a reminder she speaks when it's due</td></tr>
           <tr><td>&ldquo;How are you feeling?&rdquo;, &ldquo;Did you dream?&rdquo;</td><td>She answers from her real state</td></tr>
+          <tr><td>&ldquo;My name is Kimmie&rdquo; (facing the camera)</td><td>She learns your face, and says hello by name when she sees you again</td></tr>
+          <tr><td>&ldquo;Who am I?&rdquo;, &ldquo;do you recognise me?&rdquo;</td><td>She tells you who she sees</td></tr>
+          <tr><td>&ldquo;What do you see?&rdquo;, &ldquo;look at this&rdquo;, &ldquo;what am I holding?&rdquo;</td><td>She takes a picture and describes it in her own words, by name if she knows you</td></tr>
+          <tr><td>&ldquo;Forget my face&rdquo;, &ldquo;forget all faces&rdquo;</td><td>Deletes the face prints</td></tr>
+          <tr><td>&ldquo;What did you see today?&rdquo;</td><td>She answers from what she remembers seeing</td></tr>
+          <tr><td>&ldquo;Stop looking around&rdquo;, &ldquo;you can look around&rdquo;</td><td>Turns her photo-a-minute off or on</td></tr>
           <tr><td>&ldquo;Forget that&rdquo;, &ldquo;forget everything&rdquo;</td><td>Erases memories (the last one asks first)</td></tr>
           <tr><td>&ldquo;Goodbye&rdquo;, &ldquo;quit&rdquo;</td><td>Ends the session</td></tr>
         </tbody>
@@ -202,6 +209,21 @@
         <h4>A voice that follows her mood</h4>
         <p>Livelier when excited, softer when down, drawling when sleepy.</p>
       </div>
+      <div class="card">
+        <span class="k">Faces</span>
+        <h4>She knows who you are</h4>
+        <p>Tell her your name while she can see you, and she remembers your face. When you come back she says hello by name, and she knows who she's talking to.</p>
+      </div>
+      <div class="card">
+        <span class="k">Sight</span>
+        <h4>She looks, remembers and dreams it</h4>
+        <p>A photo a minute: when something's new she notes it (&ldquo;Kimmie was at the desk, playing a guitar&rdquo;), remembers it and dreams of it that night. Ask what she sees and she describes it in her own voice.</p>
+      </div>
+      <div class="card">
+        <span class="k">Expression</span>
+        <h4>Reading your face</h4>
+        <p>If you ask her to watch your face, she notices smiles and tiredness while you talk, and lets it colour her mood.</p>
+      </div>
     </div>
     <p class="muted spaced">Each piece lives in its own module (<code>memory.py</code>, <code>drives.py</code>, <code>dreaming.py</code>, <code>opinions.py</code>, <code>philosophy.py</code> and more). The README explains each one in detail.</p>
     <figure class="shot narrow">
@@ -229,7 +251,7 @@
         <thead><tr><th>PC</th><th></th></tr></thead>
         <tbody>
           <tr><td>RAM</td><td>8&nbsp;GB+</td></tr>
-          <tr><td>CPU / GPU</td><td>Works on CPU alone (slowly). An NVIDIA GPU makes replies much faster</td></tr>
+          <tr><td>CPU / GPU</td><td>Works on CPU alone (slowly). An NVIDIA GPU makes replies much faster. New or different GPU? Pick models to fit it in the options menu: no code changes</td></tr>
           <tr><td>OS</td><td>Windows 10/11 or Linux (the C++ build is Windows only)</td></tr>
           <tr><td>Peripherals</td><td>USB microphone, speakers, optional webcam</td></tr>
         </tbody>
@@ -257,9 +279,9 @@
     <h2>Setup</h2>
     <h3 class="title">Bringing her online</h3>
     <ol class="steps">
-      <li>Install <a href="https://ollama.com">Ollama</a> and pull a model. <code>phi3:mini</code> is the default; <code>gemma3:4b</code> often sounds the most natural.</li>
+      <li>Install <a href="https://ollama.com">Ollama</a>. <code>phi3:mini</code> is the default model; <code>gemma3:4b</code> often sounds the most natural.</li>
       <li>Install ffmpeg, then create the Python environment (Python 3.12 on Linux, 3.11 on Windows) and <code>pip install -r requirements.txt</code>.</li>
-      <li>Install Piper TTS and put a voice (<code>.onnx</code>) in <code>voices/</code>. Amy (medium) is recommended.</li>
+      <li>Pick her models in the options menu (<code>options.bat</code>, <code>options.ps1</code> or <code>options.sh</code>), then run <code>download_weights.bat</code>: it downloads exactly the ones you picked, including the Piper voice.</li>
       <li>Flash <code>dream_sensors/dream_sensors.ino</code> to the sensor board.</li>
       <li>Run <code>python main.py</code> and pick an option, or start one of the front ends above.</li>
     </ol>
@@ -267,8 +289,22 @@
 <span class="p">$</span> python -m venv venv &amp;&amp; source venv/bin/activate
 <span class="p">$</span> pip install -r requirements.txt
 <span class="p">$</span> python main.py</pre>
+    <h3 class="sub">Models: pick them, don't code them</h3>
+    <p class="muted">Every model is a dropdown in the options menu, saved in <code>config.json</code> and used by every DREAM (Python, browser, phone and <code>dream.exe</code>). Upgrade or downgrade the PC, pick models to match, run <code>download_weights.bat</code>.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Setting</th><th>Default</th><th>Choices</th></tr></thead>
+        <tbody>
+          <tr><td><code>LlmModel</code> (talking)</td><td><code>phi3:mini</code></td><td>15 Ollama models, <code>smollm2:1.7b</code> to <code>gemma3:27b</code>. Thinking models are left out: they spend the reply thinking, or think out loud</td></tr>
+          <tr><td><code>VisionModel</code> (seeing)</td><td><code>gemma3:4b-it-qat</code></td><td>14 vision models, <code>moondream:1.8b</code> to <code>gemma3:27b</code>. The same gemma3 for both means one model in the GPU</td></tr>
+          <tr><td><code>WhisperModel</code> (hearing)</td><td><code>tiny</code></td><td>All 14 Whisper models, <code>tiny.en</code> to <code>large-v3</code> and <code>turbo</code></td></tr>
+          <tr><td><code>WhisperDevice</code></td><td><code>cpu</code></td><td><code>cpu</code> keeps the GPU free, <code>cuda</code> uses it, <code>auto</code> uses it when there is one</td></tr>
+          <tr><td><code>Voice</code> (speaking)</td><td><code>en_US-amy-medium</code></td><td>All 37 English Piper voices</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 class="sub">Privacy</h3>
-    <p class="muted">Everything runs on your PC, and her memories, dreams and photos stay in gitignored folders. &ldquo;Forget&rdquo; commands erase what she knows, reading your expression is off until you ask, and she has no code-execution tool. The alarm, lights, &ldquo;be quiet&rdquo;, sleep, quit and forgetting are always honoured. The default hotspot password is <code>12345678</code>, so change it if others can reach that network.</p>
+    <p class="muted">Everything runs on your PC, and her memories, dreams and photos stay in gitignored folders. &ldquo;Forget&rdquo; commands erase what she knows, reading your expression is off until you ask, and she has no code-execution tool. She only knows the faces of people who told her their name, and keeps a face print (128 numbers), never a picture; &ldquo;forget my face&rdquo; deletes it. Her looks (a photo a minute while she's awake, kept only when something changed) are in <code>scripts/output/looks/</code>; &ldquo;stop looking around&rdquo; turns them off, and &ldquo;forget everything&rdquo; deletes them. The alarm, lights, &ldquo;be quiet&rdquo;, sleep, quit and forgetting are always honoured. The default hotspot password is <code>12345678</code>, so change it if others can reach that network.</p>
   </div>
 </section>
 
@@ -283,6 +319,26 @@
         <figcaption>Her dashboard</figcaption>
       </figure>
     </div>
+  </div>
+</section>
+
+<section id="emoca">
+  <div class="wrap">
+    <h2>Experiments</h2>
+    <h3 class="title">A 3D head from photos</h3>
+    <p class="muted"><code>emoca_test/emoca_to_obj.py</code> runs <a href="https://github.com/radekd91/emoca">EMOCA</a> on bald reference photos of her (front, profile and back), then fits one <a href="https://flame.is.tue.mpg.de">FLAME</a> head to all of them at once: her face landmarks, her ears and her outline in every photo, with a last detail pass for what FLAME's sliders can't reach. <code>emoca_test\make_rig.bat</code> then builds a rigged head for Blender and game engines: jaw, neck and eye bones, 50 expression shape keys, and separate skin and eye materials. The models are free for non-commercial research only.</p>
+    <figure class="shot">
+      <img src="emoca_test/output/bald_front_fit.png" alt="The bald front photo next to the fitted head drawn over it" width="3072" height="1536" loading="lazy">
+      <figcaption>The front photo, and the fitted head drawn over it</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="emoca_test/output/bald_fit.png" alt="The profile photo next to the fitted head drawn over it, the mesh's ear on hers" width="3072" height="1536" loading="lazy">
+      <figcaption>The profile: one head fitted to all the photos puts the mesh's ear on hers</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="emoca_test/output/dream_rig_views.png" alt="The rigged head from the front, three-quarter, side and back" width="1600" height="400" loading="lazy">
+      <figcaption>The rigged head from the front, &frac34;, side and back</figcaption>
+    </figure>
   </div>
 </section>
 
@@ -336,7 +392,6 @@
   <div style="font:600 11px ui-monospace,Consolas,monospace;letter-spacing:.2em;text-transform:uppercase;color:#8b949e;margin-bottom:10px">The DREAM Robotics ecosystem</div>
   <div><strong style="color:#8b949e">Minds</strong> — <a style="color:#58a6ff;text-decoration:none" href="https://github.com/CursedPrograms/DREAM">DREAM</a> companion · <a style="color:#58a6ff;text-decoration:none" href="https://github.com/CursedPrograms/TINA">TINA</a> engineer · <a style="color:#58a6ff;text-decoration:none" href="https://github.com/CursedPrograms/NINA">NINA</a> caretaker · <a style="color:#58a6ff;text-decoration:none" href="https://github.com/CursedPrograms/RIFT">RIFT</a> fleet hub · <a style="color:#58a6ff;text-decoration:none" href="https://github.com/CursedPrograms/LYCEA">LYCEA</a> training school</div>
   <div><strong style="color:#8b949e">Robots</strong> — <a style="color:#58a6ff;text-decoration:none" href="https://github.com/CursedPrograms/NORA-Robot-v00">NORA</a> · <a style="color:#58a6ff;text-decoration:none" href="https://github.com/CursedPrograms/MILA-Robot-v00">MILA</a> · <a style="color:#58a6ff;text-decoration:none" href="https://github.com/CursedPrograms/WHIP-Robot-v00">WHIP</a> · <a style="color:#58a6ff;text-decoration:none" href="https://github.com/CursedPrograms/KIDA-Robot-v00">KIDA-00</a> · <a style="color:#58a6ff;text-decoration:none" href="https://github.com/CursedPrograms/KIDA-Robot-v01">KIDA-01</a> · <a style="color:#58a6ff;text-decoration:none" href="https://github.com/CursedPrograms/IDA-Robot-v00">IDA</a> · <a style="color:#58a6ff;text-decoration:none" href="https://github.com/CursedPrograms/ARM-Robot-v01">ARM</a></div>
-  <div><strong style="color:#8b949e">Tools</strong> — <a style="color:#58a6ff;text-decoration:none" href="https://github.com/CursedPrograms/CRUSH">CRUSH</a> compression · <a style="color:#58a6ff;text-decoration:none" href="https://github.com/CursedPrograms/Image-Generator">Image-Generator</a> · <a style="color:#58a6ff;text-decoration:none" href="https://github.com/CursedPrograms/GloriosaAI">GloriosaAI</a> · <a style="color:#58a6ff;text-decoration:none" href="https://github.com/CursedPrograms/SynthWomb">SynthWomb</a> · <a style="color:#58a6ff;text-decoration:none" href="https://github.com/CursedPrograms/PyVitals">PyVitals</a></div>
 </section>
 <!-- DREAM-ECOSYSTEM:END -->
 </body>

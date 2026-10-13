@@ -59,7 +59,8 @@ except ImportError:
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 OLLAMA_URL     = "http://localhost:11434/api/generate"
-MODEL          = "phi3:mini"
+import dream_models
+MODEL          = dream_models.llm()   # LlmModel in config.json (options.py)
 SAMPLE_RATE    = 16000
 CHANNELS       = 1
 RECORD_SECONDS = 16
@@ -70,6 +71,10 @@ if not os.path.exists(CONFIG_PATH):
 
 with open(CONFIG_PATH) as f:
     cfg = json.load(f)
+
+# mode.json; xxx_version is "yes" only while the xxx.json key points at an installed add-on pack
+import dream_mode
+MODE = dream_mode.load_mode()
 
 dream_cfg     = cfg["Config"]["DREAM"]
 dashboard_cfg = cfg["Config"]["Dashboard"]
@@ -171,10 +176,7 @@ def rift_heartbeat():
         time.sleep(RIFT_HEARTBEAT_SECS)
 
 def find_voice_model():
-    if not os.path.isdir(VOICES_DIR): return None
-    for f in sorted(os.listdir(VOICES_DIR)):
-        if f.endswith(".onnx"): return os.path.join(VOICES_DIR, f)
-    return None
+    return dream_models.voice_path()   # Voice in config.json, else the first in voices/
 
 VOICE_MODEL = find_voice_model()
 
@@ -343,8 +345,9 @@ _whisper_model = None
 def get_whisper():
     global _whisper_model
     if _whisper_model is None:
-        import whisper
-        _whisper_model = whisper.load_model("tiny", device="cpu")
+        import whisper_model
+        _whisper_model, desc = whisper_model.load()
+        print(f"[DREAM] {desc}")
     return _whisper_model
 
 _whisper_lock = threading.Lock()
@@ -352,7 +355,7 @@ _whisper_lock = threading.Lock()
 def transcribe_file(filepath):
     try:
         with _whisper_lock:
-            return get_whisper().transcribe(filepath, language="en", fp16=False)["text"].strip()
+            return get_whisper().transcribe(filepath, language="en", fp16=get_whisper().device.type == "cuda")["text"].strip()
     except Exception as e:
         push_event({"type": "error", "msg": str(e)})
         return ""

@@ -71,6 +71,9 @@ h1 {
 .tags { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 36px; }
 .tag { font: 12px var(--mono); color: var(--sub); border: 1px solid var(--border); padding: 3px 10px; border-radius: 999px; }
 
+/* family art */
+.family-art { display: block; width: 100%; height: auto; margin: 32px auto 0; border-radius: 16px; }
+
 /* photos */
 .photos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-top: 48px; }
 .avatar { margin: 48px auto 0; max-width: 440px; background: var(--panel); border: 1px solid rgba(var(--glow), .45); border-radius: 16px; overflow: hidden; box-shadow: 0 0 70px rgba(var(--glow), .22); }

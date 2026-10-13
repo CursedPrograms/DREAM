@@ -11,15 +11,15 @@ import socket
 import json
 from flask import Flask, request, jsonify, render_template, render_template_string
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser
-import whisper
 
 # ── Config & Directories ──────────────────────────────────────
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 VOICES_DIR    = os.path.join(ROOT_DIR, "voices")
-VOICE_MODEL   = os.path.join(VOICES_DIR, "en_US-amy-high.onnx")
+import dream_models
+VOICE_MODEL   = dream_models.voice_path()   # Voice in config.json
 OLLAMA_URL    = "http://localhost:11434/api/generate"
-VISION_MODEL  = "llava:13b"
-CHAT_MODEL    = "phi3:mini"
+VISION_MODEL  = dream_models.vision_model()  # VisionModel in config.json
+CHAT_MODEL    = dream_models.llm()          # LlmModel in config.json
 
 # Network Discovery Config
 THIS_NAME = "COMMAND_CENTRE"
@@ -80,8 +80,9 @@ browser = ServiceBrowser(zeroconf, TYPE, MyListener())
 
 # ── AI Models ─────────────────────────────────────────────────
 print("[DREAM] Loading Whisper...")
-whisper_model = whisper.load_model("large")
-print("[DREAM] Whisper ready.")
+import whisper_model as _whisper_choice
+whisper_model, _desc = _whisper_choice.load()
+print(f"[DREAM] {_desc}")
 
 conversation_history = []
 history_lock = threading.Lock()
@@ -114,7 +115,7 @@ def transcribe():
     audio_file.save(tmp.name)
     tmp.close()
     try:
-        result = whisper_model.transcribe(tmp.name, language="en", fp16=False)
+        result = whisper_model.transcribe(tmp.name, language="en", fp16=whisper_model.device.type == "cuda")
         return jsonify({"text": result["text"].strip()})
     except Exception as e:
         return jsonify({"error": str(e)}), 500

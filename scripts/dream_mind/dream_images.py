@@ -106,6 +106,10 @@ def choose_source(mind, dream):
     """(image BGR uint8, description) for this dream to be painted from."""
     if cv2 is not None:
         try:
+            for obs in mind.vision.recent_looks(2, within_h=20, with_people=True):   # someone she saw today
+                img = cv2.imread(obs["path"])
+                if img is not None:
+                    return img, f"something she saw today ({obs['text']})"
             for obs in mind.vision.core_memories(3):
                 img = cv2.imread(obs["path"])
                 if img is not None:

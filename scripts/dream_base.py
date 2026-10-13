@@ -31,7 +31,8 @@ SPEAKER_DEVICE = "plughw:2,0"   # ALC897 analog
 
 # ==================== CONFIG ====================
 OLLAMA_URL     = "http://localhost:11434/api/generate"
-MODEL          = "phi3:mini"
+import dream_models
+MODEL          = dream_models.llm()   # LlmModel in config.json (options.py)
 SAMPLE_RATE    = 16000
 CHANNELS       = 1
 RECORD_SECONDS = 4
@@ -45,12 +46,7 @@ SYSTEM_PROMPT = cfg["Config"]["DREAM"]["SystemPrompt"]
 # ==================== VOICE MODEL ====================
 
 def find_voice_model():
-    if not os.path.isdir(VOICES_DIR):
-        return None
-    for fname in sorted(os.listdir(VOICES_DIR)):
-        if fname.endswith(".onnx"):
-            return os.path.join(VOICES_DIR, fname)
-    return None
+    return dream_models.voice_path()   # Voice in config.json, else the first in voices/
 
 VOICE_MODEL = find_voice_model()
 
@@ -142,9 +138,9 @@ def get_whisper():
     global _whisper_model
     if _whisper_model is None:
         console.print("[dim]Loading Whisper...[/dim]")
-        import whisper
-        _whisper_model = whisper.load_model("tiny", device="cpu")
-        console.print("[green]✓[/green] Whisper ready")
+        import whisper_model
+        _whisper_model, desc = whisper_model.load()
+        console.print(f"[green]✓[/green] {desc}")
     return _whisper_model
 
 def transcribe():

@@ -10,6 +10,11 @@ into her sense of normal. Everything stays on this machine.
 
 If there's no webcam (surveillance.py's "blind mode") there are simply no
 photos, and she carries on without eyes.
+
+Her own looks (the mind takes one a minute, sight.py describes it) are kept
+here too, as kind "look": the photo, a sentence about it, and who was in it.
+Looks with someone she knows in them are core memories, which is what her
+dreams are made from (dreaming.py, dream_images.py).
 """
 
 import os
@@ -186,3 +191,38 @@ class Vision:
                 h = time.localtime(o["ts"]).tm_hour
                 hours[h] = hours.get(h, 0) + 1
         return [h for h, c in sorted(hours.items(), key=lambda kv: -kv[1])[:3] if c >= 2]
+
+    # ------------------------------------------------------------ her own looks (one a minute, see mind.py)
+    def remember_look(self, photo_path, text, people=(), strangers=0, now=None):
+        """Keep a look she took: who was there and what was happening."""
+        now = now or time.time()
+        significance = 0.8 if people else 0.7 if strangers else 0.45
+        obs = {"ts": now, "path": str(photo_path), "kind": "look", "faces": len(people) + strangers,
+               "people": list(people), "strangers": strangers, "text": text,
+               "significance": significance, "core": significance >= CORE_SIGNIFICANCE,
+               "spoken": True}   # remembered, not announced: she doesn't narrate every minute
+        store.append_jsonl(OBSERVATIONS, obs)
+        self._prune_looks()
+        return obs
+
+    def recent_looks(self, n=3, within_h=24, with_people=False, now=None):
+        """Her latest looks, newest first."""
+        now = now or time.time()
+        looks = [o for o in self.observations(400) if o.get("kind") == "look" and now - o["ts"] < within_h * 3600
+                 and (o.get("people") or not with_people)]
+        return looks[::-1][:n]
+
+    def _prune_looks(self, keep=400):
+        """Ordinary looks (nobody she knows in them) are let go once there are too many; core ones stay."""
+        items = store.read_jsonl(OBSERVATIONS)
+        ordinary = [o for o in items if o.get("kind") == "look" and not o.get("core")]
+        if len(ordinary) <= keep:
+            return
+        drop = {id(o) for o in ordinary[:len(ordinary) - keep]}
+        for o in ordinary[:len(ordinary) - keep]:
+            for path in (o["path"], os.path.splitext(o["path"])[0] + ".txt"):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+        store.write_jsonl(OBSERVATIONS, [o for o in items if id(o) not in drop])
