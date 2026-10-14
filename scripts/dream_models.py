@@ -15,9 +15,10 @@ whisper_model.py.)
     python scripts/dream_models.py --voice            print the voice
     python scripts/dream_models.py --download-voice   download the voice into voices/
 
-Thinking models (qwen3, deepseek-r1, gpt-oss) aren't offered for LlmModel: she
+Thinking models (qwen3:4b, deepseek-r1, gpt-oss) aren't offered for LlmModel: she
 speaks the reply as it comes, and they either spend it thinking (an empty reply)
-or think out loud.
+or think out loud. The default is Qwen3 4B's instruct build instead, which never
+thinks out loud (TODO.md: "Smarter brain").
 """
 
 import json
@@ -30,7 +31,7 @@ ROOT_DIR    = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(ROOT_DIR, "config.json")
 VOICES_DIR  = os.path.join(ROOT_DIR, "voices")
 
-DEFAULT_LLM    = "phi3:mini"
+DEFAULT_LLM    = "qwen3:4b-instruct-2507-q4_K_M"
 DEFAULT_MEMORY = "qwen3:4b"
 DEFAULT_VISION = "gemma3:4b-it-qat"
 DEFAULT_VOICE  = "en_US-amy-medium"

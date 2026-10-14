@@ -982,3 +982,23 @@ body.settings-page {
 .dream-frames img { width: 100%; display: block; border: 1px solid var(--border); }
 .dream-seeds { margin-top: 10px; font: 11px var(--font-mono); color: var(--dim); }
 @media (max-width: 600px) { .dream-frames { grid-template-columns: repeat(4, 1fr); } }
+
+/* ── DREAM's page (dream.html): "Show thoughts" ─────────────── */
+/* Her unspoken thoughts: TINA's reasoning, what RIFT and the robots answered. */
+#thoughts-toggle {
+  position: fixed; top: env(safe-area-inset-top, 12px); right: 112px;
+  z-index: 5; background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.3);
+  color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 16px;
+}
+#thoughts-toggle.off { opacity: .45; }
+#thoughts {
+  position: fixed; top: calc(env(safe-area-inset-top, 12px) + 44px); right: 12px;
+  width: min(420px, calc(100vw - 24px)); max-height: 45vh; overflow-y: auto;
+  padding: 10px 12px; border-radius: 8px; z-index: 5;
+  background: rgba(0,0,0,.6); backdrop-filter: blur(4px);
+  font: 12px/1.45 'Share Tech Mono', monospace; color: #9ab;
+}
+#thoughts[hidden] { display: none; }
+#thoughts .thought { margin: 0 0 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
+#thoughts .thought:last-child { color: #cfe6ff; }
+#thoughts .empty { color: #678; }

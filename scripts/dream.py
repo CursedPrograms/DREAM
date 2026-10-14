@@ -31,6 +31,7 @@ import ipaddress
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from rich.markup import escape
 import random
+from collections import deque
 import surveillance
 
 import pygame
@@ -151,6 +152,7 @@ surveillance.start_motion_detection()
 # ==================== CONFIG ====================
 OLLAMA_URL     = "http://localhost:11434/api/generate"
 import dream_models
+import dream_fleet   # "tell NORA to stop the music", and TINA's kind of work handed to TINA
 MODEL          = dream_models.llm()   # LlmModel in config.json (options.py)
 SAMPLE_RATE    = 16000
 CHANNELS       = 1
@@ -288,7 +290,16 @@ _state = {
     "sensor_wake":  False,          # set by serial_watcher() on mmWave PRESENT while sleeping
     "distance_m":   None,           # last mmWave range reading, in meters
     "presence_seen": False,         # mmWave PRESENT currently active — for the ABSENT farewell edge
+    "show_thoughts": bool(config["Config"]["DREAM"].get("ShowThoughts", False)),   # T toggles it
 }
+
+# Her thoughts (TINA's reasoning, what RIFT answered...): on screen when "Show thoughts"
+# is on, never spoken.
+_thoughts = deque(maxlen=14)
+
+def _thought(text):
+    _thoughts.append((time.time(), text))
+    console.print(f"[dim magenta]  {escape(text[:300])}[/dim magenta]")
 
 def set_state(s):
     _state["value"] = s
@@ -850,6 +861,9 @@ def listen_for_wake_word():
 
 # ==================== LLM ====================
 
+# Markdown marks and emoji in a reply (qwen3 likes *this* and 😏): Piper reads them out.
+SPOKEN_JUNK = re.compile(r"[*#`~]|[\U0001F000-\U0001FFFF\u2600-\u27BF\uFE0F\u200D]")
+
 def ask_llm(prompt, history, context=""):
     set_state("thinking")
     with console.status("[dim]Thinking...[/dim]", spinner="dots"):
@@ -874,6 +888,7 @@ def ask_llm(prompt, history, context=""):
                     response = response[end + 8:].strip()
             if response.lower().startswith("dream:"):
                 response = response[6:].strip()
+            response = SPOKEN_JUNK.sub("", response).strip()   # Piper would say "asterisk" and "smirking face"
             return response if response else "I didn't catch that."
         except requests.exceptions.Timeout:
             return "That took too long. Please try again."
@@ -1748,20 +1763,23 @@ def voice_loop():
         speak(STARTUP_TEXT)  # Generates + caches startup_intro.mp4 for next run
 
     history = []
+    follow_up = False   # she just asked a yes/no question: listen again without the wake word
 
     while _state["running"]:
         try:
-            trigger = listen_for_wake_word()
+            if not follow_up:
+                trigger = listen_for_wake_word()
 
-            if trigger is None or not _state["running"]:
-                break
+                if trigger is None or not _state["running"]:
+                    break
 
-            if trigger == "__WIFI_SCAN__":
-                summary = run_wifi_scan()
-                speak(summary)
-                continue
+                if trigger == "__WIFI_SCAN__":
+                    summary = run_wifi_scan()
+                    speak(summary)
+                    continue
 
-            speak(_wake_greeting())
+                speak(_wake_greeting())
+            follow_up = False
             set_state("listening")
             console.print("[bold yellow]Listening for command...[/bold yellow]")
 
@@ -1793,6 +1811,16 @@ def voice_loop():
                     cues = None
 
             lower = user_text.lower()
+
+            # The fleet first: "tell NORA to turn the lights off" isn't about her own lights,
+            # and "why does KIDA's script exit" isn't goodbye. Only the final answer is spoken.
+            set_state("thinking")
+            fleet = dream_fleet.handle(user_text, on_thought=_thought)
+            if fleet is not None:
+                speak(fleet.say)
+                follow_up = fleet.awaiting
+                continue
+            set_state("idle")
 
             if any(w in lower for w in ["goodbye", "exit", "quit", "bye", "shut down", "shutdown"]):
                 speak("Goodbye.")
@@ -1863,6 +1891,39 @@ def voice_loop():
 
 # ==================== DISPLAY (main thread) ====================
 
+_thought_font = None
+
+def _wrap(text, font, width):
+    lines, line = [], ""
+    for word in text.split():
+        trial = f"{line} {word}".strip()
+        if font.size(trial)[0] > width and line:
+            lines.append(line)
+            line = word
+        else:
+            line = trial
+    return lines + ([line] if line else [])
+
+def _draw_thoughts(screen, sw, sh):
+    """'Show thoughts' (T): her recent thoughts down the left side, newest at the bottom."""
+    global _thought_font
+    if _thought_font is None:
+        _thought_font = pygame.font.SysFont("consolas", max(14, sh // 60))
+    width = sw // 3
+    lines = []
+    for t, text in _thoughts:
+        if time.time() - t < 600:
+            lines += [(line, i == 0) for i, line in enumerate(_wrap(text, _thought_font, width - 24))] + [("", False)]
+    if not lines:
+        lines = [("No thoughts yet. (T hides this)", True)]
+    lh = _thought_font.get_linesize()
+    lines = lines[-((sh - 80) // lh):]
+    panel = pygame.Surface((width, len(lines) * lh + 20), pygame.SRCALPHA)
+    panel.fill((0, 0, 0, 150))
+    for i, (line, first) in enumerate(lines):
+        panel.blit(_thought_font.render(line, True, (190, 220, 255) if first else (150, 170, 200)), (12, 10 + i * lh))
+    screen.blit(panel, (16, sh - panel.get_height() - 40))
+
 def run_display():
     console.print("[dim]>> run_display: enter[/dim]")
 
@@ -1902,12 +1963,17 @@ def run_display():
                 if event.key in (pygame.K_ESCAPE, pygame.K_q):
                     console.print(f"[dim]>> Key exit: {event.key}[/dim]")
                     _state["running"] = False
+                elif event.key == pygame.K_t:
+                    _state["show_thoughts"] = not _state["show_thoughts"]
+                    console.print(f"[dim]Show thoughts: {'on' if _state['show_thoughts'] else 'off'}[/dim]")
 
         state  = _state["value"]
         now_ms = pygame.time.get_ticks()
 
         frame = vsm.get_frame(now_ms, state)
         screen.blit(frame, (0, 0))
+        if _state["show_thoughts"]:
+            _draw_thoughts(screen, SW, SH)
         pygame.display.flip()
         clock.tick(30)
 

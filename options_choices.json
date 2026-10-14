@@ -32,6 +32,7 @@
     "llama3.2:3b",
     "phi3:mini",
     "phi4-mini",
+    "qwen3:4b-instruct-2507-q4_K_M",
     "gemma3:4b",
     "gemma3:4b-it-qat",
     "mistral:7b",

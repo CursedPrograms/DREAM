@@ -14,7 +14,7 @@ import threading
 import requests
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "phi3:mini"
+MODEL = "qwen3:4b-instruct-2507-q4_K_M"
 
 _lock = threading.Lock()
 _gpu_broken = False

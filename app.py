@@ -61,6 +61,7 @@ except ImportError:
 OLLAMA_URL     = "http://localhost:11434/api/generate"
 import dream_models
 MODEL          = dream_models.llm()   # LlmModel in config.json (options.py)
+import dream_fleet   # "tell NORA to stop the music", and TINA's kind of work handed to TINA
 SAMPLE_RATE    = 16000
 CHANNELS       = 1
 RECORD_SECONDS = 16
@@ -387,6 +388,9 @@ except Exception as _mind_error:
     print(f"[DREAM] Inner life unavailable ({_mind_error}) - running without it")
 
 # ── LLM ───────────────────────────────────────────────────────────────────────
+# Markdown marks and emoji in a reply (qwen3 likes *this* and 😏): Piper reads them out.
+SPOKEN_JUNK = re.compile(r"[*#`~]|[\U0001F000-\U0001FFFF\u2600-\u27BF\uFE0F\u200D]")
+
 def ask_llm(prompt, history, context=""):
     set_state("thinking")
     ctx = ""
@@ -405,6 +409,7 @@ def ask_llm(prompt, history, context=""):
             end = resp.find("</think>")
             if end != -1: resp = resp[end + 8:].strip()
         if resp.lower().startswith("dream:"): resp = resp[6:].strip()
+        resp = SPOKEN_JUNK.sub("", resp).strip()   # Piper would say "asterisk" and "smirking face"
         return resp or "I didn't catch that."
     except _req.exceptions.Timeout:
         return "That took too long. Please try again."
@@ -1000,6 +1005,7 @@ def api_dream_config():
         "wake_seconds":   WAKE_SECONDS,
         "record_seconds": RECORD_SECONDS,
         "sleeping":       _dream["sleeping"],
+        "show_thoughts":  bool(dream_cfg.get("ShowThoughts", False)),
     })
 
 @app.route("/api/dream/activity", methods=["POST"])
@@ -1140,6 +1146,16 @@ def _handle_chat():
         MIND.note_interaction()
     lower = user_text.lower()
 
+    # The fleet first: "tell NORA to turn the lights off" isn't about her own lights, and
+    # "why does KIDA's script exit" isn't goodbye. Only the final answer is spoken; TINA's
+    # reasoning goes to the page as thoughts ("Show thoughts").
+    set_state("thinking")
+    fleet = dream_fleet.handle(user_text, on_thought=_thought)
+    if fleet is not None:
+        push_event({"type": "transcript", "role": "assistant", "text": fleet.say})
+        return _make_reply(fleet.say, voice_mode, extra={"listen": fleet.awaiting})
+    set_state("idle")
+
     if any(w in lower for w in ["goodbye", "exit", "quit", "bye", "shut down", "shutdown"]):
         reply = "Goodbye."
         push_event({"type": "transcript", "role": "assistant", "text": reply})
@@ -1202,6 +1218,11 @@ def _handle_chat():
     if MIND:
         MIND.post_reply(reply)
     return resp
+
+def _thought(text: str):
+    """Something she thinks but doesn't say: shown on her page when "Show thoughts" is on."""
+    print(f"[DREAM] (thought) {text[:300]}", flush=True)
+    push_event({"type": "thought", "text": text})
 
 def _make_reply(reply: str, voice_mode: bool, extra: dict | None = None):
     audio_url = None

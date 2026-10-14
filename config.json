@@ -18,8 +18,11 @@
       "DreamImageModel": "auto",
       "WhisperModel": "small.en",
       "WhisperDevice": "cpu",
-      "LlmModel": "phi3:mini",
+      "LlmModel": "qwen3:4b-instruct-2507-q4_K_M",
       "VisionModel": "gemma3:4b-it-qat",
+      "TinaUrl": "http://127.0.0.1:5013",
+      "HandToTina": true,
+      "ShowThoughts": false,
       "AutoLook": {
         "Enabled": true,
         "EverySeconds": 60

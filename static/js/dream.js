@@ -40,6 +40,9 @@ let busy = false;         // recording, thinking, speaking or playing a clip —
 let started = false;      // the start screen was tapped
 let wakeEnabled = true;
 let currentAudio = null;
+let showThoughts = false;  // "Show thoughts" (💭): starts as config.json ShowThoughts, then this browser remembers
+const thoughts = [];       // her unspoken thoughts, kept even while hidden
+const MAX_THOUGHTS = 40;
 
 let micStream = null, audioCtx = null, analyser = null, levelBuf = null;
 let manualRecording = false, manualStop = false;
@@ -181,6 +184,7 @@ async function submitChat(init) {
     if (d.error) { showCaption('⚠ ' + d.error); return; }
     if (d.reply) showCaption(d.reply);
     if (d.audio_url) await playAudio(d.audio_url);
+    if (d.listen) await listenForCommand();   // she asked yes or no: answer without "Hey DREAM"
   } catch (err) {
     showCaption('Network error: ' + err.message);
   }
@@ -270,6 +274,11 @@ function audioForm(blob, name) {
 /* ── Wake flow: greeting, then listen for one command ────────────────────── */
 async function wakeFlow(greetingText, greetingAudio) {
   await say(greetingText, greetingAudio);
+  await listenForCommand();
+}
+
+/* Record one command (stops on silence) and send it. Without a mic, type instead. */
+async function listenForCommand() {
   if (!micStream) return;
 
   setVisualState('listening');
@@ -350,6 +359,41 @@ $('wake-toggle').addEventListener('click', () => {
   $('mic-hint').textContent = hintText();
 });
 
+/* ── "Show thoughts": TINA's reasoning and the robots' answers, never spoken ─ */
+function renderThoughts() {
+  const box = $('thoughts');
+  box.hidden = !showThoughts;
+  $('thoughts-toggle').classList.toggle('off', !showThoughts);
+  if (!showThoughts) return;
+  box.replaceChildren();
+  if (!thoughts.length) {
+    const p = document.createElement('p');
+    p.className = 'empty';
+    p.textContent = 'No thoughts yet. Ask her to tell a robot something, or hand TINA a job.';
+    box.appendChild(p);
+    return;
+  }
+  for (const t of thoughts) {
+    const p = document.createElement('p');
+    p.className = 'thought';
+    p.textContent = t;
+    box.appendChild(p);
+  }
+  box.scrollTop = box.scrollHeight;
+}
+
+function addThought(text) {
+  thoughts.push(text);
+  if (thoughts.length > MAX_THOUGHTS) thoughts.shift();
+  renderThoughts();
+}
+
+$('thoughts-toggle').addEventListener('click', () => {
+  showThoughts = !showThoughts;
+  try { localStorage.setItem('dream.showThoughts', showThoughts ? '1' : '0'); } catch { /* not remembered */ }
+  renderThoughts();
+});
+
 /* ── Events from app.py ──────────────────────────────────────────────────── */
 function onSleep(isAsleep) {
   if (isAsleep) {
@@ -400,6 +444,9 @@ function connectSSE() {
           try { await say(d.text, d.audio_url); } finally { await peerLine(d.id, 'done'); }
         });
         break;
+      case 'thought':  // shown with "Show thoughts" on; never spoken
+        addThought(d.text);
+        break;
       case 'flirt':   // idle for a while: one flirty clip
         if (started && !busy && !sleeping) runExclusive(() => playOnce(d.clip, 'FLIRTING'));
         break;
@@ -432,6 +479,10 @@ $('splash').addEventListener('click', async () => {
 async function loadConfig() {
   try { cfg = { ...cfg, ...(await (await fetch('/api/dream/config')).json()) }; } catch { /* defaults */ }
   if (cfg.sleeping) onSleep(true);
+  let saved = null;
+  try { saved = localStorage.getItem('dream.showThoughts'); } catch { /* no storage */ }
+  showThoughts = saved === null ? !!cfg.show_thoughts : saved === '1';
+  renderThoughts();
 }
 
 async function loadVideoPools() {

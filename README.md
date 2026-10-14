@@ -134,6 +134,9 @@ Everything runs on this PC. Ollama serves the language model, Piper speaks, Whis
 | "Turn on / off the alarm", "arm / disarm the alarm" | Arms or disarms the PIR alarm on the sensor board |
 | "Lights red / blue / green / yellow / orange / purple / pink / cyan / white" | Sets the RGB strip (needs the word "lights", "make it" or "turn it") |
 | "Rainbow mode", "party lights", "lights off" | Rainbow animation, or lights off |
+| "Tell NORA to stop the music", "tell NORA to turn her lights on", "tell KIDA01 to turn left for two seconds" | Tells a robot to do something, through RIFT (`POST /talk`, `verb: do`). Anything that moves a robot asks you first: say "yes" or "no" (no wake word needed). Unlocking a robot is never passed on |
+| "Ask MILA how she is", "how is NORA doing?", "what's NORA's status?" | Asks a robot its state through RIFT and reads out the main points |
+| "Hey TINA, ...", "ask TINA to ...", "fix the bug in NORA's sketch", "why isn't KIDA's Hailo responding?" | Hands the job to [TINA](../TINA) (code, files, tools, several steps) and says only her final answer. TINA's questions ("this moves NORA, go ahead?") are passed on for your yes or no |
 | "Goodbye", "exit", "quit", "bye", "shut down" | Ends the session (the browser version goes to sleep instead) |
 | "Remind me to call mum in 20 minutes" | Sets a reminder; she speaks it when it's due |
 | "How are you feeling?", "What do you remember about me?", "Did you dream?", "What's on your mind?", "Why did you say that?", "What have you seen?", "Are you conscious?" | She answers about herself, from her real state ([Inner Life](#inner-life)) |
@@ -148,6 +151,8 @@ Everything runs on this PC. Ollama serves the language model, Piper speaks, Whis
 | "What did you see today?" | She answers from what she remembers seeing |
 
 The same commands work typed into the dashboard chat and the browser avatar page. Anything else goes to the language model.
+
+**Show thoughts** (off by default; `T` in the desktop app, 💭 on the browser page, `ShowThoughts` in `config.json`): what she thinks but doesn't say, on screen: TINA's reasoning and tool calls, and what RIFT and the robots answered. None of it is ever spoken; Piper only gets the final answer (scripts/dream_fleet.py).
 
 ## 📖 Overview
 
@@ -164,13 +169,14 @@ She bridges static code and emergent autonomous behavior.
 
 Pick her model in the options menu (`LlmModel`); `download_weights.bat` pulls it. Some picks:
 
-- phi3:mini: the default.
+- qwen3:4b-instruct-2507-q4_K_M: the default. Qwen3 4B (the same as TINA's), minus the thinking: smarter than phi3 at about the same speed, and never reasons out loud.
+- phi3:mini: the old default.
 - gemma3:4b: usually the most natural conversational voice at this size.
 - llama3.2:3b: fast and reliable, with less personality.
 - phi4-mini: the newer Phi, better than phi3:mini but with the same style.
 - gemma3:12b, mistral-nemo:12b, gemma3:27b: for a GPU with 12 GB or more.
 
-Thinking models (qwen3, deepseek-r1, gpt-oss) aren't in her list: tested with qwen3:4b, the reply came back empty (it spent it all thinking), or it thought out loud. They're fine for the memory server's `Memory.LlmModel`, which nobody hears.
+Thinking models (qwen3:4b, deepseek-r1, gpt-oss) aren't in her list: tested with qwen3:4b, the reply came back empty (it spent it all thinking), or it thought out loud. They're fine for the memory server's `Memory.LlmModel`, which nobody hears.
 
 <br>
 <div align="center">
@@ -321,7 +327,7 @@ A 2.5D parallax on her avatar videos, like After Effects' Displacement Map. Each
 - Python 3.12.3 for Lunix
 - Python 3.11.9 for Windows (the repo's `venv311`)
 - [Arduino IDE](https://docs.arduino.cc/software/ide/) with the libraries **Adafruit NeoPixel** and **DFRobot_C4001** (for `dream_sensors.ino`)
-- [Ollama](https://ollama.com) with a model pulled (default `phi3:mini`)
+- [Ollama](https://ollama.com) with a model pulled (default `qwen3:4b-instruct-2507-q4_K_M`)
 - Piper (a voice `.onnx` in `voices/`), ffmpeg (for the browser microphone), Git
 - To build the C++ version: MinGW-w64 g++, CMake, Ninja (`cpp_dream\setup.bat` installs them)
 
@@ -331,7 +337,7 @@ A 2.5D parallax on her avatar videos, like After Effects' Displacement Map. Each
 | **Component** | **Details** |
 |-----------|---------|
 | RAM | 8GB+ RAM (the language model, Whisper and the avatar video all live in memory; on a full PC the optional DeepDream pass and TensorFlow are skipped automatically) |
-| CPU / GPU | Works on a CPU alone, slowly (30-140 s per reply with `phi3:mini`). An NVIDIA GPU with a working Ollama CUDA build is much faster |
+| CPU / GPU | Works on a CPU alone, slowly (30-140 s per reply with a 4B model). An NVIDIA GPU with a working Ollama CUDA build is much faster |
 | OS | Windows 10/11 or Linux. The C++ build is Windows only |
 
 ### Microcontrollers
@@ -431,7 +437,7 @@ These pins match `dream_sensors/dream_sensors.ino`.
 ---
 
 ## AI Stack Recommendation
-- `phi3:mini` (lightweight, efficient for local inference)
+- `qwen3:4b-instruct-2507-q4_K_M` (Qwen3 4B without the thinking: smart, quick, never reasons out loud)
 
 ---
 
@@ -464,7 +470,7 @@ Gets everything that isn't in the repo, using the models picked in the options m
 | C++ compiler + CMake + Ninja (WinLibs, via `winget`) and Git | - | your PATH |
 | Whisper speech model `ggml-<WhisperModel>.bin` | 77 MB (tiny) to 3 GB (large) | `cpp_dream/models/` |
 | Piper (standalone, no Python) and the voice (default `en_US-amy-medium`) | 22 + 63 MB | `piper/` and `voices/` in the repo root |
-| Ollama, and the model (default `phi3:mini`) | - | Ollama's own folder |
+| Ollama, and the model (default `qwen3:4b-instruct-2507-q4_K_M`) | - | Ollama's own folder |
 
 If `setup.bat` installed new tools, **close the terminal and open a new one** so Windows picks them up. Then:
 
@@ -568,7 +574,7 @@ https://ollama.com/download/windows
 ```bash
 ollama pull gemma3:4b-it-qat
 ollama pull deepseek-r1:14b
-ollama pull phi3:mini
+ollama pull qwen3:4b-instruct-2507-q4_K_M
 ollama pull tinyllama
 ollama pull llava:13b
 ```
@@ -576,7 +582,7 @@ ollama pull llava:13b
 ```bash
 ollama run gemma3:4b-it-qat
 ollama run deepseek-r1:14b
-ollama run phi3:mini
+ollama pull qwen3:4b-instruct-2507-q4_K_M
 ollama run tinyllama
 ollama run llava:13b
 ```
@@ -1026,8 +1032,11 @@ The server also registers itself on the network as `DREAM` (zeroconf) and discov
 | `Config.DREAM.CharName`, `SystemPrompt` | Her name and personality prompt (`{name}` is filled in) |
 | `Config.DREAM.LipsyncEnabled` | MuseTalk lip-sync (needs its own setup; off by default) |
 | `Config.DREAM.WhisperModel` | The speech-recognition model, picked from a dropdown in the options menu: `tiny.en`, `tiny` (default), `base.en`, `base`, `small.en`, `small`, `medium.en`, `medium`, `large-v1`, `large-v2`, `large-v3`, `large`, `large-v3-turbo`, `turbo`. Bigger hears better and runs slower; `turbo` is close to `large-v3` at several times the speed. `download_weights.bat` downloads the chosen one, and every DREAM (`dream.py`, `app.py`, `dream_app.py`, `webserver.py`, `dream.exe`) uses it |
-| `Config.DREAM.LlmModel` | The Ollama model she talks with (default `phi3:mini`), picked from a dropdown in the options menu. `download_weights.bat` pulls it, and every DREAM uses it. Any other Ollama model works too: type it into `config.json` |
+| `Config.DREAM.LlmModel` | The Ollama model she talks with (default `qwen3:4b-instruct-2507-q4_K_M`), picked from a dropdown in the options menu. `download_weights.bat` pulls it, and every DREAM uses it. Any other Ollama model works too: type it into `config.json` |
 | `Config.DREAM.VisionModel` | The Ollama model she looks with ("what do you see?"; default `gemma3:4b-it-qat`), from 14 vision models, `moondream:1.8b` up to `gemma3:27b`. `download_weights.bat` pulls it. Picking the same model as `LlmModel` (a gemma3 one) means only one model in the GPU, so no swapping between talking and looking |
+| `Config.DREAM.TinaUrl` | Where TINA is (default `http://127.0.0.1:5013`): multi-step and code jobs go to her |
+| `Config.DREAM.HandToTina` | Hand code, repo and "why isn't X working" jobs to TINA without being told to (default on). "Hey TINA, ..." always goes to her |
+| `Config.DREAM.ShowThoughts` | Start with "Show thoughts" on (default off). The desktop app toggles it with `T`, the browser page with 💭 |
 | `Config.DREAM.AutoLook` | `Enabled` (default on) and `EverySeconds` (default 60, at least 15): her photo-a-minute. She only looks while awake, idle and not talking; "stop looking around" turns it off too |
 | `Config.DREAM.Voice` | Her Piper voice (default `en_US-amy-medium`), from all 37 English voices. `download_weights.bat` downloads it into `voices/`; if it isn't there, she uses the first voice that is |
 | `Config.DREAM.Memory.LlmModel` | The model the memory server thinks with (default `qwen3:4b`); pulled by `download_weights.bat` when `Memory.Hindsight` is on |
@@ -1171,7 +1180,7 @@ FLAME's pose-corrective shapes aren't included, so a very wide-open jaw looks a 
 - **NumPy must stay below 2.** `requirements.txt` pins `numpy>=1.24,<2` and `tensorflow==2.16.1`, and TensorFlow 2.16 will not import with NumPy 2 ("compiled using NumPy 1.x"). If something upgrades it: `pip install "numpy<2"`, then `pip check`. The last time this happened the venv had drifted to NumPy 2.4 and TensorFlow was broken until it was set back to 1.26.4.
 - **TensorFlow is optional.** Only the extra DeepDream pass on dream pictures uses it. It downloads the InceptionV3 weights (88 MB) to `~/.keras/models` on first use. If Python's downloader fails, fetch `inception_v3_weights_tf_dim_ordering_tf_kernels_notop.h5` from `storage.googleapis.com/tensorflow/keras-applications/inception_v3/` with `curl` into that folder. It is skipped when free RAM is under about 1.2 GB.
 - **Ollama and the GPU.** If Ollama's CUDA build can't run on your graphics driver ("the provided PTX was compiled with an unsupported toolchain"), replies fail with a 500. `dream.py`, `app.py` and `dream.exe` all notice and switch to the CPU by themselves. Updating the graphics driver or Ollama fixes it properly.
-- **Slow replies.** On a CPU-only PC expect 30-140 s per reply with `phi3:mini`. Background thinking (reflection, dreams) only runs while she is idle or asleep so it never blocks a conversation.
+- **Slow replies.** On a CPU-only PC expect 30-140 s per reply with a 4B model. Background thinking (reflection, dreams) only runs while she is idle or asleep so it never blocks a conversation.
 - **Windows "N" editions** may need the free Media Feature Pack for video (the C++ build uses Windows' video decoder).
 - **Disk space.** The models, Whisper, voices and dream pictures add up; keep a few GB free.
 - **Cameras.** Only one program can hold a webcam. `surveillance.py` opens it and shares frames with the mind, which never opens the camera itself.
