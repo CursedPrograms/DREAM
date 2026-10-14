@@ -143,8 +143,11 @@ def robot_named(words):
     """'nora' -> 'NORA', 'kida zero one' -> 'KIDA01', 'kida' -> the first KIDA. None if it isn't a robot."""
     if not words:
         return None
-    key = _norm(words)
-    key = {"kida1": "kida01", "kida0": "kida00", "norah": "nora", "mila": "mila", "milla": "mila"}.get(key, key)
+    key = _norm(re.sub(r"^(?:the|our)\s+", "", words.strip(), flags=re.I))      # "the arm"
+    key = {"kida1": "kida01", "kida0": "kida00", "norah": "nora", "milla": "mila", "wip": "whip",
+           # how Whisper hears "KIDA" without the hint: "key to 01", "Kita 0-0"
+           "keyto01": "kida01", "keyto00": "kida00", "kita01": "kida01", "kita00": "kida00",
+           "keytoo1": "kida01", "keytoo0": "kida00"}.get(key, key)
     names = roster()
     for n in names:
         if _norm(n) == key:
@@ -169,9 +172,14 @@ def seconds_in(what):
     return float(v) if v[0].isdigit() else NUMBERS.get(v)
 
 
+# How Whisper writes "KIDA zero one" / "KIDA zero zero" when the hint doesn't catch it
+KIDA_HEARD = re.compile(r"\b(?:key\s*to|kita|keeta|kida)[\s,-]*(0\s*[-,]?\s*[01]|zero\s+(?:one|zero))\b", re.I)
+
+
 def understand(text):
     """What a line means for the fleet: {"verb": "do"|"ask", "to", ...}, {"verb": "tina", "task"}, or None."""
     t = text.strip().rstrip(".!?")
+    t = KIDA_HEARD.sub(lambda m: "KIDA0" + ("1" if m.group(1)[-1] in "1e" else "0"), t)   # "key to 01" -> KIDA01
     if TINA_RE.search(t):
         task = TINA_RE.sub("", t, count=1).strip(" ,:") or t
         return {"verb": "tina", "task": task}

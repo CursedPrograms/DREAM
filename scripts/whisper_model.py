@@ -74,6 +74,25 @@ def load():
     return whisper.load_model(n, device=d), f"Whisper {n} on {d.upper()}"
 
 
+# The fleet's names as Whisper's hint (initial_prompt), so "tell KIDA zero one to stop" comes out
+# as "KIDA01", what dream_fleet.py listens for. Tested 2026-10-14 with small.en on ten Piper-spoken
+# fleet lines: this sentence 8/10 understood, a bare list of the names 5/10 (it turned "Whip" into
+# "WIP"), no hint 5/10 ("key to 01").
+NAMES = ("DREAM talks to the robots Nora, Mila, Whip, Ida, the arm, KIDA00 and KIDA01, "
+         "and to Tina, Nina and Rift.")
+NOISE = {"", "you", "you.", "thank you.", "thanks for watching!", "bye."}    # what Whisper makes of silence
+
+
+def transcribe(model, path, cuda=False):
+    """What was said in the audio file at path, with the fleet's names as the hint.
+    "" for silence: never the hint echoed back, nor Whisper's usual silence phrases."""
+    text = model.transcribe(path, language="en", fp16=cuda, initial_prompt=NAMES,
+                            condition_on_previous_text=False)["text"].strip()
+    if text.lower() in NOISE or text.rstrip(".") in NAMES or NAMES[:30] in text:
+        return ""
+    return text
+
+
 def ggml_file():
     n = name()
     return f"ggml-{_GGML_ALIASES.get(n, n)}.bin"

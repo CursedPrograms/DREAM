@@ -362,7 +362,8 @@ _whisper_lock = threading.Lock()
 def transcribe_file(filepath):
     try:
         with _whisper_lock:
-            return get_whisper().transcribe(filepath, language="en", fp16=get_whisper().device.type == "cuda")["text"].strip()
+            import whisper_model   # the fleet's names as the hint, silence as ""
+            return whisper_model.transcribe(get_whisper(), filepath, cuda=get_whisper().device.type == "cuda")
     except Exception as e:
         push_event({"type": "error", "msg": str(e)})
         return ""

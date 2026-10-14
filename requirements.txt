@@ -58,3 +58,4 @@ ffmpeg-python
 moviepy==1.0.3
 gradio
 hindsight-client
+pytest

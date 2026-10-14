@@ -773,8 +773,8 @@ def get_whisper():
 
 def transcribe_file(filepath):
     try:
-        result = get_whisper().transcribe(filepath, language="en", fp16=get_whisper().device.type == "cuda")
-        return result["text"].strip()
+        import whisper_model   # the fleet's names as the hint, silence as ""
+        return whisper_model.transcribe(get_whisper(), filepath, cuda=get_whisper().device.type == "cuda")
     except Exception as e:
         console.print(f"[red]STT error: {e}[/red]")
         return ""
