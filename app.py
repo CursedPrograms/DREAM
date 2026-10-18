@@ -114,7 +114,7 @@ ALARM_SERIAL_BAUD = 9600
 # RIFT is the one that joins NORA's WiFi AP and shares internet to the fleet
 # (see the NORA-Robot-v00 / RIFT repos). It just talks to NORA's web
 # API over whatever route already gets there.
-NORA_HOST           = "192.168.4.1"  # NORA's fixed WiFi AP address
+NORA_HOST           = "192.168.4.1"  # NORA when nobody knows better: her own WiFi AP (see _nora_lookup())
 NORA_PORT           = 5002           # NORA's robot web API (drive/UV/music/serial/message)
 NORA_FLEET_PORT     = 5000           # NORA's fleet-registry port (distinct from her robot API above)
 NORA_CHECK_INTERVAL = 30             # seconds between reachability checks
@@ -716,8 +716,31 @@ def send_alarm_command(enabled: bool) -> bool:
 _nora_state = {"reachable": False, "last_check": 0.0, "error": None}
 _nora_lock  = threading.Lock()
 
+_nora_addr = {"ip": None}   # NORA's address in the fleet list, last look (None = not listed)
+
+def _nora_lookup():
+    """Where NORA is: RIFT's /fleet, else the fleet list of whoever hosts the network (the WiFi
+    ladder: DREAM, NINA, a controller...). Run by nora_watcher(), never inside a request: RIFT's
+    /fleet can take up to ~8 s while it checks on NORA itself."""
+    urls = [f"http://{RIFT_HOST}:{RIFT_PORT}/fleet"]
+    host = FLEET_LADDER.registry_host()
+    if host and host not in (RIFT_HOST, "localhost"):
+        urls.append(f"http://{host}:{NORA_FLEET_PORT}/robots")
+    for url in urls:
+        try:
+            robots = _req.get(url, timeout=12).json().get("robots", [])
+        except Exception:
+            continue
+        ip = next((r.get("ip") for r in robots if r.get("name") == "NORA" and r.get("ip")), None)
+        if ip:
+            return ip
+    return None
+
+def _nora_host() -> str:
+    return _nora_addr["ip"] or NORA_HOST
+
 def _nora_url(path: str) -> str:
-    return f"http://{NORA_HOST}:{NORA_PORT}{path}"
+    return f"http://{_nora_host()}:{NORA_PORT}{path}"
 
 def _safe_nora():
     with _nora_lock:
@@ -729,10 +752,10 @@ def check_nora_reachable():
         r = _req.get(_nora_url("/sensors"), timeout=3)
         reachable = r.status_code == 200
         with _nora_lock:
-            _nora_state.update(reachable=reachable, error=None, last_check=time.time())
+            _nora_state.update(reachable=reachable, error=None, last_check=time.time(), host=_nora_host())
     except Exception as e:
         with _nora_lock:
-            _nora_state.update(reachable=False, error=str(e), last_check=time.time())
+            _nora_state.update(reachable=False, error=str(e), last_check=time.time(), host=_nora_host())
     push_event({"type": "nora", **_safe_nora()})
 
 def send_nora_serial(cmd: str) -> bool:
@@ -755,6 +778,11 @@ def send_nora_message(text: str) -> bool:
 
 def nora_watcher():
     while _state["running"]:
+        ip = _nora_lookup()
+        if ip != _nora_addr["ip"]:
+            print(f"[DREAM] NORA is at {ip} (fleet list)" if ip else
+                  f"[DREAM] NORA isn't in the fleet list; trying her own AP at {NORA_HOST}")
+            _nora_addr["ip"] = ip
         check_nora_reachable()
         time.sleep(NORA_CHECK_INTERVAL)
 
