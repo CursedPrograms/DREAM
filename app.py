@@ -128,6 +128,10 @@ NORA_CHECK_INTERVAL = 30             # seconds between reachability checks
 RIFT_HOST           = dashboard_cfg.get("RiftHost", "localhost")
 RIFT_PORT           = dashboard_cfg.get("RiftPort", 5000)
 RIFT_HEARTBEAT_SECS = 10
+# The fleet's WiFi ladder (Fleet/fleet_ladder.py, fleet TODO section 2): with "FleetLadder": true, DREAM
+# joins the highest fleet network above her, or hosts "DREAM" and the fleet list when none is up.
+from Fleet.fleet_ladder import FleetLadder
+FLEET_LADDER = FleetLadder("DREAM", enabled=dashboard_cfg.get("FleetLadder", False))
 FLEET_CAPABILITIES  = ["voice_chat", "tts", "stt", "llm",
                        f"talk:{THIS_PORT}",   # RIFT's conversations: /chirp?u= on this port
                        "peer"]                # ...and real ones with KIDA-01 (/peer, see peer_talk.py)
@@ -147,7 +151,7 @@ _rift_ok = None   # last heartbeat result, so a change (and only a change) is pr
 
 def _fleet_heartbeat_wifi():
     global _rift_ok
-    url = f"http://{RIFT_HOST}:{RIFT_PORT}/register"
+    url = f"http://{FLEET_LADDER.registry_host() or RIFT_HOST}:{RIFT_PORT}/register"   # whoever hosts, on the ladder
     try:
         r = _req.post(url, data={"name": THIS_NAME, "type": "ai_assistant",
                                  "capabilities": ",".join(FLEET_CAPABILITIES)},
@@ -1534,6 +1538,7 @@ if __name__ == "__main__":
         else:
             print("[DREAM] Another DREAM already runs the inner life - this one stays passive")
     threading.Thread(target=nora_watcher, daemon=True).start()
+    FLEET_LADDER.start()
     threading.Thread(target=rift_heartbeat, daemon=True).start()
     print(f"[DREAM] Announcing to RIFT at {RIFT_HOST}:{RIFT_PORT} every {RIFT_HEARTBEAT_SECS}s")
 

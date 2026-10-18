@@ -58,7 +58,8 @@
       "ZeroconfName": "DREAM",
       "ZeroconfType": "_flask-link._tcp.local.",
       "RiftHost": "localhost",
-      "RiftPort": 5000
+      "RiftPort": 5000,
+      "FleetLadder": false
     }
   }
 }
