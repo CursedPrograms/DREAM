@@ -28,7 +28,7 @@ if not fast_check_ffmpeg():
     print("Adding ffmpeg to PATH")
     # Choose path separator based on operating system
     path_separator = ';' if sys.platform == 'win32' else ':'
-    os.environ["PATH"] = f"{args.ffmpeg_path}{path_separator}{os.environ['PATH']}"
+    os.environ["PATH"] = f"{ffmpeg_path}{path_separator}{os.environ['PATH']}"
     if not fast_check_ffmpeg():
         print("Warning: Unable to find ffmpeg, please ensure ffmpeg is properly installed")
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+r"""
 One-time script: generates the permanent startup intro lipsync video.
 Run once from the project root:
     venv311\Scripts\python scripts\generate_startup.py
