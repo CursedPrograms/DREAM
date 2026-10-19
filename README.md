@@ -1,3 +1,5 @@
+<p align="center"><img src="images/avatar_round.png" width="160" alt="DREAM"></p>
+
 [![Twitter: @NorowaretaGemu](https://img.shields.io/badge/X-@NorowaretaGemu-blue.svg?style=flat)](https://x.com/NorowaretaGemu)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
