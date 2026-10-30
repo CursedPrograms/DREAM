@@ -223,3 +223,7 @@ hindsight-venv/
 /Adobe Premiere Pro Auto-Save
 memories/mymilestones.txt
 /memories
+
+# Controllers, built and kept
+!builds/
+!builds/*.exe
