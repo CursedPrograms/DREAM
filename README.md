@@ -578,7 +578,7 @@ python inference.py --checkpoint_path "checkpoints/wav2lip-sd-gan.pt" --face "/v
 |---|---|
 | **Use it** | [Ways to run DREAM](#ways-to-run-dream) - [How it fits together](#how-it-fits-together) - [Voice commands](#voice-commands) - [Setup](#setup) |
 | **What she is** | [Overview](#-overview) - [System awareness](#system-awareness) - [Depth vision](#depth-vision) - [Autonomous behavior](#autonomous-behavior) - [Inner Life](#inner-life) |
-| **Hardware** | [Prerequisites](#prerequisites) - [Pinouts](#-technical-pinouts) - [Sensor board](#sensor-board) |
+| **Hardware** | [Prerequisites](#prerequisites) - [Pinouts](#pinouts) - [Sensor board](#sensor-board) |
 | **Other front ends** | [DREAM in the browser](#dream-in-the-browser) - [DREAM as one program (C++)](#dream-as-one-program-c) |
 | **Reference** | [Web server and API](#web-server-and-api) - [Data and memory files](#data-and-memory-files) - [Configuration](#configuration) - [Testing](#testing) - [Experiments](#experiments) - [Environment notes](#environment-notes) - [Repository layout](#repository-layout) - [Troubleshooting](#troubleshooting) - [Privacy and safety](#privacy-and-safety) |
 

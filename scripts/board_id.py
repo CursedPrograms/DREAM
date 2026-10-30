@@ -3,10 +3,10 @@ Finds which serial port an Arduino is on by asking it who it is, so DREAM and
 ARM can run from the same PC without hard-coding COM ports.
 
     PC:   WHO
-    COM6: I am Arm      (or "I am Dream")
+    COM6: I am Arm      (or "I am Dream", "I am Nina")
 
-The sketches (arm.ino, dream_sensors.ino) answer "WHO" with that line. This
-file is kept identical in both the DREAM and ARM-Robot-v01 repos.
+The sketches (arm.ino, dream_sensors.ino, NINA's ir_reader.ino) answer "WHO" with
+that line. This file is kept identical in the DREAM, ARM-Robot-v01 and NINA repos.
 """
 
 import re
