@@ -1,28 +1,30 @@
 <p align="center"><img src="images/avatar_round.png" width="160" alt="DREAM"></p>
 
-[![Twitter: @NorowaretaGemu](https://img.shields.io/badge/X-@NorowaretaGemu-blue.svg?style=flat)](https://x.com/NorowaretaGemu)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<h1 align="center">DREAM</h1>
+<h3 align="center">Distributed Runtime for Ethereal Autonomous Memories</h3>
+<p align="center"><i>A DREAM Robotics Agentic-Consciousness</i></p>
+
+<div align="center">
+
+[![Twitter: @NorowaretaGemu](https://img.shields.io/badge/X-@NorowaretaGemu-blue.svg?style=flat)](https://x.com/NorowaretaGemu) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+</div>
 
 <div align="center">
   <a href="https://ko-fi.com/cursedentertainment">
-    <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="ko-fi" style="width: 20%;"/>
+    <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="ko-fi" width="180"/>
   </a>
 </div>
+
 <div align="center">
   <img alt="Python" src="https://img.shields.io/badge/python%20-%23323330.svg?&style=for-the-badge&logo=python&logoColor=white"/>
-    <img alt="C++" src="https://img.shields.io/badge/c++%20-%23323330.svg?&style=for-the-badge&logo=c%2B%2B&logoColor=white"/>
-</div>
-<div align="center">
-   <img alt="OpenCV" src="https://img.shields.io/badge/opencv-%23323330.svg?&style=for-the-badge&logo=opencv&logoColor=white"/>
-</div>
-<div align="center">
+  <img alt="C++" src="https://img.shields.io/badge/c++%20-%23323330.svg?&style=for-the-badge&logo=c%2B%2B&logoColor=white"/>
+  <img alt="OpenCV" src="https://img.shields.io/badge/opencv-%23323330.svg?&style=for-the-badge&logo=opencv&logoColor=white"/>
   <img alt="Git" src="https://img.shields.io/badge/git%20-%23323330.svg?&style=for-the-badge&logo=git&logoColor=white"/>
   <img alt="Shell" src="https://img.shields.io/badge/Shell-%23323330.svg?&style=for-the-badge&logo=gnu-bash&logoColor=white"/>
 </div>
 
-# **DREAM**
-## Distributed Runtime for Ethereal Autonomous Memories
-### A DREAM Robotics Agentic-Consciousness
+---
 
 <div align="center">
   <a href="https://cursedprograms.github.io/DREAM/">
@@ -35,128 +37,36 @@
 
 ---
 
-## Contents
-
-| | |
-|---|---|
-| **Use it** | [Ways to run DREAM](#ways-to-run-dream) - [How it fits together](#how-it-fits-together) - [Voice commands](#voice-commands) - [Setup](#setup) |
-| **What she is** | [Overview](#-overview) - [System awareness](#system-awareness) - [Depth vision](#depth-vision) - [Autonomous behavior](#autonomous-behavior) - [Inner Life](#inner-life) |
-| **Hardware** | [Prerequisites](#prerequisites) - [Pinouts](#-technical-pinouts) - [Sensor board](#sensor-board) |
-| **Other front ends** | [DREAM in the browser](#dream-in-the-browser) - [DREAM as one program (C++)](#dream-as-one-program-c) |
-| **Reference** | [Web server and API](#web-server-and-api) - [Data and memory files](#data-and-memory-files) - [Configuration](#configuration) - [Testing](#testing) - [Experiments](#experiments) - [Environment notes](#environment-notes) - [Repository layout](#repository-layout) - [Troubleshooting](#troubleshooting) - [Privacy and safety](#privacy-and-safety) |
+**Windows app:** [`builds/DREAM-Controller.exe`](builds/DREAM-Controller.exe) opens DREAM's page (`/dream.html`, on the local port so the mic works) in a window and starts `run.bat` if it isn't running. Keep it in `builds/`. Source: `scripts/web_controller`.
 
 ---
 
-### Software
-- [Arduino IDE](https://docs.arduino.cc/software/ide/)
+## Related Projects
+
+
+<table>
+  <tr>
+    <td align="center"><a href="https://github.com/CursedPrograms/ARIA-Robot-v00"><img src="https://raw.githubusercontent.com/CursedPrograms/ARIA-Robot-v00/main/images/avatar_round.png" width="72" alt="ARIA"><br>ARIA</a></td>
+    <td align="center"><a href="https://github.com/CursedPrograms/KIDA-Robot-v01"><img src="https://raw.githubusercontent.com/CursedPrograms/KIDA-Robot-v01/main/images/avatar_round.png" width="72" alt="KIDA-01"><br>KIDA-01</a></td>
+    <td align="center"><a href="https://github.com/CursedPrograms/KIDA-Robot-v00"><img src="https://raw.githubusercontent.com/CursedPrograms/KIDA-Robot-v00/main/images/avatar_round.png" width="72" alt="KIDA-00"><br>KIDA-00</a></td>
+    <td align="center"><a href="https://github.com/CursedPrograms/WHIP-Robot-v00"><img src="https://raw.githubusercontent.com/CursedPrograms/WHIP-Robot-v00/main/images/avatar_round.png" width="72" alt="WHIP"><br>WHIP</a></td>
+    <td align="center"><a href="https://github.com/CursedPrograms/NORA-Robot-v00"><img src="https://raw.githubusercontent.com/CursedPrograms/NORA-Robot-v00/main/images/avatar_round.png" width="72" alt="NORA"><br>NORA</a></td>
+    <td align="center"><a href="https://github.com/CursedPrograms/MILA-Robot-v00"><img src="https://raw.githubusercontent.com/CursedPrograms/MILA-Robot-v00/main/images/avatar_round.png" width="72" alt="MILA"><br>MILA</a></td>
+    <td align="center"><a href="https://github.com/CursedPrograms/NIKA-Robot-v00"><img src="https://raw.githubusercontent.com/CursedPrograms/NIKA-Robot-v00/main/images/avatar_round.png" width="72" alt="NIKA"><br>NIKA</a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/CursedPrograms/IDA-Robot-v00"><img src="https://raw.githubusercontent.com/CursedPrograms/IDA-Robot-v00/main/images/avatar_round.png" width="72" alt="IDA"><br>IDA</a></td>
+    <td align="center"><a href="https://github.com/CursedPrograms/ARM-Robot-v01"><img src="https://raw.githubusercontent.com/CursedPrograms/ARM-Robot-v01/main/images/avatar_round.png" width="72" alt="ARM"><br>ARM</a></td>
+    <td align="center"><a href="https://github.com/CursedPrograms/RIFT"><img src="https://raw.githubusercontent.com/CursedPrograms/RIFT/main/images/avatar_round.png" width="72" alt="RIFT"><br>RIFT</a></td>
+    <td align="center"><a href="https://github.com/CursedPrograms/RITA"><img src="https://raw.githubusercontent.com/CursedPrograms/RITA/main/images/avatar_round.png" width="72" alt="RITA"><br>RITA</a></td>
+    <td align="center"><a href="https://github.com/CursedPrograms/NINA"><img src="https://raw.githubusercontent.com/CursedPrograms/NINA/main/images/avatar_round.png" width="72" alt="NINA"><br>NINA</a></td>
+    <td align="center"><a href="https://github.com/CursedPrograms/TINA"><img src="https://raw.githubusercontent.com/CursedPrograms/TINA/main/images/avatar_round.png" width="72" alt="TINA"><br>TINA</a></td>
+  </tr>
+</table>
 
 ---
 
-<br>
-<div align="center">
-  <img src="demo_images/dream0.gif" alt="DREAM" width="400"/>
-</div>
-<br>
-
----
-
-### Active Conversation
-
-Pipeline:
-```
-Mic → Whisper → Ollama → Piper TTS → Lipsync → Speaker
-```
-
-With her inner life switched on (it is by default), a step sits between hearing and answering:
-```
-Mic → Whisper → boundaries + memory + mood (dream_mind) → Ollama → Piper (voice shaped by her mood) → Speaker
-```
-
-## Options
-
-`options.bat` (or `options.ps1`, `options.sh`) opens a game-style options menu for `config.json` (the same menu every bot has): sections as menus, on/off toggles, number steppers, text fields, and dropdowns for fixed choices from `options_choices.json`. Saving keeps `config.json.bak`.
-
-## Ways to run DREAM
-
-| How | Command | What you get | Needs |
-|---|---|---|---|
-| **Everything (start here)** | `run.bat` | Sets up `venv311` the first time (and again when `requirements.txt` changes), then starts `app.py` (minimised window) **and** `dream.py` together - so DREAM registers with RIFT and her sensor board works. Closing DREAM closes the server too | Python 3.11, Ollama, Piper |
-| **Desktop app** | `python scripts/dream.py` (or option `1` in `python main.py`) | Fullscreen avatar video, "Hey DREAM" wake word, sleep and wake, sensor board, voice commands, inner life | The venv, Ollama, Piper, microphone, speakers, a display |
-| **In the browser** | `python scripts/dream.py --web` (option `1w`) | Starts `app.py` if needed and opens `http://localhost:5010/dream.html`. Same behaviours, using the browser's microphone and speakers | The venv, Ollama, Piper, a browser |
-| **Web server and dashboard** | `python app.py` (option `5`) | Dashboard and API at `https://<this-pc>:5009`, **DREAM on your phone** at `https://<this-pc>:5001`, and it owns the sensor board | The venv, Ollama, Piper |
-| **One program (C++)** | `cpp_dream\build\dream.exe` | Fullscreen avatar, wake word, sensors, timers, memories, stats and network scan in one `.exe` | Built with `cpp_dream\build.bat` |
-
-Which to pick: `dream.py` is the full experience on the PC with the screen. Start `app.py` first if you want the dashboard and the sensor board, because `dream.py` reads the board *through* `app.py`. The browser version is for a phone or a second screen. `dream.exe` is the standalone build and opens the sensor board itself, so **don't run it at the same time as `app.py`** (only one program can hold a serial port).
-
-### Talking (in Brainfuck)
-The robots talk in **Brainfuck**: every phrase is a Brainfuck program that prints its words (hello is `++++++++[>+++++++++++++<-]>.+.` → `hi`), and a robot says it by beeping the program on its buzzer, one tone per symbol, pitched to its own voice. The phrasebook (`talk_bf.h`) is generated by RIFT's `Fleet/brainfuck_talk.py`: phrases 0–6 (hello, how are you, happy, curious, sleepy, let's play, bye) and their replies 7–13. [RIFT](https://github.com/CursedPrograms/RIFT) runs the conversations between robots over WiFi and logs them on its dashboard; it asks DREAM to speak with `GET /chirp?u=<0-13>`. `app.py` sends `TALK:<u>` to the sensor board, which beeps it on its buzzer in a deep, slow voice (not during an alarm). Her dashboard registers `talk:<port>` with RIFT.
-
-With another robot that has a mind (DREAM, KIDA-01, TINA - they register the `peer` capability), RIFT holds a **real conversation** when nobody is using them: rock paper scissors (both beep their move), then the winner picks words (spoken by the LLM) or Brainfuck (`peer_talk.py`, the same file in DREAM, KIDA-01 and TINA). In Brainfuck the chat opens with hello and only says goodbye at the end.
-
-## How it fits together
-
-```
-   dream_sensors.ino (Arduino)               ARM (robot arm, another Arduino)
-   PIR alarm, mmWave presence/range,         answers "I am Arm"; controllers find it by name
-   buzzer, RGB strip; answers "I am Dream"
-         |  USB serial
-         v
-   +-----------------------------------------------------------------------------+
-   |  app.py  (Flask, ports 5009 HTTPS / 5001 DREAM / 5010 HTTP-localhost)        |
-   |  owns the sensor board · /events stream · /api/* · dashboard · /dream.html   |
-   +--------+-----------------------------+--------------------------+-----------+
-            | events, commands            | browsers / phones        | RIFT, NORA
-            v                             v                          v
-   scripts/dream.py                 dashboard (/)                fleet robots
-   avatar video, wake word          avatar page (/dream.html)
-   voice loop, sleep, flirt
-
-   Mic -> Whisper -> dream_mind -> Ollama -> Piper -> Speakers
-                        ^   memory, mood, needs, opinions, dreams, initiative
-                        |
-   Webcam -> surveillance.py -> photos + frames -> dream_mind (what she saw; your expression, if you allow it)
-```
-
-Everything runs on this PC. Ollama serves the language model, Piper speaks, Whisper listens, and nothing is sent to the internet during use (only setup downloads models).
-
-<br>
-<div align="center">
-  <img src="images/character/angles%20(1).jpeg" alt="DREAM from several angles" width="400"/>
-</div>
-<br>
-
-## Voice commands
-
-| You say | What happens |
-|---|---|
-| "Hey DREAM", "hi DREAM", "okay DREAM", "DREAM" | Wakes her; she greets you (the greeting depends on how far away you are) and listens for one command |
-| "Wake up" | Wakes her from sleep (the only phrase she listens for while asleep, besides someone appearing at the sensor) |
-| "Check the wifi", "scan the network", "who's on the wifi", "list devices" | Scans the local network and reads out what she finds |
-| "System stats", "CPU usage", "how's the system" | CPU, RAM and disk (and CPU temperature on Linux) |
-| "Turn on / off the alarm", "arm / disarm the alarm" | Arms or disarms the PIR alarm on the sensor board |
-| "Lights red / blue / green / yellow / orange / purple / pink / cyan / white" | Sets the RGB strip (needs the word "lights", "make it" or "turn it") |
-| "Rainbow mode", "party lights", "lights off" | Rainbow animation, or lights off |
-| "Tell NORA to stop the music", "tell NORA to turn her lights on", "tell KIDA01 to turn left for two seconds" | Tells a robot to do something, through RIFT (`POST /talk`, `verb: do`). Anything that moves a robot asks you first: say "yes" or "no" (no wake word needed). Unlocking a robot is never passed on |
-| "Ask MILA how she is", "how is NORA doing?", "what's NORA's status?" | Asks a robot its state through RIFT and reads out the main points |
-| "Hey TINA, ...", "ask TINA to ...", "fix the bug in NORA's sketch", "why isn't KIDA's Hailo responding?" | Hands the job to [TINA](../TINA) (code, files, tools, several steps) and says only her final answer. TINA's questions ("this moves NORA, go ahead?") are passed on for your yes or no |
-| "Goodbye", "exit", "quit", "bye", "shut down" | Ends the session (the browser version goes to sleep instead) |
-| "Remind me to call mum in 20 minutes" | Sets a reminder; she speaks it when it's due |
-| "How are you feeling?", "What do you remember about me?", "Did you dream?", "What's on your mind?", "Why did you say that?", "What have you seen?", "Are you conscious?" | She answers about herself, from her real state ([Inner Life](#inner-life)) |
-| "Forget that", "forget about X", "forget everything" | Erases memories (the last one asks you to confirm first) |
-| "Stop talking on your own" / "you can speak up on your own" | Switches her unprompted remarks off or on |
-| "Watch my face while we talk" / "stop watching my face" | Turns expression reading on or off (off by default) |
-| "My name is Kimmie" (facing the camera) | She learns your face, and greets you by name when she sees you again |
-| "Who am I?" / "Do you recognise me?" | She tells you who she sees |
-| "What do you see?" / "Look at this" / "What am I holding?" | She takes a picture and describes it, by name if she knows you |
-| "Forget my face" / "forget all faces" | Deletes the face prints |
-| "Stop looking around" / "you can look around" | Turns her photo-a-minute off or on |
-| "What did you see today?" | She answers from what she remembers seeing |
-
-The same commands work typed into the dashboard chat and the browser avatar page. Anything else goes to the language model.
-
-**Show thoughts** (off by default; `T` in the desktop app, 💭 on the browser page, `ShowThoughts` in `config.json`): what she thinks but doesn't say, on screen: TINA's reasoning and tool calls, and what RIFT and the robots answered. None of it is ever spoken; Piper only gets the final answer (scripts/dream_fleet.py).
-
-## 📖 Overview
+## Overview
 
 <details>
 <summary><b>Overview</b></summary>
@@ -211,126 +121,6 @@ Thinking models (qwen3:4b, deepseek-r1, gpt-oss) aren't in her list: tested with
 <div align="center">
   <img src="images/character/angles%20(2).jpeg" alt="DREAM from several angles" width="400"/>
 </div>
-<br>
-
----
-
-## System Awareness
-
-### Senses
-- **Hearing:** USB microphone, Whisper speech recognition (the wake word is checked in short clips)
-- **Presence and distance:** a mmWave radar (DFRobot C4001) reports when someone is there and how far away
-- **Motion alarm:** a PIR sensor drives a buzzer and red pulsing lights
-- **Sight:** a webcam (`surveillance.py`) takes a photo every ten minutes and a frame whenever something moves; the mind studies them ([Inner Life](#inner-life))
-- **Time:** she knows the hour, and it shapes how sleepy she is
-- **Depth:** a MiDaS depth map from the single webcam ([Depth vision](#depth-vision)); a standalone tool for now, not wired into the mind
-
-### Depth vision
-
-`scripts/monocular_depth.py` (option `7` in `python main.py`) estimates depth from the one webcam with [MiDaS v2.1](https://github.com/isl-org/MiDaS) and shows the feed next to a depth map (brighter = closer). Press `q` or `Esc` to quit.
-
-```bash
-python scripts/monocular_depth.py                          # webcam
-python scripts/monocular_depth.py --image photo.jpg        # one image, saved to scripts/output/depth/
-python scripts/monocular_depth.py --video clip.mp4         # a video file
-python scripts/monocular_depth.py --small / --large        # force a model
-```
-
-- The model is downloaded to `scripts/models/` on first use: Large `model-f6b98070.onnx` (~400 MB) or Small `model-small.onnx` (~63 MB).
-- Images use Large. Live video uses Small on the CPU (about 4 FPS; Large manages about 0.4) and Large when OpenCV is built with CUDA. The venv's `opencv-python-headless` is CPU-only.
-- Only one program can hold the webcam, so stop `dream.py` / `app.py` surveillance before running it on the webcam.
-
-### Avatar depth effect
-
-A 2.5D parallax on her avatar videos, like After Effects' Displacement Map. Each clip has a depth map, and on playback the near parts (her face) shift more than the far parts along a slow sway, so the flat video gains a sense of depth. Off by default.
-
-1. Build the depth videos once (option `7d` in `python main.py`, about 8 minutes on the CPU):
-   ```bash
-   python scripts/depth_effect.py            # builds missing or outdated ones into videos/depth/
-   python scripts/depth_effect.py --force    # rebuild all (e.g. after changing clips)
-   ```
-2. Turn it on in `config.json` and restart `dream.py`:
-   ```json
-   "DepthEffect": { "Enabled": true, "Strength": 14, "Speed": 0.12, "Scale": 1.0 }
-   ```
-
-| Setting | Meaning |
-|---|---|
-| `Enabled` | On or off |
-| `Strength` | How far the nearest parts move, in pixels at 1080p (try 8-30) |
-| `Speed` | Sway cycles per second (0.12 = one sway every ~8 s) |
-| `Scale` | Resolution the warp runs at. `1.0` is full quality; lower it to `0.5` if the videos play slow (softer image, about 30% cheaper) |
-
-- Only the looping clips (idle, listening, thinking, talking, sleeping) get the effect. One-shot clips (intro, lipsync replies, flirt) play with audio and stay flat, so the lips can't drift out of sync.
-- The warp runs on the GPU when torch has CUDA, otherwise on the CPU, on a worker thread next to the video decoding. At 1080p it takes about 39 ms per frame on the GPU (just inside 24 fps) and about 53 ms on the CPU, so on a CPU-only machine use `Scale` 0.5.
-- The desktop app only (`dream.py`); the browser avatar page plays the plain videos.
-
-### Monitoring
-- CPU load, RAM and disk (CPU temperature on Linux)
-- The sensor board's status, and a log of what it saw, on the dashboard
-
-### Network Introspection
-- LAN device scanning (a ping sweep, then the ARP table)
-- IP / MAC tracking, hostnames, and a guess at the device type
-
----
-
-## Autonomous Behavior
-
-### Idle State
-- Waits for the wake word, then runs the Listen → Think → Respond loop (Whisper → LLM → Piper)
-- Shows a video state for what she is doing (idle, listening, thinking, talking, sleeping)
-- After **10 minutes** idle she plays a flirty clip; after **15 minutes** she falls asleep (sooner when she is sleepy, later when she is fresh)
-- Someone arriving at the sensor keeps her awake; when they leave she says "Bye for now."
-- She may speak first: check in when she is lonely, ask about you, mention something she saw, tell you a dream, welcome you back after a long absence, or notice you seem different from usual. She holds back at night, in an empty room, and right after you speak
-- Communicates with other robots through RIFT
-
-### Sleep Mode
-- Cycles through **consolidation** (the day's memories are replayed, the important ones strengthen, the trivial ones fade) and **dreaming**
-- Each dream is a short story built from her real memories, and is **painted** by the latent-space dream engine (`latent_space.py`), with a still and an animation
-- **Dream visions:** the dream's own words go to the [Image-Generator](https://github.com/CursedPrograms/Image-Generator) (`scripts/generate.py`): a picture of the dream (`output/dreams/vision_*.jpg`), and 8 frames of her latent walk re-imagined with the same prompt. Model: `DreamImageModel` in `config.json` (`auto` = SDXL-Turbo with 12 GB of RAM or more, else SD-Turbo; or `sd-turbo` / `sdxl-turbo` / any Hugging Face id)
-- **The night's film:** when she wakes, every frame of the night (each dream's walk, then its visions crossfading) becomes `output/dreams/dreams_<time>.mp4`
-- **See them:** the **DREAMS** button on her dashboard (`/dreams.html`, API `/api/dreams`) shows every dream, newest first: its text, the painting or walk, her vision of it and the re-imagined frames, plus the night films
-- **She tells you first thing:** after each dream, while still asleep, she renders what she'll say about it (voice, and lipsync if MuseTalk is on) into her speech cache, so on waking she says it at once
-- **She learns her own dream world:** while awake and idle she trains a copy of her dream network on her photos and painted dreams (a small GAN, 5-minute bursts, stopped the moment she's needed). The spiral dreams keep the untrained network's abstract look; the others walk through what she's learned once it's had 3000 steps (`output/dreams/dream_world_learning.jpg` shows how far she's got)
-- Someone appearing at the sensor, or "wake up", wakes her
-- The details are under [Inner Life](#inner-life)
-
----
-
-**Windows app:** [`builds/DREAM-Controller.exe`](builds/DREAM-Controller.exe) opens DREAM's page (`/dream.html`, on the local port so the mic works) in a window and starts `run.bat` if it isn't running. Keep it in `builds/`. Source: `scripts/web_controller`.
-
-## Related Projects (DREAM Robotics Ecosystem)
-
-<table>
-  <tr>
-    <td align="center"><a href="https://github.com/CursedPrograms/ARIA-Robot-v00"><img src="https://raw.githubusercontent.com/CursedPrograms/ARIA-Robot-v00/main/images/avatar_round.png" width="72" alt="ARIA"><br>ARIA</a></td>
-    <td align="center"><a href="https://github.com/CursedPrograms/KIDA-Robot-v01"><img src="https://raw.githubusercontent.com/CursedPrograms/KIDA-Robot-v01/main/images/avatar_round.png" width="72" alt="KIDA-01"><br>KIDA-01</a></td>
-    <td align="center"><a href="https://github.com/CursedPrograms/KIDA-Robot-v00"><img src="https://raw.githubusercontent.com/CursedPrograms/KIDA-Robot-v00/main/images/avatar_round.png" width="72" alt="KIDA-00"><br>KIDA-00</a></td>
-    <td align="center"><a href="https://github.com/CursedPrograms/WHIP-Robot-v00"><img src="https://raw.githubusercontent.com/CursedPrograms/WHIP-Robot-v00/main/images/avatar_round.png" width="72" alt="WHIP"><br>WHIP</a></td>
-    <td align="center"><a href="https://github.com/CursedPrograms/NORA-Robot-v00"><img src="https://raw.githubusercontent.com/CursedPrograms/NORA-Robot-v00/main/images/avatar_round.png" width="72" alt="NORA"><br>NORA</a></td>
-    <td align="center"><a href="https://github.com/CursedPrograms/MILA-Robot-v00"><img src="https://raw.githubusercontent.com/CursedPrograms/MILA-Robot-v00/main/images/avatar_round.png" width="72" alt="MILA"><br>MILA</a></td>
-    <td align="center"><a href="https://github.com/CursedPrograms/NIKA-Robot-v00"><img src="https://raw.githubusercontent.com/CursedPrograms/NIKA-Robot-v00/main/images/avatar_round.png" width="72" alt="NIKA"><br>NIKA</a></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="https://github.com/CursedPrograms/IDA-Robot-v00"><img src="https://raw.githubusercontent.com/CursedPrograms/IDA-Robot-v00/main/images/avatar_round.png" width="72" alt="IDA"><br>IDA</a></td>
-    <td align="center"><a href="https://github.com/CursedPrograms/ARM-Robot-v01"><img src="https://raw.githubusercontent.com/CursedPrograms/ARM-Robot-v01/main/images/avatar_round.png" width="72" alt="ARM"><br>ARM</a></td>
-    <td align="center"><a href="https://github.com/CursedPrograms/RIFT"><img src="https://raw.githubusercontent.com/CursedPrograms/RIFT/main/images/avatar_round.png" width="72" alt="RIFT"><br>RIFT</a></td>
-    <td align="center"><a href="https://github.com/CursedPrograms/RITA"><img src="https://raw.githubusercontent.com/CursedPrograms/RITA/main/images/avatar_round.png" width="72" alt="RITA"><br>RITA</a></td>
-    <td align="center"><a href="https://github.com/CursedPrograms/NINA"><img src="https://raw.githubusercontent.com/CursedPrograms/NINA/main/images/avatar_round.png" width="72" alt="NINA"><br>NINA</a></td>
-    <td align="center"><a href="https://github.com/CursedPrograms/TINA"><img src="https://raw.githubusercontent.com/CursedPrograms/TINA/main/images/avatar_round.png" width="72" alt="TINA"><br>TINA</a></td>
-  </tr>
-</table>
-
-
-
----
-
-<br>
-<div align="center">
-  <img src="demo_images/dashboard.png" alt="DREAM's dashboard" width="800"/>
-</div>
-<br>
 
 ---
 
@@ -375,8 +165,9 @@ A 2.5D parallax on her avatar videos, like After Effects' Displacement Map. Each
 
 </details>
 
-# Schematics
-## ⚡ Technical Pinouts
+---
+
+## Pinouts
 
 > [!CAUTION]
 > **Ground Loop Warning:** All modules must share a common GND. Failure to bridge grounds will cause erratic motor behavior and sensor noise.
@@ -413,51 +204,7 @@ These pins match `dream_sensors/dream_sensors.ino`.
 
 ---
 
-## Sensor board
-
-`dream_sensors/dream_sensors.ino` runs the Arduino that gives DREAM her physical senses and lights. Flash it with the Arduino IDE (install the **Adafruit NeoPixel** and **DFRobot_C4001** libraries first). It talks to the PC over USB serial at **9600 baud**, one text line at a time.
-
-**What it does**
-- **Alarm (PIR only):** a PIR trigger pulses the buzzer and the strip red for 2.5 s. The PIR gets a 30 s warm-up after power-on, and triggers are at least 5 minutes apart. The alarm can be switched on and off from the PC. The mmWave radar never sets it off.
-- **Presence and distance (mmWave only):** reports when a person appears or leaves, and their range while they are in view (it detects from 30 cm to 10 m).
-- **Lights:** a rainbow animation when idle, or a solid colour when told to.
-- If the radar doesn't start, the alarm and lights still work and it says so.
-
-**Lines the board sends**
-
-| Line | Meaning |
-|---|---|
-| `MOTION` | The PIR triggered the alarm |
-| `PRESENT` / `ABSENT` | The radar started / stopped seeing a person |
-| `RANGE 1.42 m` | Distance to the person, about every half second while present |
-| `ALARM_STATE ON` / `OFF` | The alarm was armed / disarmed |
-| `RGB_STATE RED` / `OFF` / `RAINBOW` | The lights changed |
-| `RGB_ERROR unknown color` | A colour name it doesn't know |
-| `RADAR_ERROR ...` | The radar failed to start |
-| `I am Dream` | The answer to `WHO` |
-
-**Commands the board takes**
-
-| Command | Effect |
-|---|---|
-| `WHO` | Replies `I am Dream` |
-| `BUZZER` | Beeps for 2 s |
-| `ALARM ON` / `ALARM OFF` | Arms or disarms the PIR alarm |
-| `RGB <COLOR>` | Solid colour: RED, GREEN, BLUE, YELLOW, ORANGE, PURPLE, PINK, CYAN, WHITE |
-| `RGB RAINBOW` / `RGB OFF` | Rainbow animation / lights off |
-
-**Finding the right port.** COM numbers change, and this PC may also have the ARM robot's Arduino on it. So nothing here hard-codes a port: programs ask each candidate port `WHO` and use the one that answers `I am Dream` (`scripts/board_id.py`; the ARM controllers ask for `I am Arm` the same way). `python scripts/board_id.py` lists every port that answers, and by name. This means you **must reflash** an older board with the current sketch before it can be found.
-
-**One owner at a time.** Only one program can hold a serial port. `app.py` opens the board and shares it: it re-broadcasts every line on its `/events` stream and takes commands at `POST /api/sensor/command`, and `dream.py` uses that instead of opening the port itself. The C++ `dream.exe` opens the board directly, so don't run it alongside `app.py`.
-
----
-
-## AI Stack Recommendation
-- `qwen3:4b-instruct-2507-q4_K_M` (Qwen3 4B without the thinking: smart, quick, never reasons out loud)
-
----
-
-## 🌐 Connectivity & Controls
+## Controls
 
 <details>
 <summary><b>Connectivity & Controls</b></summary>
@@ -562,11 +309,10 @@ Files: `templates/dream.html`, `static/js/dream.js`, `scripts/web_launcher.py` (
 <div align="center">
   <img src="demo_images/dream1.gif" alt="DREAM" width="400"/>
 </div>
-<br>
 
 ---
 
-## Setup:
+## Setup
 
 ### Install Ollama
 
@@ -802,12 +548,9 @@ def check_torch_load_is_safe() -> None:
    - [face-parse-bisent](https://drive.google.com/file/d/154JgKpzCPW82qINcVieuPH3fZ2e0P812/view?pli=1)
    - [resnet18](https://download.pytorch.org/models/resnet18-5c106cde.pth)
 
-
 </details>
 
-
 #### Wav2lip Setup
-
 
 <details>
 <summary><b>Wav2lip Setup</b></summary>
@@ -826,6 +569,275 @@ python inference.py --checkpoint_path "checkpoints/wav2lip-sd-gan.pt" --face "/v
 ```
 
 </details>
+
+---
+
+## Contents
+
+| | |
+|---|---|
+| **Use it** | [Ways to run DREAM](#ways-to-run-dream) - [How it fits together](#how-it-fits-together) - [Voice commands](#voice-commands) - [Setup](#setup) |
+| **What she is** | [Overview](#-overview) - [System awareness](#system-awareness) - [Depth vision](#depth-vision) - [Autonomous behavior](#autonomous-behavior) - [Inner Life](#inner-life) |
+| **Hardware** | [Prerequisites](#prerequisites) - [Pinouts](#-technical-pinouts) - [Sensor board](#sensor-board) |
+| **Other front ends** | [DREAM in the browser](#dream-in-the-browser) - [DREAM as one program (C++)](#dream-as-one-program-c) |
+| **Reference** | [Web server and API](#web-server-and-api) - [Data and memory files](#data-and-memory-files) - [Configuration](#configuration) - [Testing](#testing) - [Experiments](#experiments) - [Environment notes](#environment-notes) - [Repository layout](#repository-layout) - [Troubleshooting](#troubleshooting) - [Privacy and safety](#privacy-and-safety) |
+
+---
+
+### Software
+- [Arduino IDE](https://docs.arduino.cc/software/ide/)
+
+---
+
+<br>
+<div align="center">
+  <img src="demo_images/dream0.gif" alt="DREAM" width="400"/>
+</div>
+<br>
+
+---
+
+### Active Conversation
+
+Pipeline:
+```
+Mic → Whisper → Ollama → Piper TTS → Lipsync → Speaker
+```
+
+With her inner life switched on (it is by default), a step sits between hearing and answering:
+```
+Mic → Whisper → boundaries + memory + mood (dream_mind) → Ollama → Piper (voice shaped by her mood) → Speaker
+```
+
+---
+
+## Options
+
+`options.bat` (or `options.ps1`, `options.sh`) opens a game-style options menu for `config.json` (the same menu every bot has): sections as menus, on/off toggles, number steppers, text fields, and dropdowns for fixed choices from `options_choices.json`. Saving keeps `config.json.bak`.
+
+---
+
+## Ways to run DREAM
+
+| How | Command | What you get | Needs |
+|---|---|---|---|
+| **Everything (start here)** | `run.bat` | Sets up `venv311` the first time (and again when `requirements.txt` changes), then starts `app.py` (minimised window) **and** `dream.py` together - so DREAM registers with RIFT and her sensor board works. Closing DREAM closes the server too | Python 3.11, Ollama, Piper |
+| **Desktop app** | `python scripts/dream.py` (or option `1` in `python main.py`) | Fullscreen avatar video, "Hey DREAM" wake word, sleep and wake, sensor board, voice commands, inner life | The venv, Ollama, Piper, microphone, speakers, a display |
+| **In the browser** | `python scripts/dream.py --web` (option `1w`) | Starts `app.py` if needed and opens `http://localhost:5010/dream.html`. Same behaviours, using the browser's microphone and speakers | The venv, Ollama, Piper, a browser |
+| **Web server and dashboard** | `python app.py` (option `5`) | Dashboard and API at `https://<this-pc>:5009`, **DREAM on your phone** at `https://<this-pc>:5001`, and it owns the sensor board | The venv, Ollama, Piper |
+| **One program (C++)** | `cpp_dream\build\dream.exe` | Fullscreen avatar, wake word, sensors, timers, memories, stats and network scan in one `.exe` | Built with `cpp_dream\build.bat` |
+
+Which to pick: `dream.py` is the full experience on the PC with the screen. Start `app.py` first if you want the dashboard and the sensor board, because `dream.py` reads the board *through* `app.py`. The browser version is for a phone or a second screen. `dream.exe` is the standalone build and opens the sensor board itself, so **don't run it at the same time as `app.py`** (only one program can hold a serial port).
+
+### Talking (in Brainfuck)
+The robots talk in **Brainfuck**: every phrase is a Brainfuck program that prints its words (hello is `++++++++[>+++++++++++++<-]>.+.` → `hi`), and a robot says it by beeping the program on its buzzer, one tone per symbol, pitched to its own voice. The phrasebook (`talk_bf.h`) is generated by RIFT's `Fleet/brainfuck_talk.py`: phrases 0–6 (hello, how are you, happy, curious, sleepy, let's play, bye) and their replies 7–13. [RIFT](https://github.com/CursedPrograms/RIFT) runs the conversations between robots over WiFi and logs them on its dashboard; it asks DREAM to speak with `GET /chirp?u=<0-13>`. `app.py` sends `TALK:<u>` to the sensor board, which beeps it on its buzzer in a deep, slow voice (not during an alarm). Her dashboard registers `talk:<port>` with RIFT.
+
+With another robot that has a mind (DREAM, KIDA-01, TINA - they register the `peer` capability), RIFT holds a **real conversation** when nobody is using them: rock paper scissors (both beep their move), then the winner picks words (spoken by the LLM) or Brainfuck (`peer_talk.py`, the same file in DREAM, KIDA-01 and TINA). In Brainfuck the chat opens with hello and only says goodbye at the end.
+
+---
+
+## How it fits together
+
+```
+   dream_sensors.ino (Arduino)               ARM (robot arm, another Arduino)
+   PIR alarm, mmWave presence/range,         answers "I am Arm"; controllers find it by name
+   buzzer, RGB strip; answers "I am Dream"
+         |  USB serial
+         v
+   +-----------------------------------------------------------------------------+
+   |  app.py  (Flask, ports 5009 HTTPS / 5001 DREAM / 5010 HTTP-localhost)        |
+   |  owns the sensor board · /events stream · /api/* · dashboard · /dream.html   |
+   +--------+-----------------------------+--------------------------+-----------+
+            | events, commands            | browsers / phones        | RIFT, NORA
+            v                             v                          v
+   scripts/dream.py                 dashboard (/)                fleet robots
+   avatar video, wake word          avatar page (/dream.html)
+   voice loop, sleep, flirt
+
+   Mic -> Whisper -> dream_mind -> Ollama -> Piper -> Speakers
+                        ^   memory, mood, needs, opinions, dreams, initiative
+                        |
+   Webcam -> surveillance.py -> photos + frames -> dream_mind (what she saw; your expression, if you allow it)
+```
+
+Everything runs on this PC. Ollama serves the language model, Piper speaks, Whisper listens, and nothing is sent to the internet during use (only setup downloads models).
+
+<br>
+<div align="center">
+  <img src="images/character/angles%20(1).jpeg" alt="DREAM from several angles" width="400"/>
+</div>
+
+---
+
+## Voice commands
+
+| You say | What happens |
+|---|---|
+| "Hey DREAM", "hi DREAM", "okay DREAM", "DREAM" | Wakes her; she greets you (the greeting depends on how far away you are) and listens for one command |
+| "Wake up" | Wakes her from sleep (the only phrase she listens for while asleep, besides someone appearing at the sensor) |
+| "Check the wifi", "scan the network", "who's on the wifi", "list devices" | Scans the local network and reads out what she finds |
+| "System stats", "CPU usage", "how's the system" | CPU, RAM and disk (and CPU temperature on Linux) |
+| "Turn on / off the alarm", "arm / disarm the alarm" | Arms or disarms the PIR alarm on the sensor board |
+| "Lights red / blue / green / yellow / orange / purple / pink / cyan / white" | Sets the RGB strip (needs the word "lights", "make it" or "turn it") |
+| "Rainbow mode", "party lights", "lights off" | Rainbow animation, or lights off |
+| "Tell NORA to stop the music", "tell NORA to turn her lights on", "tell KIDA01 to turn left for two seconds" | Tells a robot to do something, through RIFT (`POST /talk`, `verb: do`). Anything that moves a robot asks you first: say "yes" or "no" (no wake word needed). Unlocking a robot is never passed on |
+| "Ask MILA how she is", "how is NORA doing?", "what's NORA's status?" | Asks a robot its state through RIFT and reads out the main points |
+| "Hey TINA, ...", "ask TINA to ...", "fix the bug in NORA's sketch", "why isn't KIDA's Hailo responding?" | Hands the job to [TINA](../TINA) (code, files, tools, several steps) and says only her final answer. TINA's questions ("this moves NORA, go ahead?") are passed on for your yes or no |
+| "Goodbye", "exit", "quit", "bye", "shut down" | Ends the session (the browser version goes to sleep instead) |
+| "Remind me to call mum in 20 minutes" | Sets a reminder; she speaks it when it's due |
+| "How are you feeling?", "What do you remember about me?", "Did you dream?", "What's on your mind?", "Why did you say that?", "What have you seen?", "Are you conscious?" | She answers about herself, from her real state ([Inner Life](#inner-life)) |
+| "Forget that", "forget about X", "forget everything" | Erases memories (the last one asks you to confirm first) |
+| "Stop talking on your own" / "you can speak up on your own" | Switches her unprompted remarks off or on |
+| "Watch my face while we talk" / "stop watching my face" | Turns expression reading on or off (off by default) |
+| "My name is Kimmie" (facing the camera) | She learns your face, and greets you by name when she sees you again |
+| "Who am I?" / "Do you recognise me?" | She tells you who she sees |
+| "What do you see?" / "Look at this" / "What am I holding?" | She takes a picture and describes it, by name if she knows you |
+| "Forget my face" / "forget all faces" | Deletes the face prints |
+| "Stop looking around" / "you can look around" | Turns her photo-a-minute off or on |
+| "What did you see today?" | She answers from what she remembers seeing |
+
+The same commands work typed into the dashboard chat and the browser avatar page. Anything else goes to the language model.
+
+**Show thoughts** (off by default; `T` in the desktop app, 💭 on the browser page, `ShowThoughts` in `config.json`): what she thinks but doesn't say, on screen: TINA's reasoning and tool calls, and what RIFT and the robots answered. None of it is ever spoken; Piper only gets the final answer (scripts/dream_fleet.py).
+
+---
+
+## System Awareness
+
+### Senses
+- **Hearing:** USB microphone, Whisper speech recognition (the wake word is checked in short clips)
+- **Presence and distance:** a mmWave radar (DFRobot C4001) reports when someone is there and how far away
+- **Motion alarm:** a PIR sensor drives a buzzer and red pulsing lights
+- **Sight:** a webcam (`surveillance.py`) takes a photo every ten minutes and a frame whenever something moves; the mind studies them ([Inner Life](#inner-life))
+- **Time:** she knows the hour, and it shapes how sleepy she is
+- **Depth:** a MiDaS depth map from the single webcam ([Depth vision](#depth-vision)); a standalone tool for now, not wired into the mind
+
+### Depth vision
+
+`scripts/monocular_depth.py` (option `7` in `python main.py`) estimates depth from the one webcam with [MiDaS v2.1](https://github.com/isl-org/MiDaS) and shows the feed next to a depth map (brighter = closer). Press `q` or `Esc` to quit.
+
+```bash
+python scripts/monocular_depth.py                          # webcam
+python scripts/monocular_depth.py --image photo.jpg        # one image, saved to scripts/output/depth/
+python scripts/monocular_depth.py --video clip.mp4         # a video file
+python scripts/monocular_depth.py --small / --large        # force a model
+```
+
+- The model is downloaded to `scripts/models/` on first use: Large `model-f6b98070.onnx` (~400 MB) or Small `model-small.onnx` (~63 MB).
+- Images use Large. Live video uses Small on the CPU (about 4 FPS; Large manages about 0.4) and Large when OpenCV is built with CUDA. The venv's `opencv-python-headless` is CPU-only.
+- Only one program can hold the webcam, so stop `dream.py` / `app.py` surveillance before running it on the webcam.
+
+### Avatar depth effect
+
+A 2.5D parallax on her avatar videos, like After Effects' Displacement Map. Each clip has a depth map, and on playback the near parts (her face) shift more than the far parts along a slow sway, so the flat video gains a sense of depth. Off by default.
+
+1. Build the depth videos once (option `7d` in `python main.py`, about 8 minutes on the CPU):
+   ```bash
+   python scripts/depth_effect.py            # builds missing or outdated ones into videos/depth/
+   python scripts/depth_effect.py --force    # rebuild all (e.g. after changing clips)
+   ```
+2. Turn it on in `config.json` and restart `dream.py`:
+   ```json
+   "DepthEffect": { "Enabled": true, "Strength": 14, "Speed": 0.12, "Scale": 1.0 }
+   ```
+
+| Setting | Meaning |
+|---|---|
+| `Enabled` | On or off |
+| `Strength` | How far the nearest parts move, in pixels at 1080p (try 8-30) |
+| `Speed` | Sway cycles per second (0.12 = one sway every ~8 s) |
+| `Scale` | Resolution the warp runs at. `1.0` is full quality; lower it to `0.5` if the videos play slow (softer image, about 30% cheaper) |
+
+- Only the looping clips (idle, listening, thinking, talking, sleeping) get the effect. One-shot clips (intro, lipsync replies, flirt) play with audio and stay flat, so the lips can't drift out of sync.
+- The warp runs on the GPU when torch has CUDA, otherwise on the CPU, on a worker thread next to the video decoding. At 1080p it takes about 39 ms per frame on the GPU (just inside 24 fps) and about 53 ms on the CPU, so on a CPU-only machine use `Scale` 0.5.
+- The desktop app only (`dream.py`); the browser avatar page plays the plain videos.
+
+### Monitoring
+- CPU load, RAM and disk (CPU temperature on Linux)
+- The sensor board's status, and a log of what it saw, on the dashboard
+
+### Network Introspection
+- LAN device scanning (a ping sweep, then the ARP table)
+- IP / MAC tracking, hostnames, and a guess at the device type
+
+---
+
+## Autonomous Behavior
+
+### Idle State
+- Waits for the wake word, then runs the Listen → Think → Respond loop (Whisper → LLM → Piper)
+- Shows a video state for what she is doing (idle, listening, thinking, talking, sleeping)
+- After **10 minutes** idle she plays a flirty clip; after **15 minutes** she falls asleep (sooner when she is sleepy, later when she is fresh)
+- Someone arriving at the sensor keeps her awake; when they leave she says "Bye for now."
+- She may speak first: check in when she is lonely, ask about you, mention something she saw, tell you a dream, welcome you back after a long absence, or notice you seem different from usual. She holds back at night, in an empty room, and right after you speak
+- Communicates with other robots through RIFT
+
+### Sleep Mode
+- Cycles through **consolidation** (the day's memories are replayed, the important ones strengthen, the trivial ones fade) and **dreaming**
+- Each dream is a short story built from her real memories, and is **painted** by the latent-space dream engine (`latent_space.py`), with a still and an animation
+- **Dream visions:** the dream's own words go to the [Image-Generator](https://github.com/CursedPrograms/Image-Generator) (`scripts/generate.py`): a picture of the dream (`output/dreams/vision_*.jpg`), and 8 frames of her latent walk re-imagined with the same prompt. Model: `DreamImageModel` in `config.json` (`auto` = SDXL-Turbo with 12 GB of RAM or more, else SD-Turbo; or `sd-turbo` / `sdxl-turbo` / any Hugging Face id)
+- **The night's film:** when she wakes, every frame of the night (each dream's walk, then its visions crossfading) becomes `output/dreams/dreams_<time>.mp4`
+- **See them:** the **DREAMS** button on her dashboard (`/dreams.html`, API `/api/dreams`) shows every dream, newest first: its text, the painting or walk, her vision of it and the re-imagined frames, plus the night films
+- **She tells you first thing:** after each dream, while still asleep, she renders what she'll say about it (voice, and lipsync if MuseTalk is on) into her speech cache, so on waking she says it at once
+- **She learns her own dream world:** while awake and idle she trains a copy of her dream network on her photos and painted dreams (a small GAN, 5-minute bursts, stopped the moment she's needed). The spiral dreams keep the untrained network's abstract look; the others walk through what she's learned once it's had 3000 steps (`output/dreams/dream_world_learning.jpg` shows how far she's got)
+- Someone appearing at the sensor, or "wake up", wakes her
+- The details are under [Inner Life](#inner-life)
+
+---
+
+---
+
+<br>
+<div align="center">
+  <img src="demo_images/dashboard.png" alt="DREAM's dashboard" width="800"/>
+</div>
+
+---
+
+## Sensor board
+
+`dream_sensors/dream_sensors.ino` runs the Arduino that gives DREAM her physical senses and lights. Flash it with the Arduino IDE (install the **Adafruit NeoPixel** and **DFRobot_C4001** libraries first). It talks to the PC over USB serial at **9600 baud**, one text line at a time.
+
+**What it does**
+- **Alarm (PIR only):** a PIR trigger pulses the buzzer and the strip red for 2.5 s. The PIR gets a 30 s warm-up after power-on, and triggers are at least 5 minutes apart. The alarm can be switched on and off from the PC. The mmWave radar never sets it off.
+- **Presence and distance (mmWave only):** reports when a person appears or leaves, and their range while they are in view (it detects from 30 cm to 10 m).
+- **Lights:** a rainbow animation when idle, or a solid colour when told to.
+- If the radar doesn't start, the alarm and lights still work and it says so.
+
+**Lines the board sends**
+
+| Line | Meaning |
+|---|---|
+| `MOTION` | The PIR triggered the alarm |
+| `PRESENT` / `ABSENT` | The radar started / stopped seeing a person |
+| `RANGE 1.42 m` | Distance to the person, about every half second while present |
+| `ALARM_STATE ON` / `OFF` | The alarm was armed / disarmed |
+| `RGB_STATE RED` / `OFF` / `RAINBOW` | The lights changed |
+| `RGB_ERROR unknown color` | A colour name it doesn't know |
+| `RADAR_ERROR ...` | The radar failed to start |
+| `I am Dream` | The answer to `WHO` |
+
+**Commands the board takes**
+
+| Command | Effect |
+|---|---|
+| `WHO` | Replies `I am Dream` |
+| `BUZZER` | Beeps for 2 s |
+| `ALARM ON` / `ALARM OFF` | Arms or disarms the PIR alarm |
+| `RGB <COLOR>` | Solid colour: RED, GREEN, BLUE, YELLOW, ORANGE, PURPLE, PINK, CYAN, WHITE |
+| `RGB RAINBOW` / `RGB OFF` | Rainbow animation / lights off |
+
+**Finding the right port.** COM numbers change, and this PC may also have the ARM robot's Arduino on it. So nothing here hard-codes a port: programs ask each candidate port `WHO` and use the one that answers `I am Dream` (`scripts/board_id.py`; the ARM controllers ask for `I am Arm` the same way). `python scripts/board_id.py` lists every port that answers, and by name. This means you **must reflash** an older board with the current sketch before it can be found.
+
+**One owner at a time.** Only one program can hold a serial port. `app.py` opens the board and shares it: it re-broadcasts every line on its `/events` stream and takes commands at `POST /api/sensor/command`, and `dream.py` uses that instead of opening the port itself. The C++ `dream.exe` opens the board directly, so don't run it alongside `app.py`.
+
+---
+
+## AI Stack Recommendation
+
+- `qwen3:4b-instruct-2507-q4_K_M` (Qwen3 4B without the thinking: smart, quick, never reasons out loud)
+
+---
 
 ## Inner Life
 
@@ -1296,21 +1308,17 @@ DREAM/
 
 ---
 
-<br>
+<div align="center">&copy; Cursed Entertainment 2026</div>
+
 <div align="center">
-© Cursed Entertainment 2026
+  <a href="https://cursed-entertainment.itch.io/">
+    <img src="https://github.com/CursedPrograms/cursedentertainment/raw/main/images/logos/logo-wide-grey.png" alt="Cursed Entertainment" width="250"/>
+  </a>
 </div>
-<br>
+
 <div align="center">
-<a href="https://cursed-entertainment.itch.io/" target="_blank">
-    <img src="https://github.com/CursedPrograms/cursedentertainment/raw/main/images/logos/logo-wide-grey.png"
-        alt="CursedEntertainment Logo" style="width:250px;">
-</a>
-</div>
-<br>
-<div align="center">
-  <a href="https://github.com/SynthWomb" target="_blank">
-    <img src="https://github.com/SynthWomb/synth.womb/blob/main/logos/synthwomb07.png" alt="SynthWomb" style="width:200px;"/>
+  <a href="https://github.com/SynthWomb">
+    <img src="https://github.com/SynthWomb/synth.womb/blob/main/logos/synthwomb07.png?raw=true" alt="SynthWomb" width="200"/>
   </a>
 </div>
 
