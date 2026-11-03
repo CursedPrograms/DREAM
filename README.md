@@ -290,6 +290,7 @@ Tap the start screen once (browsers only allow sound and the microphone after a 
 - Sleep and wake (idle timers, "wake up", the mmWave sensor), the flirt clip, the distance-based greeting and the farewell when someone leaves
 - The alarm and light voice commands, plus wifi scan and stats, and typed messages (the keyboard button)
 - Her inner life: it is the same mind, so memories, mood and dreams are shared with the desktop app
+- Just her face until you press Space (or double-tap her on a phone), then the controls; `T` shows her thoughts
 
 The sleep and flirt timers and the sensor reactions live on the server, so every open page stays in sync. A page reports when it is busy so she doesn't fall asleep or say goodbye mid-conversation.
 
@@ -698,7 +699,9 @@ Everything runs on this PC. Ollama serves the language model, Piper speaks, Whis
 
 The same commands work typed into the dashboard chat and the browser avatar page. Anything else goes to the language model.
 
-**Show thoughts** (off by default; `T` in the desktop app, 💭 on the browser page, `ShowThoughts` in `config.json`): what she thinks but doesn't say, on screen: TINA's reasoning and tool calls, and what RIFT and the robots answered. None of it is ever spoken; Piper only gets the final answer (scripts/dream_fleet.py).
+**Just her face** (the default): the desktop app, her browser page and `DREAM-Controller.exe` start with nothing over her video. **Space** shows or hides the controls: her state, her captions and, on the page, the buttons (on a phone, double-tap her face). The thoughts panel has its own switch, below, so Space leaves it as it is.
+
+**Show thoughts** (off by default; `T` in the desktop app and on the browser page, or 💭 there, `ShowThoughts` in `config.json`): what she thinks but doesn't say, on screen: TINA's reasoning and tool calls, and what RIFT and the robots answered. None of it is ever spoken; Piper only gets the final answer (scripts/dream_fleet.py).
 
 ---
 
@@ -1064,7 +1067,7 @@ The server also registers itself on the network as `DREAM` (zeroconf) and discov
 | `Config.DREAM.VisionModel` | The Ollama model she looks with ("what do you see?"; default `gemma3:4b-it-qat`), from 14 vision models, `moondream:1.8b` up to `gemma3:27b`. `download_weights.bat` pulls it. Picking the same model as `LlmModel` (a gemma3 one) means only one model in the GPU, so no swapping between talking and looking |
 | `Config.DREAM.TinaUrl` | Where TINA is (default `http://127.0.0.1:5013`): multi-step and code jobs go to her |
 | `Config.DREAM.HandToTina` | Hand code, repo and "why isn't X working" jobs to TINA without being told to (default on). "Hey TINA, ..." always goes to her |
-| `Config.DREAM.ShowThoughts` | Start with "Show thoughts" on (default off). The desktop app toggles it with `T`, the browser page with 💭 |
+| `Config.DREAM.ShowThoughts` | Start with "Show thoughts" on (default off). `T` toggles it in the desktop app and on the browser page (or 💭 there) |
 | `Config.DREAM.AutoLook` | `Enabled` (default on) and `EverySeconds` (default 60, at least 15): her photo-a-minute. She only looks while awake, idle and not talking; "stop looking around" turns it off too |
 | `Config.DREAM.Voice` | Her Piper voice (default `en_US-amy-medium`), from all 37 English voices. `download_weights.bat` downloads it into `voices/`; if it isn't there, she uses the first voice that is |
 | `Config.DREAM.Memory.LlmModel` | The model the memory server thinks with (default `qwen3:4b`); pulled by `download_weights.bat` when `Memory.Hindsight` is on |
@@ -1075,13 +1078,9 @@ The server also registers itself on the network as `DREAM` (zeroconf) and discov
 | `Config.Dashboard.RiftHost`, `RiftPort` | Where the RIFT registry is |
 | `Config.Dashboard.ZeroconfName`, `ZeroconfType` | How the server announces itself |
 
-**`mode.json`**
+**Add-ons**
 
-| Key | Meaning |
-|---|---|
-| `xxx_version` | `"no"` (default) or `"yes"`. Turns on an optional add-on pack sold separately on itch.io (not part of this repo). You don't set it by hand: the pack comes with a key file, `xxx.json`. Set its `path` to the pack's folder (a relative path is read from DREAM's folder, so `../DREAM_XXX` works when the two sit side by side) and copy only `xxx.json` into DREAM's folder. `dream.py` and `app.py` set it to `"yes"` when they start and the key points at an installed pack, and back to `"no"` when it doesn't. Check it with `python scripts/dream_mode.py` |
-
-The pack's files (`xxx.json`, `videos/xxx/`, `images/xxx/`, `xxx/`) are gitignored, so they can never be committed by accident.
+An add-on is a folder in `addons/` with an `addon.py`, put there by the add-on's own installer (DREAM ships none, and `addons/` is gitignored). It can play its own clips in place of DREAM's for some states, and answer requests with a line and a clip. Its `addon.json` is the switch: `"enabled": false` turns it off until you set it back to `true` (restart DREAM either way). `python scripts/dream_addons.py` lists what's installed and what's off. Delete its folder to remove it.
 
 **In the code** (near the top of `scripts/dream.py` and `app.py`)
 
@@ -1223,7 +1222,6 @@ DREAM/
 ├── main.py                    Menu launcher (options 1, 1w, 5 ...)
 ├── options.bat / .ps1 / .sh   The options menu for config.json (options.py)
 ├── config.json                Ports, names, the personality prompt
-├── mode.json                  xxx_version for the optional add-on pack (see Configuration)
 ├── requirements.txt           Python packages (numpy<2, tensorflow 2.16.1, torch ...)
 ├── dream_sensors/
 │   └── dream_sensors.ino      Arduino sketch: PIR alarm, mmWave presence, buzzer, RGB lights
@@ -1232,7 +1230,7 @@ DREAM/
 │   ├── web_launcher.py        `dream.py --web`
 │   ├── board_id.py            Finds a board by asking it WHO
 │   ├── dream_memory.py        The facts memory (name, pets ...) shared by dream.py and app.py
-│   ├── dream_mode.py          Reads mode.json; sets xxx_version from the xxx.json key and the pack it points at
+│   ├── dream_addons.py        Loads the add-ons in addons/, if any (see Configuration)
 │   ├── whisper_model.py       The Whisper model and device config.json picks; --download fetches it
 │   ├── dream_models.py        The LLM, vision model and voice config.json picks; --download-voice fetches the voice
 │   ├── dream_mind/            The inner life (below)

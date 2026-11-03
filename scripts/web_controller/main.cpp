@@ -4,7 +4,7 @@
 //   NAME-Controller.exe                      the last address, or the one in robot.h
 //   NAME-Controller.exe --host 192.168.4.1
 //
-//   F5   reload        F6   change the address
+//   F5   reload        F6   change the address    (other keys go to the page: Space, T ...)
 //
 // Build with build.bat (Visual Studio 2022). The WebView2 runtime comes with Windows 11.
 #include <windows.h>

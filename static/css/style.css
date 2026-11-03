@@ -983,6 +983,17 @@ body.settings-page {
 .dream-seeds { margin-top: 10px; font: 11px var(--font-mono); color: var(--dim); }
 @media (max-width: 600px) { .dream-frames { grid-template-columns: repeat(4, 1fr); } }
 
+/* ── DREAM's page (dream.html): just her face until Space (or a double-tap) ── */
+body.ui-hidden #dream-status,
+body.ui-hidden #wake-toggle,
+body.ui-hidden #kb-toggle,
+body.ui-hidden #thoughts-toggle,
+body.ui-hidden #caption,
+body.ui-hidden #text-fallback,
+body.ui-hidden #controls { display: none !important; }
+#splash .sub.keys { font-size: 10px; color: #678; }
+#stage { touch-action: manipulation; }   /* a double-tap toggles the controls, it doesn't zoom */
+
 /* ── DREAM's page (dream.html): "Show thoughts" ─────────────── */
 /* Her unspoken thoughts: TINA's reasoning, what RIFT and the robots answered. */
 #thoughts-toggle {

@@ -40,3 +40,15 @@ Tested 2026-10-13 on the RTX 2060 (Ollama):
   1,174 tokens of reasoning, **no answer**, 14.5 s. Her dreaming and reflection use that style
   too, so the thinking model would need all of `scripts/dream_mind/llm.py` and its callers
   rewritten for chat messages plus a separate thinking budget. The instruct model avoids all of it.
+
+## dream.exe (C++) catches up
+
+`cpp_dream` (`build\dream.exe`) is a separate program, and it's behind `scripts/dream.py`.
+(`builds\DREAM-Controller.exe` isn't: it shows her hosted page, so it has everything the page has.)
+
+- [ ] **Add-ons**: load `addons/<name>/` (the `enabled` switch, the clips in place of hers, requests
+      with a line and a clip). The add-ons are Python (`scripts/dream_addons.py`), so this needs
+      them to describe their clips and requests in their `addon.json` as well.
+- [ ] **Just her face**: Space shows or hides a status and caption overlay, like dream.py and the page.
+      It has no overlay yet; T for thoughts needs the thoughts first.
+- [ ] The rest of dream.py since it was written: the fleet (TINA, RIFT), her mind and sight, faces.

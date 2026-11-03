@@ -62,7 +62,7 @@ console = Console()
 
 from dream_memory import extract_memories, remember, memory_prompt_block
 import depth_effect
-import dream_mode
+import dream_addons
 
 # ==================== PLATFORM ====================
 IS_WINDOWS = sys.platform == "win32"
@@ -227,8 +227,6 @@ def _match_light_color(lower: str) -> str | None:
 
 with open(os.path.join(BASE_DIR, "config.json")) as f:
     config = json.load(f)
-# mode.json; xxx_version is "yes" only while the xxx.json key points at an installed add-on pack
-MODE = dream_mode.load_mode()
 
 CHAR_NAME       = config["Config"]["DREAM"]["CharName"]
 SYSTEM_PROMPT   = config["Config"]["DREAM"]["SystemPrompt"].format(name=CHAR_NAME)
@@ -291,6 +289,8 @@ _state = {
     "distance_m":   None,           # last mmWave range reading, in meters
     "presence_seen": False,         # mmWave PRESENT currently active — for the ABSENT farewell edge
     "show_thoughts": bool(config["Config"]["DREAM"].get("ShowThoughts", False)),   # T toggles it
+    "show_ui":      False,          # her status and captions over the video; Space toggles it
+    "caption":      ("", 0.0),      # (her last line, when she said it), shown while show_ui is on
 }
 
 # Her thoughts (TINA's reasoning, what RIFT answered...): on screen when "Show thoughts"
@@ -332,6 +332,7 @@ def build_video_pools():
         "flirtytalk": _glob_videos("flirtytalk"),
         "sleeping":   [SLEEPING_VIDEO] if os.path.exists(SLEEPING_VIDEO) else [],
     }
+    VIDEO_POOLS = dream_addons.pools(VIDEO_POOLS)   # an add-on may play its own clips for some states
     for k, v in VIDEO_POOLS.items():
         console.print(f"[dim]  {k}: {len(v)} video(s)[/dim]")
 
@@ -1038,6 +1039,7 @@ def speak(text):
     if not text:
         return
     console.print(f"\n[bold cyan]DREAM:[/bold cyan] {text}\n")
+    _state["caption"] = (text, time.time())
 
     # ── Fast path: cached lipsync (Yes?, startup, her dream, etc.) ───────────
     if text in _lipsync_cache:
@@ -1822,6 +1824,16 @@ def voice_loop():
                 continue
             set_state("idle")
 
+            # An add-on's request: she says its line, then its clip plays once.
+            addon = dream_addons.request(user_text)
+            if addon is not None:
+                if addon["say"]:
+                    speak(addon["say"])
+                _state["force_video"] = addon["video"]
+                while _state["force_video"] == addon["video"] and _state["running"]:
+                    time.sleep(0.1)
+                continue
+
             if any(w in lower for w in ["goodbye", "exit", "quit", "bye", "shut down", "shutdown"]):
                 speak("Goodbye.")
                 _state["running"] = False
@@ -1924,6 +1936,36 @@ def _draw_thoughts(screen, sw, sh):
         panel.blit(_thought_font.render(line, True, (190, 220, 255) if first else (150, 170, 200)), (12, 10 + i * lh))
     screen.blit(panel, (16, sh - panel.get_height() - 40))
 
+_ui_font = None
+CAPTION_SECONDS = 8   # how long her line stays up, like the page
+
+def _draw_ui(screen, sw, sh):
+    """Space: her state top left, her last line along the bottom, and the keys (dream.html's controls)."""
+    global _ui_font
+    if _ui_font is None:
+        _ui_font = pygame.font.SysFont("consolas", max(14, sh // 50))
+    state = "SLEEPING" if _state["sleeping"] else _state["value"].upper()
+    dot = {"IDLE": (80, 255, 136), "SLEEPING": (85, 85, 85)}.get(state, (255, 170, 68))
+    label = _ui_font.render(state, True, (153, 255, 255))
+    pygame.draw.circle(screen, dot, (24, 22 + label.get_height() // 2), 5)
+    screen.blit(label, (36, 22))
+
+    text, said = _state["caption"]
+    if text and time.time() - said < CAPTION_SECONDS:
+        lines = _wrap(text, _ui_font, sw * 2 // 3)[-4:]
+        lh = _ui_font.get_linesize()
+        y = sh - 120 - len(lines) * lh
+        for line in lines:
+            img = _ui_font.render(line, True, (234, 246, 255))
+            back = pygame.Surface((img.get_width() + 16, lh + 4), pygame.SRCALPHA)
+            back.fill((0, 0, 0, 140))
+            screen.blit(back, ((sw - back.get_width()) // 2, y - 2))
+            screen.blit(img, ((sw - img.get_width()) // 2, y))
+            y += lh
+
+    keys = _ui_font.render("SAY 'HEY DREAM'  -  SPACE HIDES THIS  -  T THOUGHTS  -  ESC QUITS", True, (170, 170, 170))
+    screen.blit(keys, (sw - keys.get_width() - 24, 22))   # top right: the thoughts panel has the bottom left
+
 def run_display():
     console.print("[dim]>> run_display: enter[/dim]")
 
@@ -1966,12 +2008,17 @@ def run_display():
                 elif event.key == pygame.K_t:
                     _state["show_thoughts"] = not _state["show_thoughts"]
                     console.print(f"[dim]Show thoughts: {'on' if _state['show_thoughts'] else 'off'}[/dim]")
+                elif event.key == pygame.K_SPACE:
+                    _state["show_ui"] = not _state["show_ui"]
+                    console.print(f"[dim]Controls: {'shown' if _state['show_ui'] else 'hidden'}[/dim]")
 
         state  = _state["value"]
         now_ms = pygame.time.get_ticks()
 
         frame = vsm.get_frame(now_ms, state)
         screen.blit(frame, (0, 0))
+        if _state["show_ui"]:
+            _draw_ui(screen, SW, SH)
         if _state["show_thoughts"]:
             _draw_thoughts(screen, SW, SH)
         pygame.display.flip()

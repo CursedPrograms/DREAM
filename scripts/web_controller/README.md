@@ -4,6 +4,6 @@
 
 - `--host <address>` picks the address, and it's remembered after that.
 - If there's no answer, it asks for the address, or FIND looks on the fleet list of the network you're on.
-- F5 reloads, F6 changes the address.
+- F5 reloads, F6 changes the address. Every other key goes to the page: Space shows or hides her controls (she starts with just her face), T her thoughts.
 
 Build it with `build.bat` (Visual Studio 2022). After changing a file in `web/`, run `python embed_web.py`.

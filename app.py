@@ -73,9 +73,8 @@ if not os.path.exists(CONFIG_PATH):
 with open(CONFIG_PATH) as f:
     cfg = json.load(f)
 
-# mode.json; xxx_version is "yes" only while the xxx.json key points at an installed add-on pack
-import dream_mode
-MODE = dream_mode.load_mode()
+# Optional add-ons in addons/ (none unless one was installed): their own clips and requests
+import dream_addons
 
 dream_cfg     = cfg["Config"]["DREAM"]
 dashboard_cfg = cfg["Config"]["Dashboard"]
@@ -800,21 +799,27 @@ def build_video_pools():
         source, url_prefix = ROOT_VIDEOS_DIR, "/videos/"
     else:
         source, url_prefix = VIDEOS_DIR, "/static/videos/"
-    if not os.path.isdir(source):
-        return pools
-    for f in sorted(os.listdir(source)):
-        if not f.endswith(".mp4"):
-            continue
-        if f == "sleeping.mp4":
-            pools["sleeping"].append(url_prefix + f)
-        elif f == "intro1.mp4":
-            pools["intro"].append(url_prefix + f)
-        else:
-            for prefix in VIDEO_POOL_PREFIXES:
-                if f.startswith(prefix):
-                    pools[prefix].append(url_prefix + f)
-                    break
-    return pools
+    if os.path.isdir(source):
+        for f in sorted(os.listdir(source)):
+            if not f.endswith(".mp4"):
+                continue
+            path = os.path.join(source, f)
+            if f == "sleeping.mp4":
+                pools["sleeping"].append(path)
+            elif f == "intro1.mp4":
+                pools["intro"].append(path)
+            else:
+                for prefix in VIDEO_POOL_PREFIXES:
+                    if f.startswith(prefix):
+                        pools[prefix].append(path)
+                        break
+    pools = dream_addons.pools(pools)   # an add-on may play its own clips for some states
+    return {state: [_video_url(p, source, url_prefix) for p in clips] for state, clips in pools.items()}
+
+def _video_url(path, source, url_prefix):
+    if os.path.dirname(os.path.abspath(path)) == os.path.abspath(source):
+        return url_prefix + os.path.basename(path)
+    return dream_addons.url_for(path)
 
 # ── DREAM behaviours (web version of scripts/dream.py) ─────────────────────────
 # dream.py keeps these in its own threads; here they live on the server so every
@@ -1031,6 +1036,13 @@ def api_videos():
 def serve_video(name):
     return send_from_directory(ROOT_VIDEOS_DIR, name)
 
+@app.route("/addon-videos/<token>/<name>")
+def serve_addon_video(token, name):
+    path = dream_addons.served_path(token)
+    if not path or os.path.basename(path) != name or not os.path.isfile(path):
+        return "", 404
+    return send_file(path, mimetype="video/mp4", conditional=True)
+
 @app.route("/api/dream/config")
 def api_dream_config():
     return jsonify({
@@ -1188,6 +1200,13 @@ def _handle_chat():
         push_event({"type": "transcript", "role": "assistant", "text": fleet.say})
         return _make_reply(fleet.say, voice_mode, extra={"listen": fleet.awaiting})
     set_state("idle")
+
+    # An add-on's request: she says its line, then the page plays its clip once.
+    addon = dream_addons.request(user_text)
+    if addon is not None:
+        if addon["say"]:
+            push_event({"type": "transcript", "role": "assistant", "text": addon["say"]})
+        return _make_reply(addon["say"], voice_mode, extra={"clip": dream_addons.url_for(addon["video"])})
 
     if any(w in lower for w in ["goodbye", "exit", "quit", "bye", "shut down", "shutdown"]):
         reply = "Goodbye."

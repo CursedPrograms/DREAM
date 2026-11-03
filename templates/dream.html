@@ -102,13 +102,14 @@
     #splash.gone { opacity: 0; pointer-events: none; }
   </style>
 </head>
-<body>
+<body class="ui-hidden">
 
   <div id="stage"></div>
 
   <div id="splash">
     <div class="title">{{ char_name | upper }}</div>
     <div class="sub">TAP TO WAKE</div>
+    <div class="sub keys">SPACE OR DOUBLE-TAP: SHOW / HIDE THE CONTROLS &middot; T: THOUGHTS</div>
   </div>
 
   <div id="dream-status">

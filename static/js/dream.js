@@ -184,6 +184,7 @@ async function submitChat(init) {
     if (d.error) { showCaption('⚠ ' + d.error); return; }
     if (d.reply) showCaption(d.reply);
     if (d.audio_url) await playAudio(d.audio_url);
+    if (d.clip) await playOnce(d.clip, 'REQUEST');   // an add-on's clip, played once
     if (d.listen) await listenForCommand();   // she asked yes or no: answer without "Hey DREAM"
   } catch (err) {
     showCaption('Network error: ' + err.message);
@@ -388,10 +389,32 @@ function addThought(text) {
   renderThoughts();
 }
 
-$('thoughts-toggle').addEventListener('click', () => {
+function toggleThoughts() {
   showThoughts = !showThoughts;
   try { localStorage.setItem('dream.showThoughts', showThoughts ? '1' : '0'); } catch { /* not remembered */ }
   renderThoughts();
+}
+$('thoughts-toggle').addEventListener('click', toggleThoughts);
+
+/* ── Her controls: hidden until Space (or a double-tap on her) shows them ─── */
+/* The thoughts panel keeps its own switch (💭 or T), so it isn't hidden with them. */
+function toggleUi() {
+  document.body.classList.toggle('ui-hidden');
+  if (document.activeElement && document.activeElement.tagName === 'BUTTON') document.activeElement.blur();
+}
+
+window.addEventListener('keydown', e => {
+  const typing = /^(INPUT|TEXTAREA)$/.test(e.target.tagName) || e.target.isContentEditable;
+  if (typing || e.repeat || e.ctrlKey || e.altKey || e.metaKey) return;
+  if (e.code === 'Space') { e.preventDefault(); toggleUi(); }     // not a click on the focused button
+  else if (e.code === 'KeyT') toggleThoughts();
+});
+
+// Phones have no Space bar: two taps on her face within 350 ms do the same.
+let lastTap = 0;
+stage.addEventListener('pointerup', () => {
+  const now = Date.now();
+  if (now - lastTap < 350) { toggleUi(); lastTap = 0; } else lastTap = now;
 });
 
 /* ── Events from app.py ──────────────────────────────────────────────────── */
