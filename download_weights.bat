@@ -9,7 +9,8 @@ REM   4. ffmpeg                      -> installed with winget if missing
 REM   5. Ollama models               -> LlmModel, VisionModel, and Memory's LlmModel if memory is on
 REM                                     (if Ollama is installed); the face models (YuNet + SFace) -> models\faces;
 REM                                     and her dream image model (DreamImageModel) -> models\, copied from
-REM                                     ModelBackup in config.json when it's there (else downloaded, then backed up)
+REM                                     ModelBackup in config.json when it's there (else downloaded, then backed up);
+REM                                     her camera's detector models -> resources\weights (surveillance_weights.py)
 REM   6. EMOCA 3D head test          -> emoca_test\ (optional, asks first: non-commercial licence)
 setlocal EnableDelayedExpansion
 cd /d "%~dp0"
@@ -92,6 +93,9 @@ if errorlevel 1 set "FAILED=!FAILED!, face models"
 echo   Dream image model:
 "%PY%" -c "import sys; sys.path.insert(0, 'scripts'); from dream_mind.dream_visions import download; sys.exit(0 if download() else 1)"
 if errorlevel 1 set "FAILED=!FAILED!, dream image model"
+echo   Camera detector models (people, objects, faces, age, expression):
+"%PY%" scripts\surveillance_weights.py
+if errorlevel 1 set "FAILED=!FAILED!, camera detector models"
 where ollama >nul 2>&1
 if errorlevel 1 (
     echo   Ollama is not installed - get it from https://ollama.com, then run this again

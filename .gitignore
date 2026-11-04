@@ -225,3 +225,4 @@ memories/mymilestones.txt
 !builds/
 !builds/*.exe
 /musetalk_out
+/resources/weights/

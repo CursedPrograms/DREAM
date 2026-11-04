@@ -15,6 +15,14 @@ handshake. It only answers two read-only questions:
     GET /speech/<id>?from_ms=N
                          that line as raw unsigned 8-bit mono PCM at 16 kHz (what the ESP32's
                          DAC plays), from N ms in, so a robot that arrives late starts in sync
+    GET /camera.mjpeg?w=320
+                         what her camera sees, with her detections drawn on (people, objects,
+                         faces: surveillance_core.analyse_frame), as MJPEG at up to 3 fps.
+                         Only runs while someone watches: the camera opens for it (unless
+                         dream.py's surveillance already has it) and closes a few seconds after
+                         the last viewer leaves; detection runs on ImageDevice (the CPU by
+                         default), so it never slows her conversation. Anyone on the network
+                         can watch it: config.json DREAM.MirrorCamera false turns it off.
 
 Nothing here can change anything in DREAM.
 """
@@ -82,6 +90,103 @@ def pcm8(wav_path, from_ms=0):
     return (np.clip(x * 0.9, -1, 1) * 127 + 128).astype(np.uint8).tobytes()
 
 
+# ---- her camera, with what she detects drawn on, while someone is watching ----
+CAMERA_FPS = 3
+_cam = {"viewers": 0, "last_viewer": 0.0, "jpg": None, "seq": 0, "error": ""}
+_cam_cond = threading.Condition()
+_cam_thread = None
+
+
+def camera_allowed():
+    try:
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, "config.json"), encoding="utf-8") as f:
+            return bool(json.load(f)["Config"]["DREAM"].get("MirrorCamera", True))
+    except (OSError, ValueError, KeyError, TypeError):
+        return True
+
+
+def _camera_worker():
+    import cv2
+    try:
+        from dream_mind import frames
+    except Exception:
+        frames = None
+    analyse = None
+    try:   # her detector: YOLO + faces, on ImageDevice
+        from surveillance_core import analyse_frame as analyse
+    except Exception as e:
+        print(f"[DREAM] Mirror camera: no detections ({e}) - the plain picture")
+    cap = None
+    while True:
+        with _cam_cond:
+            watched = _cam["viewers"] > 0 or time.time() - _cam["last_viewer"] < 5
+        if not watched:
+            if cap is not None:
+                cap.release()
+                cap = None
+            time.sleep(0.3)
+            continue
+        t0 = time.time()
+        frame = None
+        if cap is None and frames is not None:
+            frame, _ = frames.latest(1.0)          # dream.py's surveillance has the camera: share it
+        if frame is None:
+            if cap is None:
+                cap = cv2.VideoCapture(0, cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY)
+                if not cap.isOpened():
+                    cap.release()
+                    cap = None
+                    _cam["error"] = "no camera"
+                    time.sleep(2)
+                    continue
+            ok, frame = cap.read()
+            if not ok:
+                time.sleep(0.2)
+                continue
+            if frames is not None:
+                frames.publish(frame)              # her mind (faces, looks) sees it too
+        try:
+            out = analyse(frame, "rita")[0] if analyse else frame
+        except Exception as e:
+            _cam["error"] = str(e)
+            out = frame
+        with _cam_cond:
+            _cam["jpg"] = out
+            _cam["seq"] += 1
+            _cam["error"] = ""
+            _cam_cond.notify_all()
+        time.sleep(max(0.0, 1.0 / CAMERA_FPS - (time.time() - t0)))
+
+
+def _camera_frames(width):
+    """Yields JPEGs of her annotated camera, each new one, while the client stays."""
+    import cv2
+    global _cam_thread
+    with _cam_cond:
+        _cam["viewers"] += 1
+        if _cam_thread is None:
+            _cam_thread = threading.Thread(target=_camera_worker, daemon=True, name="dream-mirror-camera")
+            _cam_thread.start()
+    seen = -1
+    try:
+        while True:
+            with _cam_cond:
+                _cam_cond.wait_for(lambda: _cam["seq"] != seen, timeout=2.0)
+                frame, seen = _cam["jpg"], _cam["seq"]
+            if frame is None:
+                continue
+            if width and frame.shape[1] > width:
+                frame = cv2.resize(frame, (width, frame.shape[0] * width // frame.shape[1]), interpolation=cv2.INTER_AREA)
+            ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+            if ok:
+                yield buf.tobytes()
+    finally:
+        with _cam_cond:
+            _cam["viewers"] -= 1
+            _cam["last_viewer"] = time.time()
+
+
 def start_server(port, get_state, audio_dir):
     """The robots' read-only window onto her. get_state() -> (state, sleeping)."""
     class Handler(BaseHTTPRequestHandler):
@@ -102,6 +207,19 @@ def start_server(port, get_state, audio_dir):
                 if u.path == "/status":
                     state, sleeping = get_state()
                     return self._send(200, json.dumps(status(state, sleeping)).encode(), "application/json")
+                if u.path == "/camera.mjpeg":
+                    if not camera_allowed():
+                        return self._send(403, b"MirrorCamera is off in DREAM's config.json", "text/plain")
+                    width = int((parse_qs(u.query).get("w") or ["320"])[0])
+                    self.send_response(200)
+                    self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+                    self.send_header("Cache-Control", "no-cache")
+                    self.end_headers()
+                    for jpg in _camera_frames(width):
+                        self.wfile.write(b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
+                                         + str(len(jpg)).encode() + b"\r\n\r\n" + jpg + b"\r\n")
+                        self.wfile.flush()
+                    return
                 m = re.fullmatch(r"/speech/([\w.-]+)", u.path)
                 if m:
                     wav = os.path.join(audio_dir, m.group(1) + ".wav")

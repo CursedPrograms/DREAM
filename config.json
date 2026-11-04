@@ -16,6 +16,7 @@
       "CharName": "DREAM",
       "LipsyncEnabled": false,
       "InstantWake": false,
+      "MirrorCamera": true,
       "DreamImageModel": "auto",
       "ModelBackup": "F:/AIModels",
       "WhisperModel": "small.en",
