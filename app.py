@@ -63,6 +63,8 @@ import dream_models
 import dream_device   # Device in config.json: CPU or GPU for all of DREAM
 import dream_wake     # InstantWake in config.json: how many calls it takes to wake her
 import dream_mirror   # what she shows and says, for a robot that mirrors her (RITA)
+import dream_proxy_client   # her sensor board (and webcam) on another PC: dream_proxy.py
+import dream_eyes     # which camera she sees through: a page of hers, the proxy's, her own
 MODEL          = dream_models.llm()   # LlmModel in config.json (options.py)
 import dream_fleet   # "tell NORA to stop the music", and TINA's kind of work handed to TINA
 SAMPLE_RATE    = 16000
@@ -222,6 +224,12 @@ def set_state(s):
 
 def push_event(evt: dict):
     _sse_queue.put(evt)
+    # the conversation, for a call window (RIFT): what's said to her, and everything she says
+    t = evt.get("type")
+    if t == "transcript":
+        dream_mirror.note_line(evt.get("role"), evt.get("text"))
+    elif t in ("speak", "wake", "stir"):
+        dream_mirror.note_line("assistant", evt.get("text"))
 
 # ── Zeroconf peer discovery ────────────────────────────────────────────────────
 _peer_nodes: dict[str, str] = {}
@@ -658,16 +666,23 @@ def sensor_watcher():
 
     warned = False
     while _state["running"]:
+        via_proxy = False
         try:
             ser = _serial.Serial(_sensor_port(), ALARM_SERIAL_BAUD, timeout=1)
         except Exception as e:
-            if not warned:
-                push_event({"type": "error", "msg": f"Sensor board unreachable: {e}"})
-                warned = True
-            time.sleep(5)
-            continue
+            # not on her own PC: a DREAM proxy on another PC may have it (dream_proxy.py). She looks
+            # about once a minute; with neither, nothing is plugged in.
+            ser = dream_proxy_client.open_board()
+            via_proxy = ser is not None
+            if ser is None:
+                if not warned:
+                    push_event({"type": "error", "msg": f"Sensor board unreachable: {e} (and no DREAM proxy with one)"})
+                    warned = True
+                time.sleep(5)
+                continue
         warned = False
-        time.sleep(2)  # board resets when the port opens; let it finish booting
+        if not via_proxy:
+            time.sleep(2)  # board resets when the port opens; let it finish booting
         with _sensor_serial_lock:
             _sensor_serial = ser
         print(f"[DREAM] Sensor board connected on {ser.port}")
@@ -1064,6 +1079,38 @@ def api_dream_config():
         "show_thoughts":  bool(dream_cfg.get("ShowThoughts", False)),
     })
 
+@app.route("/api/eyes/frame", methods=["POST"])
+def api_eyes_frame():
+    """A frame from one of her pages' cameras (static/js/dream.js). The last page opened with a camera
+    is her eyes; when it closes she goes back to the proxy's webcam, or her own (dream_eyes.py)."""
+    f = request.files.get("frame")
+    if not f:
+        return jsonify({"ok": False}), 400
+    used = dream_eyes.page_frame(request.form.get("page", ""), int(request.form.get("started", "0") or 0), f.read())
+    return jsonify({"ok": True, "eyes": used, **dream_eyes.status()})
+
+@app.route("/api/body/beat", methods=["POST"])
+def api_body_beat():
+    """A page of hers checking in, every second. The newest open one is her body (it shows her, speaks
+    and listens); the rest wait on standby, saying where she is (dream_eyes.py)."""
+    d = request.get_json(silent=True) or {}
+    return jsonify(dream_eyes.body_beat(d.get("page", ""), int(d.get("started") or 0), d.get("label") or "a page"))
+
+@app.route("/api/body/bye", methods=["POST"])
+def api_body_bye():
+    """A page closing (navigator.sendBeacon): the page before it is her body again at once."""
+    raw = request.get_data(as_text=True)
+    try:
+        page = json.loads(raw).get("page", "")
+    except (ValueError, AttributeError):
+        page = raw
+    dream_eyes.page_bye(page)
+    return jsonify({"ok": True})
+
+@app.route("/api/eyes")
+def api_eyes():
+    return jsonify(dream_eyes.status())
+
 @app.route("/api/dream/now", methods=["POST"])
 def api_dream_now():
     """The page started a clip or a spoken line (or finished speaking): robots that mirror her
@@ -1164,6 +1211,42 @@ def api_status():
 @app.route("/api/nodes")
 def api_nodes():
     return jsonify(_safe_peers())
+
+@app.route("/api/dream/call", methods=["POST"])
+def api_dream_call():
+    """Someone on a video call with her from another PC (RIFT's DREAM window): their words (audio or
+    {"text"}) go through her the way her own mic's do, and her answer is spoken on her own screen too,
+    so it's one DREAM: RIFT hears and sees it through her mirror. Asleep, a call is a call: it may
+    take a few (dream_wake.py), and she mumbles in between."""
+    if _dream["sleeping"]:
+        woke, said = SLEEPER.nudge()
+        if woke:
+            exit_sleep()
+            greeting = said or wake_greeting()
+            threading.Thread(target=_announce, args=(greeting, "speak"), daemon=True).start()
+            return jsonify({"woke": True, "reply": greeting})
+        if said:
+            threading.Thread(target=_announce, args=(said, "stir"), daemon=True).start()
+        return jsonify({"asleep": True, "reply": said or ""})
+    acquired = _chat_lock.acquire(blocking=False)
+    if not acquired:
+        return jsonify({"error": "busy", "state": _state["value"]}), 429
+    try:
+        touch_interaction()
+        if request.content_type and "multipart" not in request.content_type:
+            data = request.get_json(silent=True) or {}
+            data["voice"] = True       # a call: she answers out loud
+        resp = _handle_chat()
+    finally:
+        _chat_lock.release()
+    try:
+        body = resp[0] if isinstance(resp, tuple) else resp
+        d = body.get_json() or {}
+        if d.get("reply"):
+            push_event({"type": "speak", "text": d["reply"], "audio_url": d.get("audio_url")})   # her own screen says it
+    except Exception:
+        pass
+    return resp
 
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
@@ -1614,7 +1697,8 @@ if __name__ == "__main__":
     threading.Thread(target=rift_heartbeat, daemon=True).start()
     print(f"[DREAM] Announcing to RIFT at {RIFT_HOST}:{RIFT_PORT} every {RIFT_HEARTBEAT_SECS}s")
 
-    dream_mirror.start_server(MIRROR_PORT, lambda: (_state["value"], _dream["sleeping"]), AUDIO_DIR)
+    dream_eyes.start()   # the proxy's webcam, when no page of hers is her eyes
+    dream_mirror.start_server(MIRROR_PORT, lambda: (_state["value"], _dream["sleeping"]), AUDIO_DIR, ROOT_VIDEOS_DIR if os.path.isdir(ROOT_VIDEOS_DIR) else VIDEOS_DIR)
     https_ok = ensure_self_signed_cert()
     run_kwargs = {"host": "0.0.0.0", "port": THIS_PORT, "debug": False, "threaded": True}
     # DREAM's own site on PHONE_PORT (HTTPS when we have a certificate: a

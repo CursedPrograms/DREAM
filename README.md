@@ -829,6 +829,20 @@ A 2.5D parallax on her avatar videos, like After Effects' Displacement Map. Each
 
 ---
 
+## Two PCs: the AI PC and her body (dream_proxy.py)
+
+DREAM can live on two PCs: the **AI PC** runs her (`app.py`: Whisper, the language model, her voice, her mind) and needs no window; the **other PC**, with her sensor board and a webcam, is her body. Run `run_proxy.bat` (`dream_proxy.py`) there:
+
+- **Her window** opens there, full screen: her page from the AI PC, so her videos and her voice play on that PC, its mic hears "Hey DREAM" and what you say, and its camera is her eyes. (`--no-window` for just the board and webcam, `--windowed` not full screen, `--dream <address>` if she isn't found by herself.)
+- **Her sensor board** plugged in there works as if it were plugged into the AI PC: presence, distance, the alarm, the lights, the dashboard's SENSORS panel.
+- **Its webcam** is shared (only while used): `--no-camera` keeps it to itself.
+
+**She finds it by herself.** With no board on the AI PC she looks for a proxy on the network about once a minute (it announces itself; `SensorProxy` in `config.json` pins an address). With neither, nothing is plugged in, as before.
+
+**Where she is: the newest page of hers.** Every open page of hers (her window on the AI PC, the proxy's window, her site on your phone) checks in every second, and the newest one is her body: it shows her, speaks for her and listens for her. The others wait on standby, dimmed and silent, saying *"DREAM is with you on SENSOR-PC"*. Close the newest (or stop the proxy: its window goes with it) and within a few seconds the one before is her again: she's back on the AI PC. Open her page on your phone and she's on your phone until you close it.
+
+**Her eyes, best first:** the newest open page with a camera (that phone or PC asks once), then the proxy's webcam (where her sensor board is, where people come and go), then the AI PC's own webcam (opened only when something needs a picture, as before). `scripts/dream_eyes.py`, `scripts/dream_proxy_client.py`.
+
 ## Sensor board
 
 `dream_sensors/dream_sensors.ino` runs the Arduino that gives DREAM her physical senses and lights. Flash it with the Arduino IDE (install the **Adafruit NeoPixel** and **DFRobot_C4001** libraries first). It talks to the PC over USB serial at **9600 baud**, one text line at a time.
@@ -1029,7 +1043,8 @@ To test the real `dream.py` (its actual `main()` and `voice_loop()`, with only t
 |---|---|---|
 | **5009** | Main server, all network interfaces | HTTPS with a self-signed certificate (made on first run into `certs/`, good for this PC's LAN address). Falls back to plain HTTP if a certificate can't be made. Set by `Dashboard.Port` |
 | **5001** | DREAM on your phone: her own site, all network interfaces | `/` opens her straight away (the avatar, voice and behaviours of the desktop app). Same server and certificate as 5009, so the phone gets the microphone. Set by `Dashboard.PhonePort`. Allow it through the Windows firewall if the phone can't reach it |
-| **5015** | Her mirror for robots: plain HTTP, read-only, all network interfaces | `/status` says what she's doing, which clip she's showing and how far in, and what she's saying; `/speech/<id>` is that line as 16 kHz 8-bit audio; `/camera.mjpeg` is her camera with her detections drawn on (people, objects, faces), only while someone watches, at up to 3 fps on `ImageDevice`. Anyone on the network can watch it: `MirrorCamera` false turns it off. [RITA](https://github.com/CursedPrograms/RITA) uses it to play the same clip from her SD card in step with this screen, and DREAM's voice on her speaker. Nothing on it can change anything in DREAM (`scripts/dream_mirror.py`). Set by `Dashboard.MirrorPort` |
+| **5015** | Her mirror for robots: plain HTTP, read-only, all network interfaces | `/status` says what she's doing, which clip she's showing and how far in, and what she's saying; `/speech/<id>` is that line as 16 kHz 8-bit audio; `/camera.mjpeg` is her camera with her detections drawn on (people, objects, faces), only while someone watches, at up to 3 fps on `ImageDevice`. Anyone on the network can watch it: `MirrorCamera` false turns it off. [RITA](https://github.com/CursedPrograms/RITA) uses it to play the same clip from her SD card in step with this screen, and DREAM's voice on her speaker. It also serves the clips (`/video/<clip>.mp4`) and her lines (`/speech/<id>.wav`) at full quality for [RIFT](https://github.com/CursedPrograms/RIFT)'s DREAM window, a video call with her from another PC; what you say there comes in on her own port through `POST /api/dream/call` and she answers on her own screen. Nothing on 5015 can change anything in DREAM (`scripts/dream_mirror.py`). Set by `Dashboard.MirrorPort` |
+| **5016** | `dream_proxy.py`, on her other PC: her sensor board and webcam for the AI PC | `/sensor/lines`, `/sensor/command`, `/camera.mjpeg`, `/info`; announced on the network as `_dream-proxy._tcp` |
 | **5010** | Same server, this PC only, plain HTTP | No certificate warning, and `localhost` counts as secure for the microphone. Set by `Dashboard.LocalPort` (default 5010) |
 | 5000 | RIFT (fleet registry) | `Dashboard.RiftPort`; `app.py` announces itself to it every few seconds |
 

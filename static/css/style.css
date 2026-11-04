@@ -1013,3 +1013,11 @@ body.ui-hidden #controls { display: none !important; }
 #thoughts .thought { margin: 0 0 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
 #thoughts .thought:last-child { color: #cfe6ff; }
 #thoughts .empty { color: #678; }
+
+/* Her body is another page (dream.js setBody): this one waits, saying where she is */
+#body-note { display: none; }
+body.standby #body-note {
+  display: flex; position: fixed; inset: 0; z-index: 90; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.72); color: #fff; font-size: 1.4em; letter-spacing: 0.05em; text-align: center; padding: 20px;
+}
+body.standby video { filter: grayscale(0.7) brightness(0.5); }

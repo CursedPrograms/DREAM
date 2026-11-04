@@ -17,6 +17,7 @@
       "LipsyncEnabled": false,
       "InstantWake": false,
       "MirrorCamera": true,
+      "SensorProxy": "",
       "DreamImageModel": "auto",
       "ModelBackup": "F:/AIModels",
       "WhisperModel": "small.en",

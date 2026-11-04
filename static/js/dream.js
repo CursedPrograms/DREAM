@@ -90,6 +90,7 @@ function playClip(path, { loop = true, onEnded = null } = {}) {
 
 /* What she shows and says, for robots that mirror her (RITA: the same clip, her voice). */
 function tellMirror(what) {
+  if (!isBody) return;   // only where she is: a page on standby doesn't speak for her
   fetch('/api/dream/now', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(what),
   }).catch(() => {});
@@ -325,7 +326,7 @@ async function listenForCommand() {
 /* ── Wake-word loop: short clips, transcribed by the server ──────────────── */
 async function wakeLoop() {
   for (;;) {
-    if (!started || !micStream || !wakeEnabled || busy || manualRecording) { await wait(300); continue; }
+    if (!started || !isBody || !micStream || !wakeEnabled || busy || manualRecording) { await wait(300); continue; }
 
     const seg = await recordSegment({ maxMs: cfg.wake_seconds * 1000 });
     if (busy || manualRecording || !wakeEnabled) continue;   // something started meanwhile
@@ -488,13 +489,13 @@ function connectSSE() {
         onSleep(d.sleeping);
         break;
       case 'wake':    // the sensor saw someone while she slept: greet, then listen
-        if (started && !busy) runExclusive(() => wakeFlow(d.text, d.audio_url));
+        if (started && isBody && !busy) runExclusive(() => wakeFlow(d.text, d.audio_url));
         break;
       case 'stir':    // the sensor nudged her but she sleeps on: a sleepy mumble
-        if (started && !busy) runExclusive(() => say(d.text, d.audio_url));
+        if (started && isBody && !busy) runExclusive(() => say(d.text, d.audio_url));
         break;
       case 'speak':   // e.g. the goodbye when someone leaves
-        if (started && !busy) runExclusive(() => say(d.text, d.audio_url));
+        if (started && isBody && !busy) runExclusive(() => say(d.text, d.audio_url));
         break;
       case 'peer_line':   // her line to KIDA (peer_talk.py): said like any reply; app.py waits for "done"
         if (started && !busy && !sleeping) runExclusive(async () => {
@@ -506,11 +507,83 @@ function connectSSE() {
         addThought(d.text);
         break;
       case 'flirt':   // idle for a while: one flirty clip
-        if (started && !busy && !sleeping) runExclusive(() => playOnce(d.clip, 'FLIRTING'));
+        if (started && isBody && !busy && !sleeping) runExclusive(() => playOnce(d.clip, 'FLIRTING'));
         break;
     }
   };
 }
+
+/* ── Her body: the newest open page of hers is where she is ────────────────
+   It shows her, speaks for her, listens for her and (with a camera) sees for her. Every other page
+   waits on standby, silent, saying where she is; close the newest and the one before it takes over
+   within a few seconds (close the DREAM proxy's window: she's back on this PC). scripts/dream_eyes.py. */
+const PARAMS = new URLSearchParams(location.search);
+const PAGE_ID = Math.random().toString(36).slice(2);
+const PAGE_STARTED = Date.now();
+const BODY_LABEL = PARAMS.get('body')
+  || (/Mobi|Android|iPhone|iPad/.test(navigator.userAgent) ? 'a phone'
+  : ['localhost', '127.0.0.1'].includes(location.hostname) ? 'this PC' : location.hostname);
+let isBody = true;
+let camVideo = null, camCanvas = null, camBusy = false;
+
+function bodyNote() {
+  let el = document.getElementById('body-note');
+  if (!el) { el = document.createElement('div'); el.id = 'body-note'; document.body.appendChild(el); }
+  return el;
+}
+
+function setBody(active, where) {
+  bodyNote().textContent = active ? '' : `DREAM is with you on ${where}`;
+  if (active === isBody) return;
+  isBody = active;
+  document.body.classList.toggle('standby', !active);
+  if (!active && currentAudio) currentAudio.pause();   // her voice is somewhere else now
+  if (active) setVisualState(sleeping ? 'sleeping' : 'idle');
+}
+
+async function bodyBeat() {
+  if (!started) return;
+  try {
+    const d = await (await fetch('/api/body/beat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: PAGE_ID, started: PAGE_STARTED, label: BODY_LABEL }),
+    })).json();
+    setBody(!!d.active, d.label);
+  } catch { /* her server is gone: stay as we are */ }
+}
+
+/* her eyes: this device's camera, a few small frames a second, while this page is her body */
+async function ensureCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 } } });
+    camVideo = document.createElement('video');
+    camVideo.muted = true; camVideo.playsInline = true; camVideo.srcObject = stream;
+    await camVideo.play();
+    camCanvas = document.createElement('canvas');
+  } catch { camVideo = null; }   // no camera, or not allowed: the proxy's or her own PC's then
+}
+
+function sendFrame() {
+  if (!isBody || !camVideo || camBusy || !camVideo.videoWidth || document.hidden) return;
+  const w = 480, h = Math.round(camVideo.videoHeight * w / camVideo.videoWidth);
+  camCanvas.width = w; camCanvas.height = h;
+  camCanvas.getContext('2d').drawImage(camVideo, 0, 0, w, h);
+  camBusy = true;
+  camCanvas.toBlob(blob => {
+    const fd = new FormData();
+    fd.append('frame', blob, 'eyes.jpg');
+    fd.append('page', PAGE_ID);
+    fd.append('started', String(PAGE_STARTED));
+    fetch('/api/eyes/frame', { method: 'POST', body: fd })
+      .then(r => r.json()).then(d => { bodyNote().dataset.eyes = d.eyes ? 'yes' : ''; })
+      .catch(() => {}).finally(() => { camBusy = false; });
+  }, 'image/jpeg', 0.7);
+}
+
+window.addEventListener('pagehide', () => {
+  navigator.sendBeacon('/api/body/bye', JSON.stringify({ page: PAGE_ID }));
+});
 
 /* ── Startup: same order as dream.py — intro clip, then the announcement ─── */
 async function startup() {
@@ -531,6 +604,9 @@ $('splash').addEventListener('click', async () => {
     $('mic-hint').textContent = hintText();
   });
   runExclusive(startup);
+  bodyBeat();
+  setInterval(bodyBeat, 1000);
+  ensureCamera().then(() => { if (camVideo) setInterval(sendFrame, 350); });
 });
 
 /* ── Init ────────────────────────────────────────────────────────────────── */
@@ -555,4 +631,5 @@ window.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
   await loadVideoPools();
   wakeLoop();
+  if (PARAMS.get('autostart') === '1') $('splash').click();
 });

@@ -15,6 +15,10 @@ handshake. It only answers two read-only questions:
     GET /speech/<id>?from_ms=N
                          that line as raw unsigned 8-bit mono PCM at 16 kHz (what the ESP32's
                          DAC plays), from N ms in, so a robot that arrives late starts in sync
+    GET /video/<clip>.mp4  the clip itself, full quality (RIFT's call window plays it in step)
+    GET /speech/<id>.wav   the line as it is, full quality (the call window's sound)
+    GET /transcript?after=N  the conversation since line N: what was said to her (her mic, her page,
+                         a call) and everything she said, so a call window reads like her dashboard
     GET /camera.mjpeg?w=320
                          what her camera sees, with her detections drawn on (people, objects,
                          faces: surveillance_core.analyse_frame), as MJPEG at up to 3 fps.
@@ -57,6 +61,29 @@ def note(clip=None, loop=True, speech=None, speech_done=False):
             _now.update(speech=_name(speech), speech_ts=t)
         elif speech_done:
             _now.update(speech=None, speech_ts=0.0)
+
+
+_chat = []          # [{"seq", "role": "user" | "assistant", "text", "ts"}], the last 200 lines
+_chat_seq = 0
+
+
+def note_line(role, text):
+    """A line of the conversation (app.py's push_event hands them over)."""
+    global _chat_seq
+    text = (text or "").strip()
+    if role not in ("user", "assistant") or not text:
+        return
+    with _lock:
+        if _chat and _chat[-1]["role"] == role and _chat[-1]["text"] == text and time.time() - _chat[-1]["ts"] < 5:
+            return   # the same line twice in a row (her reply and its spoken copy)
+        _chat_seq += 1
+        _chat.append({"seq": _chat_seq, "role": role, "text": text, "ts": time.time()})
+        del _chat[:-200]
+
+
+def transcript(after=0):
+    with _lock:
+        return {"seq": _chat_seq, "lines": [l for l in _chat if l["seq"] > after]}
 
 
 def status(state, sleeping):
@@ -187,7 +214,7 @@ def _camera_frames(width):
             _cam["last_viewer"] = time.time()
 
 
-def start_server(port, get_state, audio_dir):
+def start_server(port, get_state, audio_dir, videos_dir=None):
     """The robots' read-only window onto her. get_state() -> (state, sleeping)."""
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -201,12 +228,54 @@ def start_server(port, get_state, audio_dir):
             self.end_headers()
             self.wfile.write(body)
 
+        def _file(self, path, ctype):
+            """A file, with byte ranges: a <video> seeks with them."""
+            size = os.path.getsize(path)
+            start, end = 0, size - 1
+            rng = re.match(r"bytes=(\d*)-(\d*)", self.headers.get("Range", ""))
+            if rng and (rng.group(1) or rng.group(2)):
+                if rng.group(1):
+                    start = int(rng.group(1))
+                    end = int(rng.group(2)) if rng.group(2) else size - 1
+                else:
+                    start = max(0, size - int(rng.group(2)))
+                end = min(end, size - 1)
+                self.send_response(206)
+                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            else:
+                self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Content-Length", str(end - start + 1))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            with open(path, "rb") as f:
+                f.seek(start)
+                left = end - start + 1
+                while left > 0:
+                    chunk = f.read(min(65536, left))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    left -= len(chunk)
+
         def do_GET(self):
             u = urlparse(self.path)
             try:
+                m = re.fullmatch(r"/video/([\w.-]+)\.mp4", u.path)
+                if m and videos_dir:
+                    path = os.path.join(videos_dir, m.group(1) + ".mp4")
+                    return self._file(path, "video/mp4") if os.path.isfile(path) else self._send(404, b"no such clip", "text/plain")
+                m = re.fullmatch(r"/speech/([\w.-]+)\.wav", u.path)
+                if m:
+                    path = os.path.join(audio_dir, m.group(1) + ".wav")
+                    return self._file(path, "audio/wav") if os.path.isfile(path) else self._send(404, b"no such line", "text/plain")
                 if u.path == "/status":
                     state, sleeping = get_state()
                     return self._send(200, json.dumps(status(state, sleeping)).encode(), "application/json")
+                if u.path == "/transcript":
+                    after = int((parse_qs(u.query).get("after") or ["0"])[0])
+                    return self._send(200, json.dumps(transcript(after)).encode(), "application/json")
                 if u.path == "/camera.mjpeg":
                     if not camera_allowed():
                         return self._send(403, b"MirrorCamera is off in DREAM's config.json", "text/plain")
