@@ -84,7 +84,8 @@ class DepthEstimator:
 
         # OpenCV on the GPU if it was built with CUDA, else onnxruntime (about 2x
         # faster than OpenCV on the CPU), else OpenCV on the CPU
-        if cv2.cuda.getCudaEnabledDeviceCount() > 0:
+        import dream_device   # Device in config.json
+        if dream_device.use_gpu("image") and cv2.cuda.getCudaEnabledDeviceCount() > 0:
             self.device = "CUDA"
             self.net = cv2.dnn.readNet(path)
             self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
@@ -92,9 +93,9 @@ class DepthEstimator:
             return
         try:
             import onnxruntime
-            self.session = onnxruntime.InferenceSession(path, providers=["CPUExecutionProvider"])
+            self.session = onnxruntime.InferenceSession(path, providers=dream_device.onnx_providers("image"))
             self.input_name = self.session.get_inputs()[0].name
-            self.device = "CPU, onnxruntime"
+            self.device = ("CUDA" if "CUDAExecutionProvider" in self.session.get_providers() else "CPU") + ", onnxruntime"
         except ImportError:
             self.device = "CPU"
             self.net = cv2.dnn.readNet(path)

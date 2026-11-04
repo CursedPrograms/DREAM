@@ -1,0 +1,6 @@
+{
+  "Config/DREAM/Device": "Whisper, LLM, lip-sync. cuda: ~2 s faster answers",
+  "Config/DREAM/ImageDevice": "Looks, dreams, DeepDream, faces. cpu keeps the loop fast",
+  "Config/DREAM/PiperDevice": "Her voice. cuda measured SLOWER (4.8 s vs 2.8 s)",
+  "InstantWake": "on: the first call wakes her. off: 1-10 calls, from how tired she is"
+}

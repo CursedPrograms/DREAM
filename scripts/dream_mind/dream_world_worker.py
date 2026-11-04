@@ -131,7 +131,9 @@ def main():
     if data is None:
         print("no usable pictures")
         return 1
-    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # scripts/, for dream_device
+    import dream_device   # Device in config.json
+    dev = dream_device.torch_device("image")
     G, D = fresh_generator().to(dev), Critic().to(dev)
     oG = torch.optim.Adam(G.parameters(), lr=2e-4, betas=(0.5, 0.999))
     oD = torch.optim.Adam(D.parameters(), lr=2e-4, betas=(0.5, 0.999))

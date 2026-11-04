@@ -1,6 +1,7 @@
 #include "stt.h"
 
 #include "common.h"
+#include "config.h"
 #include "wav.h"
 
 #include <whisper.h>
@@ -33,7 +34,9 @@ bool sttLoad(const std::string& modelPath) {
         return false;
     }
     whisper_context_params cp = whisper_context_default_params();
-    cp.use_gpu = false;
+    // Device from config.json. A whisper.cpp built without CUDA (build.bat's MinGW build)
+    // runs on the CPU either way.
+    cp.use_gpu = cfg().useGpu();
     g_ctx = whisper_init_from_file_with_params(modelPath.c_str(), cp);
     if (!g_ctx) {
         dream::logf("Could not load the Whisper model.");

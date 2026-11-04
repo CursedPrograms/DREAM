@@ -20,7 +20,17 @@
     "large-v3-turbo",
     "turbo"
   ],
-  "Config/DREAM/WhisperDevice": [
+  "Config/DREAM/Device": [
+    "cuda",
+    "cpu",
+    "auto"
+  ],
+  "Config/DREAM/ImageDevice": [
+    "cpu",
+    "cuda",
+    "auto"
+  ],
+  "Config/DREAM/PiperDevice": [
     "cpu",
     "cuda",
     "auto"

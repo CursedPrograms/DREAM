@@ -33,6 +33,7 @@ os.makedirs(AUDIO_DIR, exist_ok=True)
 # ==================== CONFIG ====================
 OLLAMA_URL     = "http://localhost:11434/api/generate"
 import dream_models
+import dream_device   # Device in config.json: CPU or GPU for all of DREAM
 MODEL          = dream_models.llm()   # LlmModel in config.json (options.py)
 SAMPLE_RATE    = 16000
 CHANNELS       = 1
@@ -209,11 +210,7 @@ def ask_llm(prompt, history):
             "model": MODEL,
             "prompt": full_prompt,
             "stream": False,
-            "options": {
-                "temperature": 0.7,
-                "num_predict": 150,
-                "num_gpu": 20,
-            }
+            "options": dream_device.ollama_options(temperature=0.7, num_predict=150),
         }
 
         try:
@@ -254,7 +251,7 @@ def speak(text):
 
     try:
         proc = subprocess.run(
-            [PIPER_BIN, "-m", VOICE_MODEL, "-f", tmp.name],
+            [PIPER_BIN, "-m", VOICE_MODEL, "-f", tmp.name, *dream_device.piper_args()],
             input=text.encode("utf-8"),
             capture_output=True,
             timeout=15,

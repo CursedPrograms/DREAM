@@ -21,7 +21,10 @@ Models (OpenCV Zoo, downloaded once into models/faces/, about 39 MB):
 import os
 import threading
 import time
+import sys
 import urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # scripts/, for dream_device
 
 import numpy as np
 
@@ -96,8 +99,11 @@ class Faces:
             return True
         if not download_models(quiet=True):
             return False
-        self.detector = cv2.FaceDetectorYN.create(str(MODEL_DIR / MODELS["detector"][0]), "", (320, 320), 0.8)
-        self.recognizer = cv2.FaceRecognizerSF.create(str(MODEL_DIR / MODELS["recognizer"][0]), "")
+        import dream_device   # Device in config.json (GPU only if OpenCV was built with CUDA)
+        backend, target = dream_device.opencv_dnn()
+        self.detector = cv2.FaceDetectorYN.create(str(MODEL_DIR / MODELS["detector"][0]), "", (320, 320), 0.8,
+                                                  0.3, 5000, backend, target)
+        self.recognizer = cv2.FaceRecognizerSF.create(str(MODEL_DIR / MODELS["recognizer"][0]), "", backend, target)
         return True
 
     def _faces(self, frame):

@@ -27,6 +27,12 @@ if errorlevel 1 (
     "%PY%" -m pip install -r requirements.txt openai-whisper piper-tts pathvalidate sounddevice soundfile faster-whisper || goto :fail
     copy /y requirements.txt "%VENV%\requirements.installed" >nul
 )
+REM A half-finished pip run can leave TensorFlow without its __init__.py: it then "imports" as an
+REM empty shell, and her dreams quietly lose DeepDream. Put it back.
+if not exist "%VENV%\Lib\site-packages\tensorflow\__init__.py" (
+    echo Repairing TensorFlow ...
+    "%PY%" -m pip install -q --force-reinstall --no-deps tensorflow==2.16.1 tensorflow-intel==2.16.1
+)
 
 where ollama >nul 2>&1 || echo Ollama not found - install it from https://ollama.com for DREAM's voice chat.
 

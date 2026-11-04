@@ -6,12 +6,13 @@ import soundfile as sf
 import numpy as np
 import time
 import sys
+_DREAM_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, os.pardir, os.pardir))   # DREAM's root: model paths don't depend on the folder it was started from
 sys.path.append("..")
 
 class Audio2Feature():
     def __init__(self, 
                  whisper_model_type="tiny",
-                 model_path="./models/whisper/tiny.pt"):
+                 model_path=os.path.join(_DREAM_ROOT, "models/whisper/tiny.pt")):
         self.whisper_model_type = whisper_model_type
         self.model = load_model(model_path) #
 

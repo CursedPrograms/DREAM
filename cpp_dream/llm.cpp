@@ -34,21 +34,24 @@ std::string askLlm(const std::string& prompt, const std::vector<Turn>& history) 
     std::string full = "System: " + cfg().systemPrompt + memoryPromptBlock() + "\n\n" + context +
                        "Human: " + prompt + "\nYou:";
 
-    auto ask = [&](int numGpu) {
+    // Device in config.json: on the GPU Ollama fits as many layers as it can, on the CPU none
+    auto ask = [&](bool cpu) {
+        nlohmann::json options = {{"temperature", 0.7}, {"num_predict", 150}};
+        if (cpu) options["num_gpu"] = 0;
         nlohmann::json payload = {
             {"model", cfg().model},
             {"prompt", full},
             {"stream", false},
-            {"options", {{"temperature", 0.7}, {"num_predict", 150}, {"num_gpu", numGpu}}},
+            {"options", options},
         };
         return httpPost(cfg().ollamaHost, cfg().ollamaPort, "/api/generate", dumpJson(payload), 120000);
     };
 
-    HttpResult r = ask(g_gpuBroken ? 0 : 20);
+    HttpResult r = ask(g_gpuBroken || !cfg().useGpu());
     if (r.status == 500 && !g_gpuBroken && r.body.find("CUDA") != std::string::npos) {
         dream::logf("Ollama's GPU mode failed (%s) - using the CPU from now on", r.body.substr(0, 120).c_str());
         g_gpuBroken = true;
-        r = ask(0);
+        r = ask(true);
     }
     if (r.timedOut) return "That took too long. Please try again.";
     if (!r.error.empty()) return "Error: " + r.error;

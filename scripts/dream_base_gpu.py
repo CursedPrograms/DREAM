@@ -41,11 +41,9 @@ SAMPLE_RATE    = 16000
 CHANNELS       = 1
 RECORD_SECONDS = 5
 RMS_THRESHOLD  = 150
-WHISPER_MODEL  = whisper_model.name()   # WhisperModel / WhisperDevice in config.json
+WHISPER_MODEL  = whisper_model.name()   # WhisperModel in config.json; Device picks CPU or GPU
+import dream_device   # Device in config.json: CPU or GPU for all of DREAM
 
-# GPU layer offload — GTX 1050 Ti has 4GB VRAM
-# 20 layers = safe for 4GB, tune up after checking nvidia-smi
-GPU_LAYERS = 20
 
 # Load system prompt from config.json
 with open(os.path.join(BASE_DIR, "config.json")) as f:
@@ -86,7 +84,7 @@ def startup_banner(cuda_ok):
     console.print(Panel.fit(
         "[bold cyan]DREAM v2.5[/bold cyan]\n"
         "[dim]DREAM — Local AI Voice Assistant[/dim]\n\n"
-        f"[green]LLM:[/green]      {MODEL} ({GPU_LAYERS} layers on GPU)\n"
+        f"[green]LLM:[/green]      {MODEL} ({dream_device.describe()})\n"
         f"[green]STT:[/green]      Whisper {WHISPER_MODEL} ({whisper_model.device().upper()})\n"
         f"[green]Piper:[/green]    {'[green]✓[/green]' if piper_ok else '[red]NOT FOUND[/red]'}\n"
         f"[green]Voice:[/green]    {'[green]' + os.path.basename(VOICE_MODEL) + '[/green]' if voice_ok else '[red]NOT FOUND[/red]'}\n"
@@ -208,13 +206,8 @@ def ask_llm(prompt, history):
             "model": MODEL,
             "prompt": full_prompt,
             "stream": False,
-            "options": {
-                "temperature": 0.7,
-                "num_predict": 150,
-                "num_gpu": GPU_LAYERS,  # offload layers to GTX 1050 Ti
-                "num_thread": 8,
-                "low_vram": True,
-            }
+            "options": dream_device.ollama_options(temperature=0.7, num_predict=150,
+                                                   num_thread=8, low_vram=True),
         }
 
         try:
@@ -253,9 +246,9 @@ def speak(text):
     tmp.close()
 
     try:
-        # --cuda flag uses GPU for piper inference
+        # Piper on the GPU when Device says so (and onnxruntime-gpu is there)
         proc = subprocess.run(
-            [PIPER_BIN, "-m", VOICE_MODEL, "-f", tmp.name, "--cuda"],
+            [PIPER_BIN, "-m", VOICE_MODEL, "-f", tmp.name, *dream_device.piper_args()],
             input=text.encode("utf-8"),
             capture_output=True,
             timeout=15,

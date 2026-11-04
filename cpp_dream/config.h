@@ -21,6 +21,8 @@ struct Config {
     std::string piperExe;      // piper.exe (from the venv, or next to dream.exe)
     std::string voiceModel;    // voices/<Voice>.onnx, else the first .onnx there
     std::string whisperModel;  // ggml-<WhisperModel>.bin, else ggml-tiny.en.bin
+    std::string device = "cuda";  // Device in config.json: cuda, cpu or auto - CPU or GPU for all of DREAM
+    bool useGpu() const { return device != "cpu"; }
 };
 
 // Loaded on first use.

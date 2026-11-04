@@ -1,6 +1,6 @@
 """
 The Whisper model DREAM listens with, and where it runs: Config/DREAM/WhisperModel
-and Config/DREAM/WhisperDevice in config.json.
+in config.json; it runs where Config/DREAM/Device says (dream_device.py).
 
 Pick both in options.py, so a GPU upgrade or downgrade is a settings change.
 download_weights.bat downloads the chosen model, and every DREAM (dream.py,
@@ -14,8 +14,8 @@ Bigger is more accurate and slower: tiny < base < small < medium < large-v3.
 turbo (large-v3-turbo) is close to large-v3 at several times the speed.
 The .en models are English only, and a little better at it below medium.
 
-WhisperDevice: cpu keeps the GPU free for the LLM and lip-sync, cuda runs it on
-the GPU, auto uses the GPU when there is one.
+On the GPU (Device cuda) it's about 4x faster than the CPU: small.en takes 0.5 s
+instead of 2 s on an RTX 2060, with 1.4 GB of VRAM.
 """
 
 import json
@@ -28,8 +28,6 @@ CONFIG_PATH = os.path.join(ROOT_DIR, "config.json")
 MODELS = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium",
           "large-v1", "large-v2", "large-v3", "large", "large-v3-turbo", "turbo"]
 DEFAULT = "tiny"
-DEVICES = ["cpu", "cuda", "auto"]
-DEFAULT_DEVICE = "cpu"
 
 # whisper.cpp names its files after the full model name
 _GGML_ALIASES = {"large": "large-v3", "turbo": "large-v3-turbo"}
@@ -52,19 +50,9 @@ def name():
 
 
 def device():
-    """cpu or cuda. cuda (or auto) without a working GPU falls back to cpu."""
-    chosen = _setting("WhisperDevice", DEVICES, DEFAULT_DEVICE)
-    if chosen == "cpu":
-        return "cpu"
-    try:
-        import torch
-        if torch.cuda.is_available():
-            return "cuda"
-    except ImportError:
-        pass
-    if chosen == "cuda":
-        print("config.json: WhisperDevice is 'cuda' but no CUDA GPU was found - using the CPU")
-    return "cpu"
+    """cpu or cuda: config.json's Device (see dream_device.py)."""
+    import dream_device
+    return dream_device.torch_device()
 
 
 def load():

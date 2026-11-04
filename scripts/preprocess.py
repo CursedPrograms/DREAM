@@ -15,6 +15,7 @@ from musetalk.utils.face_detection import FaceAlignment,LandmarksType
 from mmpose.apis import inference_topdown, init_model
 from mmpose.structures import merge_data_samples
 import sys
+_DREAM_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir))   # DREAM's root: model paths don't depend on the folder it was started from
 
 def fast_check_ffmpeg():
     try:
@@ -218,9 +219,12 @@ def analyze_video(org_path: str, dst_path: str, vid_list: List[str]) -> None:
     Returns:
     None
     """
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    import os as _os, sys as _sys   # scripts/ on the path, for dream_device
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    import dream_device   # Device in config.json: CPU or GPU for all of DREAM
+    device = dream_device.torch_device()
     config_file = './musetalk/utils/dwpose/rtmpose-l_8xb32-270e_coco-ubody-wholebody-384x288.py'
-    checkpoint_file = './models/dwpose/dw-ll_ucoco_384.pth'
+    checkpoint_file = os.path.join(_DREAM_ROOT, "models/dwpose/dw-ll_ucoco_384.pth")
 
     analyze_face = AnalyzeFace(device, config_file, checkpoint_file)
     

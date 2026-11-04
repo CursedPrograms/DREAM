@@ -4,7 +4,7 @@ torch==2.5.1+cu121
 torchvision
 torchaudio==2.5.1+cu121
 tensorflow==2.16.1
-tf-keras
+tf-keras==2.16.0   # matches tensorflow 2.16; a newer one pulls in another TensorFlow
 diffusers
 transformers
 accelerate

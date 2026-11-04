@@ -68,8 +68,11 @@ from musetalk.models.vae             import VAE
 from musetalk.models.unet            import UNet, PositionalEncoding
 from moviepy.editor                  import VideoFileClip, AudioFileClip
 
-device       = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-weight_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+import os as _os, sys as _sys   # scripts/ on the path, for dream_device
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import dream_device   # Device in config.json: CPU or GPU for all of DREAM
+device       = torch.device(dream_device.torch_device())
+weight_dtype = torch.float16 if dream_device.use_gpu() else torch.float32
 print(f"       Device: {device}")
 
 vae  = VAE(model_path=os.path.join(MODELS_DIR, "sd-vae"))

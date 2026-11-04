@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image
 from .model import BiSeNet
 import torchvision.transforms as transforms
+_DREAM_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, os.pardir, os.pardir, os.pardir))   # DREAM's root: model paths don't depend on the folder it was started from
 
 class FaceParsing():
     def __init__(self, left_cheek_width=80, right_cheek_width=80):
@@ -59,8 +60,8 @@ class FaceParsing():
         return mask
 
     def model_init(self, 
-                   resnet_path='./models/face-parse-bisent/resnet18-5c106cde.pth', 
-                   model_pth='./models/face-parse-bisent/79999_iter.pth'):
+                   resnet_path=os.path.join(_DREAM_ROOT, "models/face-parse-bisent/resnet18-5c106cde.pth"), 
+                   model_pth=os.path.join(_DREAM_ROOT, "models/face-parse-bisent/79999_iter.pth")):
         net = BiSeNet(resnet_path)
         if torch.cuda.is_available():
             net.cuda()

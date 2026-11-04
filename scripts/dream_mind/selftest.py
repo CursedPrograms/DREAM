@@ -293,7 +293,7 @@ def main():
     m.mood = Mood(0.2, 0.3, temper=0.0)
     n_before = m.memory.count()
     from . import dream_visions
-    dream_visions.VISUALIZE = False   # the Image-Generator needs a GPU and a model download; the walk is enough here
+    dream_visions.VISUALIZE = False   # dream_generator.py needs a model download; the walk is enough here
     m.begin_sleep(max_cycles=1, nrem_s=0.05, rem_pause_s=0.05)
     time.sleep(16.0)  # painting a dream (the latent-space walk) takes several seconds
     line = m.end_sleep()
@@ -491,6 +491,22 @@ def main():
     m.identity.cooldown_until = 0
     check(m.memory.count() == 0 and not store.read_jsonl("dreams.jsonl"), "memories, dreams and observations are gone")
     pre = talk("stop talking on your own", at(66, 12)); check(m.executive.proactive is False, "she'll only speak when spoken to, if asked")
+
+    print("\n== Goodnight: her call (bedtime.py)")
+    from . import bedtime
+    import collections
+    def kinds(hour, pressure, n=2000):
+        m.drives.values["sleep_pressure"] = pressure
+        return collections.Counter(bedtime.decide("goodnight", m, at(80, hour)).kind for _ in range(n))
+    k = kinds(23, 0.6); check(0.7 < k["bed"] / 2000 < 0.95 and k["stay_up"], f"23:00: she usually goes to bed, sometimes stays up ({dict(k)})")
+    k = kinds(14, 0.4); check(k["tease"] / 2000 > 0.9 and k["nap"], f"14:00: she teases you, now and then naps ({dict(k)})")
+    k = kinds(2, 0.95); check(k["bed"] / 2000 > 0.9, f"02:00 and exhausted: bed almost always ({dict(k)})")
+    check(bedtime.decide("what time is it", m, at(80, 23)) is None, "not a goodnight: no plan")
+    check("11:40" in bedtime.decide("night night", m, at(80, 23, 40)).context, "she checks the clock")
+    m.drives.values["sleep_pressure"] = 0.6
+    pre = talk("goodnight dream", at(80, 23, 41))
+    check(not pre.reply and "goodnight" in pre.context, "her own LLM says it, told what she decided")
+    m.drives.values["sleep_pressure"] = 0.3
 
     print("\n== Safety of the tool box")
     r = m.tools.call("sensor", cmd="ALARM OFF")

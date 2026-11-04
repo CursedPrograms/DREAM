@@ -37,7 +37,10 @@ try:
     import torch
     import torch.nn as nn
     TORCH_AVAILABLE = True
-    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+    import os as _os, sys as _sys   # scripts/ on the path, for dream_device
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    import dream_device   # Device in config.json: CPU or GPU for all of DREAM
+    DEVICE = dream_device.torch_device("image")
 except ImportError:
     TORCH_AVAILABLE = False
     DEVICE = "cpu"

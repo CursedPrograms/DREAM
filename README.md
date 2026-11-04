@@ -94,12 +94,14 @@ Thinking models (qwen3:4b, deepseek-r1, gpt-oss) aren't in her list: tested with
 <div align="center">
   <img src="demo_images/deepdream_demo.png" alt="DREAM" width="400"/>
   <p><i>a Latent space dream</i></p>
+  <img src="demo_images/dream_deepdream_tones.jpg" alt="Three of her dreams after DeepDream: a pleasant green spiral, a strange violet one, and a dark crawling nightmare" width="720"/>
+  <p><i>pleasant, strange and nightmare: her latent walk, then DeepDream (InceptionV3, per tone)</i></p>
 </div>
 <br>
 
 <div align="center">
   <img src="demo_images/dream_vision_guitar.jpg" alt="DREAM's vision of a dream: a guitar standing in a flooded library, fish flying past" width="400"/>
-  <p><i>"I was walking through a library made of water, and the books kept turning into fish. My grandfather's guitar floated past and played the sound of rain."</i><br>her dream, seen by the Image-Generator</p>
+  <p><i>"I was walking through a library made of water, and the books kept turning into fish. My grandfather's guitar floated past and played the sound of rain."</i><br>her dream, seen by her image generator</p>
   <img src="demo_images/dream_walk_into_vision.jpg" alt="Her spiral walk through latent space turning into the dream" width="600"/>
   <p><i>her spiral walk turning into the dream, frame by frame</i></p>
 </div>
@@ -138,6 +140,18 @@ Thinking models (qwen3:4b, deepseek-r1, gpt-oss) aren't in her list: tested with
 - To build the C++ version: MinGW-w64 g++, CMake, Ninja (`cpp_dream\setup.bat` installs them)
 
 ### Hardware
+
+### Her body (the PC she runs on)
+DREAM is a robot too: this PC is her body, the way servos and boards are the other robots'. The speeds in [How fast she answers](#how-fast-she-answers) were measured on it.
+
+| **Part** | **Her build** |
+|-----------|---------|
+| CPU | Ryzen 5 5600X (6 cores, 12 threads): her voice (Piper), and all her image work (looks, dreams, DeepDream, faces) so it never slows the conversation |
+| GPU 0 | RTX 2060, 6 GB: Whisper, the wake word, her LLM and lip-sync (`Device: cuda`) |
+| RAM | 64 GB DDR4-3200 (2 x 32 GB) |
+| Motherboard | B450 (AM4); the second x16 slot is PCIe 2.0 x4 |
+| Storage | 1 TB NVMe, 500 GB NVMe, 2 TB HDD |
+| PSU | 550 W |
 
 ### PC Requirements
 | **Component** | **Details** |
@@ -493,7 +507,7 @@ python detect.py
 <details>
 <summary><b>Whisper Setup</b></summary>
 
-Pick the model in the options menu (`WhisperModel`, and `WhisperDevice` for CPU or GPU), then run `download_weights.bat`. Or download it by hand:
+Pick the model in the options menu (`WhisperModel`; `Device` picks CPU or GPU for all of DREAM), then run `download_weights.bat`. Or download it by hand:
 
 ```bash
 python scripts/whisper_model.py              # which model config.json picks
@@ -610,6 +624,22 @@ With her inner life switched on (it is by default), a step sits between hearing 
 Mic → Whisper → boundaries + memory + mood (dream_mind) → Ollama → Piper (voice shaped by her mood) → Speaker
 ```
 
+She stops listening when you stop talking: 1.5 s of quiet after speech ends a command. Quiet means near the room's own noise (the quietest moment of the last 2 s), so a fan or mic hiss doesn't keep her listening for the full 16 s. The browser page, `dream.py` and `dream.exe` use the same rule, and tap-to-talk stops on its own too.
+
+#### How fast she answers
+
+Measured 2026-11-04 on an RTX 2060 (6 GB), `small.en` and `qwen3:4b-instruct-2507-q4_K_M`, a 5 s spoken command, three runs:
+
+| Step | `Device: cuda` | before (Whisper on the CPU, 20 LLM layers on the GPU) |
+|---|---|---|
+| Wake-word check (3 s clip) | 0.22 s | 1.59 s |
+| Whisper (the command) | 0.61 s | 2.06 s |
+| LLM reply | 2.81 s (74 tokens/s) | 4.65 s (22 tokens/s) |
+| Piper (whole reply, CPU) | 2.51 s | 2.47 s |
+| **You stop talking → she speaks** | **7.4 s** | 9.3 s |
+
+The total includes the 1.5 s of quiet that ends a command. Whisper and the LLM together use about 4.4 GB of the card. Lip-sync (MuseTalk) took about 45 s for 6.7 s of speech and peaked at 6.7 GB, more than a 6 GB card has, so it stays off (`LipsyncEnabled`) on cards that size.
+
 ---
 
 ## Options
@@ -675,7 +705,8 @@ Everything runs on this PC. Ollama serves the language model, Piper speaks, Whis
 | You say | What happens |
 |---|---|
 | "Hey DREAM", "hi DREAM", "okay DREAM", "DREAM" | Wakes her; she greets you (the greeting depends on how far away you are) and listens for one command |
-| "Wake up" | Wakes her from sleep (the only phrase she listens for while asleep, besides someone appearing at the sensor) |
+| "Goodnight" | Her call, not a command: she checks the clock. 21:00-05:00 she usually goes to sleep (about 80%, more when she's tired, less when she's missed you; it makes her drowsier either way). In the daytime she's sarcastic, jokes or teases you, and only 1 time in 20 takes a nap. She looks first: your name if she knows your face, and if you look tired she says so. Her own language model words it (`scripts/dream_mind/bedtime.py`) |
+| "Wake up" (or "Dream") | Calls her while she sleeps. Like a person she may need a few calls (`InstantWake`, see [Sleep Mode](#sleep-mode)); someone appearing at the sensor is a nudge too |
 | "Check the wifi", "scan the network", "who's on the wifi", "list devices" | Scans the local network and reads out what she finds |
 | "System stats", "CPU usage", "how's the system" | CPU, RAM and disk (and CPU temperature on Linux) |
 | "Turn on / off the alarm", "arm / disarm the alarm" | Arms or disarms the PIR alarm on the sensor board |
@@ -778,12 +809,13 @@ A 2.5D parallax on her avatar videos, like After Effects' Displacement Map. Each
 ### Sleep Mode
 - Cycles through **consolidation** (the day's memories are replayed, the important ones strengthen, the trivial ones fade) and **dreaming**
 - Each dream is a short story built from her real memories, and is **painted** by the latent-space dream engine (`latent_space.py`), with a still and an animation
-- **Dream visions:** the dream's own words go to the [Image-Generator](https://github.com/CursedPrograms/Image-Generator) (`scripts/generate.py`): a picture of the dream (`output/dreams/vision_*.jpg`), and 8 frames of her latent walk re-imagined with the same prompt. Model: `DreamImageModel` in `config.json` (`auto` = SDXL-Turbo with 12 GB of RAM or more, else SD-Turbo; or `sd-turbo` / `sdxl-turbo` / any Hugging Face id)
+- **Dream visions:** the dream's own words go to her image generator (`scripts/dream_mind/dream_generator.py`, SD-Turbo / SDXL-Turbo with diffusers, part of DREAM since 2026-11-04; it used to be the separate Image-Generator repo): a picture of the dream (`output/dreams/vision_*.jpg`), and 8 frames of her latent walk re-imagined with the same prompt. It runs on `ImageDevice` (the CPU by default), in its own process so it stops the moment she wakes. Model: `DreamImageModel` in `config.json`, read from `models/<name>` (`download_weights.bat` puts it there, from `ModelBackup` when it can)
 - **The night's film:** when she wakes, every frame of the night (each dream's walk, then its visions crossfading) becomes `output/dreams/dreams_<time>.mp4`
 - **See them:** the **DREAMS** button on her dashboard (`/dreams.html`, API `/api/dreams`) shows every dream, newest first: its text, the painting or walk, her vision of it and the re-imagined frames, plus the night films
 - **She tells you first thing:** after each dream, while still asleep, she renders what she'll say about it (voice, and lipsync if MuseTalk is on) into her speech cache, so on waking she says it at once
 - **She learns her own dream world:** while awake and idle she trains a copy of her dream network on her photos and painted dreams (a small GAN, 5-minute bursts, stopped the moment she's needed). The spiral dreams keep the untrained network's abstract look; the others walk through what she's learned once it's had 3000 steps (`output/dreams/dream_world_learning.jpg` shows how far she's got)
-- Someone appearing at the sensor, or "wake up", wakes her
+- **Saying goodnight** is a request, not a command: she checks the time, how tired she is, how much she's missed you and what her camera shows, then decides (see [Voice commands](#voice-commands))
+- **Waking her is like waking a person:** "wake up" or her name, or someone appearing at the sensor, is a call. With `"InstantWake": false` (the default) it takes **1 to 10 calls**, from how sleepy she is (sleep pressure and her body clock, deepest around 4 AM, so after a long sleep she's easier to wake) and a random depth each night; after an alarm she's on edge and wakes at once. In between she mumbles in her sleep, often about the real time ("It's 3:40 AM... why are you awake?"), sweeter or grumpier with her mood, or just sleeps on; woken after many calls in the night she's a little grumpy, and says so ("Okay, okay, I'm up. It's 3:40 AM, you know."). `"InstantWake": true` wakes her on the first call. The logic is `scripts/dream_wake.py`, used by `app.py` (the browser and the exe) and `scripts/dream.py`; `python scripts/dream_wake.py` tries a night
 - The details are under [Inner Life](#inner-life)
 
 ---
@@ -997,6 +1029,7 @@ To test the real `dream.py` (its actual `main()` and `voice_loop()`, with only t
 |---|---|---|
 | **5009** | Main server, all network interfaces | HTTPS with a self-signed certificate (made on first run into `certs/`, good for this PC's LAN address). Falls back to plain HTTP if a certificate can't be made. Set by `Dashboard.Port` |
 | **5001** | DREAM on your phone: her own site, all network interfaces | `/` opens her straight away (the avatar, voice and behaviours of the desktop app). Same server and certificate as 5009, so the phone gets the microphone. Set by `Dashboard.PhonePort`. Allow it through the Windows firewall if the phone can't reach it |
+| **5015** | Her mirror for robots: plain HTTP, read-only, all network interfaces | `/status` says what she's doing, which clip she's showing and how far in, and what she's saying; `/speech/<id>` is that line as 16 kHz 8-bit audio. [RITA](https://github.com/CursedPrograms/RITA) uses it to play the same clip from her SD card in step with this screen, and DREAM's voice on her speaker. Nothing on it can change anything in DREAM (`scripts/dream_mirror.py`). Set by `Dashboard.MirrorPort` |
 | **5010** | Same server, this PC only, plain HTTP | No certificate warning, and `localhost` counts as secure for the microphone. Set by `Dashboard.LocalPort` (default 5010) |
 | 5000 | RIFT (fleet registry) | `Dashboard.RiftPort`; `app.py` announces itself to it every few seconds |
 
@@ -1062,6 +1095,7 @@ The server also registers itself on the network as `DREAM` (zeroconf) and discov
 |---|---|
 | `Config.DREAM.CharName`, `SystemPrompt` | Her name and personality prompt (`{name}` is filled in) |
 | `Config.DREAM.LipsyncEnabled` | MuseTalk lip-sync (needs its own setup; off by default) |
+| `Config.DREAM.InstantWake` | `false` (default): waking her takes 1-10 calls, from how tired she is; `true`: the first call wakes her ([Sleep Mode](#sleep-mode)) |
 | `Config.DREAM.WhisperModel` | The speech-recognition model, picked from a dropdown in the options menu: `tiny.en`, `tiny` (default), `base.en`, `base`, `small.en`, `small`, `medium.en`, `medium`, `large-v1`, `large-v2`, `large-v3`, `large`, `large-v3-turbo`, `turbo`. Bigger hears better and runs slower; `turbo` is close to `large-v3` at several times the speed. `download_weights.bat` downloads the chosen one, and every DREAM (`dream.py`, `app.py`, `dream_app.py`, `webserver.py`, `dream.exe`) uses it |
 | `Config.DREAM.LlmModel` | The Ollama model she talks with (default `qwen3:4b-instruct-2507-q4_K_M`), picked from a dropdown in the options menu. `download_weights.bat` pulls it, and every DREAM uses it. Any other Ollama model works too: type it into `config.json` |
 | `Config.DREAM.VisionModel` | The Ollama model she looks with ("what do you see?"; default `gemma3:4b-it-qat`), from 14 vision models, `moondream:1.8b` up to `gemma3:27b`. `download_weights.bat` pulls it. Picking the same model as `LlmModel` (a gemma3 one) means only one model in the GPU, so no swapping between talking and looking |
@@ -1071,7 +1105,13 @@ The server also registers itself on the network as `DREAM` (zeroconf) and discov
 | `Config.DREAM.AutoLook` | `Enabled` (default on) and `EverySeconds` (default 60, at least 15): her photo-a-minute. She only looks while awake, idle and not talking; "stop looking around" turns it off too |
 | `Config.DREAM.Voice` | Her Piper voice (default `en_US-amy-medium`), from all 37 English voices. `download_weights.bat` downloads it into `voices/`; if it isn't there, she uses the first voice that is |
 | `Config.DREAM.Memory.LlmModel` | The model the memory server thinks with (default `qwen3:4b`); pulled by `download_weights.bat` when `Memory.Hindsight` is on |
-| `Config.DREAM.WhisperDevice` | Where Whisper runs: `cpu` (default; keeps the GPU free for the LLM and lip-sync), `cuda` (the GPU), or `auto` (the GPU when there is one). `cuda` without a GPU falls back to the CPU |
+| `Config.DREAM.Device` | CPU or GPU for **the conversation loop**: Whisper (the wake word and commands), the LLM (Ollama) and lip-sync - what you wait on when she answers. `cuda` (default) is the GPU, `cpu` the processor, `auto` the GPU when there is one; `cuda` without a GPU falls back to the CPU. On an RTX 2060: a 3 s wake-word clip takes 0.22 s instead of 1.6 s, and the LLM runs at 74 tokens/s instead of 22 (see [How fast she answers](#how-fast-she-answers)) |
+| `Config.DREAM.ImageDevice` | CPU or GPU for **image work**: her looks (the vision model), dream pictures and visions, DeepDream, depth and face recognition. `cpu` (default) keeps it off the GPU so it never slows the loop or makes Ollama swap models out |
+| `Config.DREAM.PiperDevice` | CPU or GPU for her voice. `cpu` (default): `cuda` measured **slower** (4.8 s against 2.8 s for a reply, because Piper starts per line and CUDA's start-up costs more than it saves) and needs `onnxruntime-gpu`; there for a slow CPU some day |
+| `Config.DREAM.DreamImageModel` | What paints her dream visions: `auto` (SDXL-Turbo when the PC can take it, else SD-Turbo: on the GPU with 12 GB of RAM or more; on the CPU with 32 GB of RAM or more and `models/sdxl-turbo` already there, since it loads as fp32, about 14 GB, and paints a few times slower, which is fine while she sleeps), `sd-turbo`, `sdxl-turbo` or any Hugging Face id. DREAM reads it from her own `models/<name>` when it's there |
+| `Config.DREAM.ModelBackup` | A folder of spare model copies (e.g. `F:/AIModels`). `download_weights.bat` copies the dream image model from there instead of downloading it, and backs up anything it does download |
+
+Every part of DREAM (Python and the C++ `dream.exe`) reads the three device settings through `scripts/dream_device.py`; `python scripts/dream_device.py` prints what they pick. The options menu shows a hint for each.
 | `Config.DREAM.DepthEffect` | 2.5D parallax on the avatar videos ([Avatar depth effect](#avatar-depth-effect); off by default) |
 | `Config.Dashboard.Port` | Main server port (default 5009) |
 | `Config.Dashboard.LocalPort` | The no-warning localhost port (default 5010) |
@@ -1276,7 +1316,7 @@ DREAM/
 | Browser voice does nothing | ffmpeg missing | Install ffmpeg |
 | Replies fail with a CUDA error, or are very slow | Ollama's GPU mode can't run, so it falls back to the CPU | Update the graphics driver or Ollama; see [Environment notes](#environment-notes) |
 | `ImportError ... compiled using NumPy 1.x` | NumPy 2 with TensorFlow 2.16 | `pip install "numpy<2"` |
-| The DeepDream pass never runs | Not enough free RAM, or TensorFlow can't load | Free some RAM; check `pip check`. Dreams are still painted without it |
+| The DeepDream pass never runs | Not enough free RAM, or TensorFlow can't load | Free some RAM. A half-finished pip run can leave `venv311/Lib/site-packages/tensorflow` without its `__init__.py`; `run.bat` now puts it back. Check with `venv311\Scripts\python -c "import tensorflow as tf; print(tf.__version__)"`. Dreams are still painted without it |
 | No voice | Piper or a voice is missing | Put a `.onnx` voice in `voices/`; check `PIPER_BIN` |
 | No video ("no H.264 decoder") | Windows N without the codec pack | Install the Media Feature Pack |
 | No camera / "Blind Mode" | No webcam found | Expected: she carries on without eyes |

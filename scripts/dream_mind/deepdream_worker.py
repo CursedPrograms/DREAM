@@ -51,8 +51,15 @@ def main(src, dst, preset, max_side):
 
     x = tf.convert_to_tensor(tf.keras.applications.inception_v3.preprocess_input(np.array(img)))
     original = tf.shape(x)[:2]
+    # InceptionV3's deep layers (mixed7 and up) shrink the picture so much that below ~160 px they
+    # have nothing left to look at (the nightmare preset's scale 2.4 got there by its 3rd octave
+    # and the whole DeepDream failed); the shallow ones manage from ~80 px. Too-small octaves are skipped.
+    deep = any(int(n[5:] or 0) >= 7 for n in preset["layers"] if n.startswith("mixed") and n[5:].isdigit())
+    min_side = 160 if deep else 80
     for octave in range(preset["octaves"]):
         new_size = tf.cast(tf.cast(original, tf.float32) / (preset["scale"] ** octave), tf.int32)
+        if int(tf.reduce_min(new_size)) < min_side:
+            break
         x = tf.image.resize(x, new_size)
         for _ in range(preset["steps"]):
             x = step(x, preset["step_size"])

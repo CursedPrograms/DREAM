@@ -224,3 +224,4 @@ memories/mymilestones.txt
 # Controllers, built and kept
 !builds/
 !builds/*.exe
+/musetalk_out

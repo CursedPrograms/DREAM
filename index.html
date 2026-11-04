@@ -88,7 +88,7 @@ Webcam &rarr; face prints (who is there) + a vision model (what is there) &rarr;
       <div class="card">
         <span class="k">Hear</span>
         <h4>Wake word</h4>
-        <p>&ldquo;Hey DREAM&rdquo; wakes her, and she greets you differently depending on how far away you are.</p>
+        <p>&ldquo;Hey DREAM&rdquo; wakes her, and she greets you differently depending on how far away you are. She stops listening when you stop talking, whatever the room&rsquo;s background noise.</p>
       </div>
       <div class="card">
         <span class="k">Sense</span>
@@ -194,7 +194,7 @@ Webcam &rarr; face prints (who is there) + a vision model (what is there) &rarr;
       <div class="card">
         <span class="k">Sleep</span>
         <h4>Dreams</h4>
-        <p>Asleep, she consolidates memories and dreams stories built from them, painted by a latent-space dream engine and seen by the Image-Generator. When she wakes she tells you, and the night becomes a film.</p>
+        <p>Asleep, she consolidates memories and dreams stories built from them, painted by a latent-space dream engine, run through DeepDream and seen by her own image generator (SD-Turbo). When she wakes she tells you, and the night becomes a film.</p>
       </div>
       <div class="card">
         <span class="k">Mind</span>
@@ -232,9 +232,13 @@ Webcam &rarr; face prints (who is there) + a vision model (what is there) &rarr;
       <img src="demo_images/deepdream_demo.png" alt="A latent-space dream" loading="lazy">
       <figcaption>A latent-space dream</figcaption>
     </figure>
+    <figure class="shot">
+      <img src="demo_images/dream_deepdream_tones.jpg" alt="Three of her dreams after DeepDream: a pleasant green spiral, a strange violet one, and a dark crawling nightmare" width="1344" height="448" loading="lazy">
+      <figcaption>Pleasant, strange and nightmare: her latent walk, then DeepDream (InceptionV3, per tone)</figcaption>
+    </figure>
     <figure class="shot narrow">
       <img src="demo_images/dream_vision_guitar.jpg" alt="DREAM's vision of a dream: a guitar standing in a flooded library, fish flying past" width="512" height="512" loading="lazy">
-      <figcaption>&ldquo;I was walking through a library made of water, and the books kept turning into fish. My grandfather&rsquo;s guitar floated past and played the sound of rain.&rdquo; &mdash; her dream, seen by the Image-Generator</figcaption>
+      <figcaption>&ldquo;I was walking through a library made of water, and the books kept turning into fish. My grandfather&rsquo;s guitar floated past and played the sound of rain.&rdquo; &mdash; her dream, seen by her image generator</figcaption>
     </figure>
     <figure class="shot">
       <img src="demo_images/dream_walk_into_vision.jpg" alt="Her spiral walk through latent space turning into the dream" width="768" height="256" loading="lazy">
@@ -300,7 +304,10 @@ Webcam &rarr; face prints (who is there) + a vision model (what is there) &rarr;
           <tr><td><code>LlmModel</code> (talking)</td><td><code>phi3:mini</code></td><td>15 Ollama models, <code>smollm2:1.7b</code> to <code>gemma3:27b</code>. Thinking models are left out: they spend the reply thinking, or think out loud</td></tr>
           <tr><td><code>VisionModel</code> (seeing)</td><td><code>gemma3:4b-it-qat</code></td><td>14 vision models, <code>moondream:1.8b</code> to <code>gemma3:27b</code>. The same gemma3 for both means one model in the GPU</td></tr>
           <tr><td><code>WhisperModel</code> (hearing)</td><td><code>tiny</code></td><td>All 14 Whisper models, <code>tiny.en</code> to <code>large-v3</code> and <code>turbo</code></td></tr>
-          <tr><td><code>WhisperDevice</code></td><td><code>cpu</code></td><td><code>cpu</code> keeps the GPU free, <code>cuda</code> uses it, <code>auto</code> uses it when there is one</td></tr>
+          <tr><td><code>Device</code></td><td><code>cuda</code></td><td>CPU or GPU for the conversation loop (Whisper, the wake word, the LLM, lip-sync). On an RTX 2060 she answers in 7.4&nbsp;s instead of 9.3&nbsp;s</td></tr>
+          <tr><td><code>ImageDevice</code></td><td><code>cpu</code></td><td>Her looks, dreams, DeepDream, depth and faces: kept off the GPU so they never slow the loop</td></tr>
+          <tr><td><code>PiperDevice</code></td><td><code>cpu</code></td><td>Her voice. <code>cuda</code> measured slower (4.8&nbsp;s vs 2.8&nbsp;s)</td></tr>
+          <tr><td><code>ModelBackup</code></td><td><code>F:/AIModels</code></td><td>Spare model copies: <code>download_weights.bat</code> copies from here instead of downloading</td></tr>
           <tr><td><code>Voice</code> (speaking)</td><td><code>en_US-amy-medium</code></td><td>All 37 English Piper voices</td></tr>
         </tbody>
       </table>

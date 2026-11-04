@@ -11,7 +11,13 @@ Two things dream.py's own call didn't do:
 
 import threading
 
+import os
+import sys
+
 import requests
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # scripts/
+import dream_device   # Device in config.json: CPU or GPU for all of DREAM
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL = "qwen3:4b-instruct-2507-q4_K_M"
@@ -57,18 +63,20 @@ def generate(prompt, *, num_predict=150, temperature=0.7, timeout=120, blocking=
     if not _lock.acquire(blocking=blocking):
         return None
     try:
-        def ask(num_gpu):
-            options = {"temperature": temperature, "num_predict": num_predict, "num_gpu": num_gpu}
+        def ask(cpu):
+            options = {"temperature": temperature, "num_predict": num_predict}
             if stop:
                 options["stop"] = stop
+            # Device in config.json picks CPU or GPU (on the GPU Ollama fits as many layers as it can)
+            options = {**options, "num_gpu": 0} if cpu else dream_device.ollama_options(**options)
             return _post({"model": MODEL, "prompt": prompt, "stream": False, "options": options}, timeout)
 
         try:
-            r = ask(0 if _gpu_broken else 20)
+            r = ask(_gpu_broken)
             if r.status_code == 500 and not _gpu_broken and "CUDA" in r.text:
                 _gpu_broken = True
                 last_error = "GPU mode failed; using the CPU from now on"
-                r = ask(0)
+                r = ask(True)
         except requests.exceptions.Timeout:
             raise LLMError("timeout")
         except requests.RequestException as e:

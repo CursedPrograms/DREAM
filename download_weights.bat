@@ -7,7 +7,9 @@ REM   2. Whisper speech model        -> the one WhisperModel in config.json name
 REM   3. Piper voice                 -> voices\ (Voice in config.json)
 REM   4. ffmpeg                      -> installed with winget if missing
 REM   5. Ollama models               -> LlmModel, VisionModel, and Memory's LlmModel if memory is on
-REM                                     (if Ollama is installed); and the face models (YuNet + SFace) -> models\faces
+REM                                     (if Ollama is installed); the face models (YuNet + SFace) -> models\faces;
+REM                                     and her dream image model (DreamImageModel) -> models\, copied from
+REM                                     ModelBackup in config.json when it's there (else downloaded, then backed up)
 REM   6. EMOCA 3D head test          -> emoca_test\ (optional, asks first: non-commercial licence)
 setlocal EnableDelayedExpansion
 cd /d "%~dp0"
@@ -87,6 +89,9 @@ echo [5/6] Ollama models (LlmModel and VisionModel in config.json, and Memory's 
 echo   Face recognition models:
 "%PY%" -c "import sys; sys.path.insert(0, 'scripts'); from dream_mind.faces import download_models; sys.exit(0 if download_models() else 1)"
 if errorlevel 1 set "FAILED=!FAILED!, face models"
+echo   Dream image model:
+"%PY%" -c "import sys; sys.path.insert(0, 'scripts'); from dream_mind.dream_visions import download; sys.exit(0 if download() else 1)"
+if errorlevel 1 set "FAILED=!FAILED!, dream image model"
 where ollama >nul 2>&1
 if errorlevel 1 (
     echo   Ollama is not installed - get it from https://ollama.com, then run this again

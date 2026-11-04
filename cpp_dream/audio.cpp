@@ -9,11 +9,19 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <cmath>
+#include <deque>
 #include <functional>
+#include <utility>
 
 namespace {
 
-constexpr int SPEECH_PEAK = 600;  // per-50ms peak (of 32768) that counts as speech
+// Speech vs silence follows the room (the same rule as the web page and dream.py): the
+// quietest 50 ms of the last NOISE_WINDOW seconds is the background, and talking is
+// SPEECH_OVER_NOISE times that, at least SPEECH_RMS_MIN (RMS, of 32768).
+constexpr double SPEECH_RMS_MIN = 0.01 * 32768;
+constexpr double SPEECH_OVER_NOISE = 3.0;
+constexpr double NOISE_WINDOW = 2.0;
 
 Wav g_micFile;           // --mic-file: what the "microphone" hears
 size_t g_micPos = 0;     // how far through it we are (persists across recordings)
@@ -92,6 +100,13 @@ MicClip record(const std::function<bool(const int16_t*, size_t, int)>& onChunk) 
     return clip;
 }
 
+double rmsOf(const int16_t* p, size_t n) {
+    if (!n) return 0;
+    double sum = 0;
+    for (size_t i = 0; i < n; i++) sum += double(p[i]) * p[i];
+    return std::sqrt(sum / n);
+}
+
 int peakOf(const int16_t* p, size_t n) {
     int peak = 0;
     for (size_t i = 0; i < n; i++) peak = std::max(peak, std::abs(int(p[i])));
@@ -114,9 +129,15 @@ MicClip recordCommand(double maxSeconds, double silenceSec, double noSpeechSec) 
     double t0 = dream::nowSec();
     double lastVoice = t0;
     bool heard = false;
+    std::deque<std::pair<double, double>> readings;  // (time, rms) of the last NOISE_WINDOW
     MicClip clip = record([&](const int16_t* p, size_t n, int) {
         double now = dream::nowSec();
-        if (peakOf(p, n) > SPEECH_PEAK) { heard = true; lastVoice = now; }
+        double rms = rmsOf(p, n);
+        readings.emplace_back(now, rms);
+        while (!readings.empty() && now - readings.front().first > NOISE_WINDOW) readings.pop_front();
+        double noise = rms;
+        for (const auto& r : readings) noise = std::min(noise, r.second);
+        if (rms > std::max(SPEECH_RMS_MIN, noise * SPEECH_OVER_NOISE)) { heard = true; lastVoice = now; }
         if (now - t0 >= maxSeconds) return false;
         if (heard && now - lastVoice > silenceSec) return false;
         if (!heard && now - t0 > noSpeechSec) return false;

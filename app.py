@@ -60,6 +60,9 @@ except ImportError:
 # ── Config ─────────────────────────────────────────────────────────────────────
 OLLAMA_URL     = "http://localhost:11434/api/generate"
 import dream_models
+import dream_device   # Device in config.json: CPU or GPU for all of DREAM
+import dream_wake     # InstantWake in config.json: how many calls it takes to wake her
+import dream_mirror   # what she shows and says, for a robot that mirrors her (RITA)
 MODEL          = dream_models.llm()   # LlmModel in config.json (options.py)
 import dream_fleet   # "tell NORA to stop the music", and TINA's kind of work handed to TINA
 SAMPLE_RATE    = 16000
@@ -93,6 +96,7 @@ LOCAL_HTTP_PORT = dashboard_cfg.get("LocalPort", 5010)
 # behaviours of the desktop app) on its own port, so the dashboard
 # and API stay on THIS_PORT. Same Flask app; "/" on this port is her page.
 PHONE_PORT    = dashboard_cfg.get("PhonePort", 5001)
+MIRROR_PORT   = dashboard_cfg.get("MirrorPort", 5015)   # plain-HTTP, read-only: her clip and voice for RITA
 
 WIFI_TRIGGERS  = [
     "check wifi","wifi scan","scan wifi","who's on the wifi","who is on the wifi",
@@ -407,7 +411,7 @@ def ask_llm(prompt, history, context=""):
             resp = mind_llm.generate(prompt_text, num_predict=(MIND.token_budget(150) if MIND else 150), temperature=0.7, timeout=120)
         else:
             r = _req.post(OLLAMA_URL, json={"model": MODEL, "prompt": prompt_text, "stream": False,
-                                            "options": {"temperature": 0.7, "num_predict": 150, "num_gpu": 20}}, timeout=120)
+                                            "options": dream_device.ollama_options(temperature=0.7, num_predict=150)}, timeout=120)
             resp = r.json().get("response", "").strip()
         if "<think>" in resp:
             end = resp.find("</think>")
@@ -440,7 +444,7 @@ def speak_text(text):
     tmp.close()
     try:
         proc = subprocess.run(
-            [PIPER_BIN, "-m", VOICE_MODEL, "-f", tmp.name, *_prosody_args()],
+            [PIPER_BIN, "-m", VOICE_MODEL, "-f", tmp.name, *_prosody_args(), *dream_device.piper_args()],
             input=text.encode("utf-8"), capture_output=True, timeout=15,
         )
         if proc.returncode != 0 or os.path.getsize(tmp.name) < 100:
@@ -860,9 +864,12 @@ def touch_interaction():
     if time.time() > _dream["peer_until"]:   # a page busy playing her line to KIDA isn't you
         _dream["last_user_ts"] = time.time()
 
+SLEEPER = dream_wake.Sleeper(lambda: MIND)   # tired, deep asleep: it can take a few calls
+
 def enter_sleep():
     if not _dream["sleeping"]:
         _dream["sleeping"] = True
+        SLEEPER.fell_asleep()
         push_event({"type": "sleep", "sleeping": True})
 
 def exit_sleep():
@@ -922,9 +929,13 @@ def _dream_on_sensor_line(line: str):
         MIND.on_sensor(line)
     if line == "PRESENT":
         _dream["presence_seen"] = True
-        if _dream["sleeping"]:
-            exit_sleep()
-            threading.Thread(target=_announce, args=(wake_greeting(), "wake"), daemon=True).start()
+        if _dream["sleeping"]:   # someone came in: a nudge, like a call (InstantWake: wakes her)
+            woke, said = SLEEPER.nudge()
+            if woke:
+                exit_sleep()
+                threading.Thread(target=_announce, args=(said or wake_greeting(), "wake"), daemon=True).start()
+            elif said:
+                threading.Thread(target=_announce, args=(said, "stir"), daemon=True).start()
         else:
             touch_interaction()
     elif line == "ABSENT":
@@ -1053,6 +1064,14 @@ def api_dream_config():
         "show_thoughts":  bool(dream_cfg.get("ShowThoughts", False)),
     })
 
+@app.route("/api/dream/now", methods=["POST"])
+def api_dream_now():
+    """The page started a clip or a spoken line (or finished speaking): robots that mirror her
+    (RITA) play the same clip from the same moment, and her voice (scripts/dream_mirror.py)."""
+    d = request.get_json(silent=True) or {}
+    dream_mirror.note(clip=d.get("clip"), loop=d.get("loop", True), speech=d.get("speech"), speech_done=bool(d.get("speech_done")))
+    return jsonify({"ok": True})
+
 @app.route("/api/dream/activity", methods=["POST"])
 def api_dream_activity():
     """A page reports whether it's busy (recording/thinking/speaking) so the
@@ -1099,10 +1118,15 @@ def api_wake():
         return jsonify({"trigger": None})
 
     if _dream["sleeping"]:
-        if any(w in text for w in SLEEP_WAKE_WORDS):
-            exit_sleep()
-            greeting = wake_greeting()
-            return jsonify({"trigger": "wake", "text": greeting, "audio_url": _audio_url_for(greeting), "heard": text})
+        # "wake up" or her name: each call is a nudge. She may need a few (dream_wake.py)
+        if any(w in text for w in SLEEP_WAKE_WORDS + WAKE_WORDS):
+            woke, said = SLEEPER.nudge()
+            if woke:
+                exit_sleep()
+                greeting = said or wake_greeting()
+                return jsonify({"trigger": "wake", "text": greeting, "audio_url": _audio_url_for(greeting), "heard": text})
+            if said:   # still asleep: a sleepy mumble
+                return jsonify({"trigger": "stir", "text": said, "audio_url": _audio_url_for(said), "heard": text})
         return jsonify({"trigger": None, "heard": text})
 
     if any(w in text for w in WAKE_WORDS):
@@ -1461,7 +1485,8 @@ def _peer_generate(prompt, **kw):
     options = {"temperature": kw.get("temperature", 0.7), "num_predict": kw.get("num_predict", 70)}
     if kw.get("stop"):
         options["stop"] = kw["stop"]
-    r = _req.post(OLLAMA_URL, json={"model": MODEL, "prompt": prompt, "stream": False, "options": options},
+    r = _req.post(OLLAMA_URL, json={"model": MODEL, "prompt": prompt, "stream": False,
+                                    "options": dream_device.ollama_options(**options)},
                   timeout=kw.get("timeout", 90))
     return r.json().get("response", "")
 
@@ -1589,6 +1614,7 @@ if __name__ == "__main__":
     threading.Thread(target=rift_heartbeat, daemon=True).start()
     print(f"[DREAM] Announcing to RIFT at {RIFT_HOST}:{RIFT_PORT} every {RIFT_HEARTBEAT_SECS}s")
 
+    dream_mirror.start_server(MIRROR_PORT, lambda: (_state["value"], _dream["sleeping"]), AUDIO_DIR)
     https_ok = ensure_self_signed_cert()
     run_kwargs = {"host": "0.0.0.0", "port": THIS_PORT, "debug": False, "threaded": True}
     # DREAM's own site on PHONE_PORT (HTTPS when we have a certificate: a

@@ -39,7 +39,7 @@ D._init_lipsync_cache = lambda: None
 D.get_whisper = lambda: None
 D.check_audio_levels = lambda fp=None: True
 
-def fake_record(path, seconds):                      # a "recording" with a real voice-like signal, so the cue code runs
+def fake_record(path, seconds, until_quiet=False):                    # a "recording" with a real voice-like signal, so the cue code runs
     sr = 16000; t = np.arange(sr * 2) / sr
     x = (np.sin(2 * np.pi * 180 * t * (1 + 0.08 * np.sin(2 * np.pi * 3 * t))) * 0.25 * (0.5 + 0.5 * np.sin(2 * np.pi * 4 * t)) * 32767).astype(np.int16)
     with wave.open(path, "wb") as w:

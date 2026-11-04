@@ -53,6 +53,9 @@ def depth_path(video_path):
 
 def _cuda_torch():
     """torch, if it can use the GPU; the warp then runs there (~3 ms plus transfers)."""
+    import dream_device   # Device in config.json
+    if not dream_device.use_gpu("image"):
+        return None
     try:
         import torch
         return torch if torch.cuda.is_available() else None

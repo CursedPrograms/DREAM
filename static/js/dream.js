@@ -23,9 +23,14 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
 /* Tuning. Levels are peak amplitude, 0..1. */
 const LEVEL_WAKE_CLIP = 0.01;   // a wake clip quieter than this isn't sent to Whisper
-const LEVEL_SPEECH    = 0.02;   // above this while recording a command counts as speech
+// Speech vs silence follows the room: the quietest 50 ms in the last NOISE_WINDOW_MS is the
+// background (fan, hiss), and only SPEECH_OVER_NOISE times that (at least SPEECH_RMS_MIN) is talking.
+const SPEECH_RMS_MIN    = 0.01;
+const SPEECH_OVER_NOISE = 3;
+const NOISE_WINDOW_MS   = 2000;
 const SILENCE_END_MS  = 1500;   // this long quiet after speech ends the command
 const NO_SPEECH_MS    = 6000;   // this long with no speech at all gives up
+const MANUAL_NO_SPEECH_MS = 10000;  // tap-to-talk waits a bit longer for you to start
 const MANUAL_MAX_MS   = 60000;  // longest tap-to-talk recording
 
 let cfg = { startup_text: '', wake_seconds: 3, record_seconds: 16 };
@@ -80,6 +85,14 @@ function playClip(path, { loop = true, onEnded = null } = {}) {
   };
   back.load();
   curPath = path;
+  tellMirror({ clip: path, loop });
+}
+
+/* What she shows and says, for robots that mirror her (RITA: the same clip, her voice). */
+function tellMirror(what) {
+  fetch('/api/dream/now', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(what),
+  }).catch(() => {});
 }
 
 function setLabel(text) { $('dream-state').textContent = text; }
@@ -141,7 +154,8 @@ function playAudio(url) {
     setVisualState('talking');
     const a = new Audio(url + '?cb=' + Date.now());
     currentAudio = a;
-    const done = () => { if (currentAudio === a) currentAudio = null; resolve(); };
+    tellMirror({ speech: url });
+    const done = () => { if (currentAudio === a) { currentAudio = null; tellMirror({ speech_done: true }); } resolve(); };
     a.onended = done;
     a.onerror = done;
     a.play().catch(done);
@@ -225,6 +239,22 @@ function micLevel() {
   return peak;
 }
 
+/* Loudness (RMS, 0..1) of the latest mic samples: steadier than the peak for telling talk from noise. */
+function micRms() {
+  analyser.getFloatTimeDomainData(levelBuf);
+  let sum = 0;
+  for (let i = 0; i < levelBuf.length; i++) sum += levelBuf[i] * levelBuf[i];
+  return Math.sqrt(sum / levelBuf.length);
+}
+
+/* The room's background loudness: the quietest reading of the last NOISE_WINDOW_MS. */
+const noiseReadings = [];
+function noiseFloor(now, rms) {
+  noiseReadings.push([now, rms]);
+  while (noiseReadings.length && now - noiseReadings[0][0] > NOISE_WINDOW_MS) noiseReadings.shift();
+  return Math.min(...noiseReadings.map(r => r[1]));
+}
+
 function pickMime() {
   return ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'].find(m => MediaRecorder.isTypeSupported(m)) || '';
 }
@@ -233,10 +263,10 @@ function pickMime() {
  * Record from the mic. Resolves { blob, peak, heard } when it stops:
  *   maxMs      hard limit
  *   vad        also stop after SILENCE_END_MS of quiet following speech, or
- *              NO_SPEECH_MS with none at all
+ *              noSpeechMs with none at all (quiet = near the room's own noise)
  *   shouldStop polled every tick (tap-to-talk's second tap)
  */
-function recordSegment({ maxMs, vad = false, shouldStop = null }) {
+function recordSegment({ maxMs, vad = false, noSpeechMs = NO_SPEECH_MS, shouldStop = null }) {
   return new Promise(resolve => {
     const mime = pickMime();
     const rec = new MediaRecorder(micStream, mime ? { mimeType: mime } : {});
@@ -251,13 +281,13 @@ function recordSegment({ maxMs, vad = false, shouldStop = null }) {
 
     const tick = setInterval(() => {
       const now = performance.now();
-      const level = micLevel();
-      peak = Math.max(peak, level);
-      if (level > LEVEL_SPEECH) { heard = true; lastVoice = now; }
+      peak = Math.max(peak, micLevel());
+      const rms = micRms();
+      if (rms > Math.max(SPEECH_RMS_MIN, noiseFloor(now, rms) * SPEECH_OVER_NOISE)) { heard = true; lastVoice = now; }
       const elapsed = now - t0;
       const done = elapsed >= maxMs
         || (shouldStop && shouldStop())
-        || (vad && ((heard && now - lastVoice > SILENCE_END_MS) || (!heard && elapsed > NO_SPEECH_MS)));
+        || (vad && ((heard && now - lastVoice > SILENCE_END_MS) || (!heard && elapsed > noSpeechMs)));
       if (done) {
         clearInterval(tick);
         if (rec.state !== 'inactive') rec.stop();
@@ -308,6 +338,7 @@ async function wakeLoop() {
     if (busy) continue;                                      // something else took over while it transcribed
 
     if (d.trigger === 'wake') runExclusive(() => wakeFlow(d.text, d.audio_url));
+    else if (d.trigger === 'stir') runExclusive(() => say(d.text, d.audio_url));   // mumbles, still asleep
     else if (d.trigger === 'wifi') sendText('check wifi');
   }
 }
@@ -323,11 +354,12 @@ $('mic-btn').addEventListener('click', async () => {
   await runExclusive(async () => {
     manualRecording = true; manualStop = false;
     $('mic-btn').classList.add('active');
-    $('mic-hint').textContent = 'LISTENING… TAP TO STOP';
+    $('mic-hint').textContent = 'LISTENING… STOPS WHEN YOU DO';
     setVisualState('listening');
     let seg;
     try {
-      seg = await recordSegment({ maxMs: MANUAL_MAX_MS, shouldStop: () => manualStop });
+      seg = await recordSegment({ maxMs: MANUAL_MAX_MS, vad: true, noSpeechMs: MANUAL_NO_SPEECH_MS,
+                                 shouldStop: () => manualStop });  // stops when you stop talking, or on a second tap
     } finally {
       manualRecording = false;
       $('mic-btn').classList.remove('active');
@@ -457,6 +489,9 @@ function connectSSE() {
         break;
       case 'wake':    // the sensor saw someone while she slept: greet, then listen
         if (started && !busy) runExclusive(() => wakeFlow(d.text, d.audio_url));
+        break;
+      case 'stir':    // the sensor nudged her but she sleeps on: a sleepy mumble
+        if (started && !busy) runExclusive(() => say(d.text, d.audio_url));
         break;
       case 'speak':   // e.g. the goodbye when someone leaves
         if (started && !busy) runExclusive(() => say(d.text, d.audio_url));

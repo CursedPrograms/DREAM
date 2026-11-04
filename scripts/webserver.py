@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import dream_device   # Device in config.json: CPU or GPU for all of DREAM
 import io
 import base64
 import tempfile
@@ -136,7 +139,8 @@ def chat():
             full_prompt += f"{role}: {msg['content']}\n"
         full_prompt += "You:"
 
-    payload = {"model": CHAT_MODEL, "prompt": full_prompt, "stream": False}
+    payload = {"model": CHAT_MODEL, "prompt": full_prompt, "stream": False,
+               "options": dream_device.ollama_options()}   # Device in config.json
     try:
         r = requests.post(OLLAMA_URL, json=payload, timeout=120)
         response = r.json().get("response", "").strip()

@@ -24,7 +24,7 @@ import re
 import threading
 import time
 
-from . import llm, store
+from . import bedtime, llm, store
 from .affect import Mood, affection, disclosure, sentiment
 from .dreaming import Dreamer, first_sentences
 from .hindsight_link import HindsightLink
@@ -474,6 +474,13 @@ class Mind:
                 self._pending["sleep_after"] = True
             return Preflight(reply=decision.text, sleep_after=decision.sleep_after)
 
+        # "goodnight": she checks the clock, how tired she is and who she sees, then decides (bedtime.py)
+        plan = bedtime.decide(text, self, now)
+        if plan:
+            if plan.sleep:
+                self._pending["sleep_after"] = True    # post_reply puts her to sleep once she's said it
+            return Preflight(context=plan.context + "\n" + self.prompt_context(text, now), sleep_after=plan.sleep)
+
         # reminders: a goal with a deadline
         rem = parse_reminder(text, now)
         if rem:
@@ -487,13 +494,15 @@ class Mind:
             day = "" if t.tm_yday == today.tm_yday else " tomorrow" if mins < 48 * 60 else f" on {time.strftime('%A', t)}"
             return Preflight(reply=f"Okay. I'll remind you to {what} at {senses.clock_time(t)}{day}.")
 
+        self._enroll_preface = ""
         meta = self.handle_meta(text, now)
         if meta:
             self._pending["handled"] = True
             return Preflight(reply=meta)
 
         self.philosophy.expose(text, now)   # a real conversation - not a command or a boundary reply - can plant an idea
-        return Preflight(preface=decision.text if decision.action == "preface" else "", context=self.prompt_context(text, now))
+        preface = " ".join(x for x in (self._enroll_preface, decision.text if decision.action == "preface" else "") if x)
+        return Preflight(preface=preface, context=self.prompt_context(text, now))
 
     def post_reply(self, reply):
         """Call once she has answered: the exchange becomes a memory. If she said she
@@ -810,6 +819,12 @@ class Mind:
         if m and m.group(1).lower() not in _STOP_NAMES:
             name = m.group(1).strip("'-").capitalize()
             result = self.faces.enroll(frames.latest(5.0)[0], name)
+            # more than a name ("my name is Sam and I love my old guitar..."): a short hello first,
+            # then the rest gets a real answer and becomes a memory, instead of being swallowed
+            if len(text.split()) > len(m.group(0).split()) + 3:
+                self._enroll_preface = {"new": f"Nice to meet you, {name}. I'll remember your face.",
+                                        "again": f"I know, {name}."}.get(result, f"Nice to meet you, {name}.")
+                return None
             if result == "new":
                 return f"Nice to meet you, {name}. I'll remember your face. Say 'forget my face' if you ever want me not to."
             if result == "again":

@@ -20,7 +20,11 @@ Model stack (all loaded from resources/weights/):
 """
 
 import os
+import sys
 import cv2
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import dream_device   # Device in config.json: CPU or GPU for all of DREAM
 import json
 import numpy as np
 import onnxruntime as ort
@@ -164,7 +168,8 @@ class Models:
         yunet_path = W("face_detection_yunet_2023mar.onnx")
         if os.path.exists(yunet_path):
             try:
-                self.yunet = cv2.FaceDetectorYN.create(yunet_path, "", (320, 320))
+                backend, target = dream_device.opencv_dnn()
+                self.yunet = cv2.FaceDetectorYN.create(yunet_path, "", (320, 320), 0.9, 0.3, 5000, backend, target)
                 console.print("[green]  ✔ YuNet face detector loaded[/green]")
             except Exception as e:
                 console.print(f"[yellow]  ⚠ YuNet failed: {e}[/yellow]")
@@ -325,7 +330,8 @@ def detect_objects(frame, conf_threshold=0.45):
     # ── YOLOv8n (preferred) ───────────────────────────────────────────────────
     if m.yolo:
         try:
-            results = m.yolo.predict(frame, conf=conf_threshold, verbose=False)[0]
+            results = m.yolo.predict(frame, conf=conf_threshold, verbose=False,
+                                     device=dream_device.torch_device("image"))[0]
             for box in results.boxes:
                 cls_id = int(box.cls[0])
                 conf   = float(box.conf[0])

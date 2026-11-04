@@ -26,6 +26,7 @@ import threading
 import queue
 import time
 import subprocess
+_DREAM_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir))   # DREAM's root: model paths don't depend on the folder it was started from
 
 
 def fast_check_ffmpeg():
@@ -320,9 +321,9 @@ if __name__ == "__main__":
     parser.add_argument("--ffmpeg_path", type=str, default="./ffmpeg-4.4-amd64-static/", help="Path to ffmpeg executable")
     parser.add_argument("--gpu_id", type=int, default=0, help="GPU ID to use")
     parser.add_argument("--vae_type", type=str, default="sd-vae", help="Type of VAE model")
-    parser.add_argument("--unet_config", type=str, default="./models/musetalk/musetalk.json", help="Path to UNet configuration file")
-    parser.add_argument("--unet_model_path", type=str, default="./models/musetalk/pytorch_model.bin", help="Path to UNet model weights")
-    parser.add_argument("--whisper_dir", type=str, default="./models/whisper", help="Directory containing Whisper model")
+    parser.add_argument("--unet_config", type=str, default=os.path.join(_DREAM_ROOT, "models/musetalk/musetalk.json"), help="Path to UNet configuration file")
+    parser.add_argument("--unet_model_path", type=str, default=os.path.join(_DREAM_ROOT, "models/musetalk/pytorch_model.bin"), help="Path to UNet model weights")
+    parser.add_argument("--whisper_dir", type=str, default=os.path.join(_DREAM_ROOT, "models/whisper"), help="Directory containing Whisper model")
     parser.add_argument("--inference_config", type=str, default="configs/inference/realtime.yaml")
     parser.add_argument("--bbox_shift", type=int, default=0, help="Bounding box shift value")
     parser.add_argument("--result_dir", default='./results', help="Directory for output results")
@@ -354,7 +355,10 @@ if __name__ == "__main__":
             print("Warning: Unable to find ffmpeg, please ensure ffmpeg is properly installed")
 
     # Set computing device
-    device = torch.device(f"cuda:{args.gpu_id}" if torch.cuda.is_available() else "cpu")
+    import os as _os, sys as _sys   # scripts/ on the path, for dream_device
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    import dream_device   # Device in config.json: CPU or GPU for all of DREAM
+    device = torch.device(f"cuda:{args.gpu_id}" if dream_device.use_gpu() else "cpu")
 
     # Load model weights
     vae, unet, pe = load_all_model(

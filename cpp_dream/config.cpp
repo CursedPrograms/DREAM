@@ -82,6 +82,7 @@ Config load() {
             for (size_t pos; (pos = prompt.find("{name}")) != std::string::npos;) prompt.replace(pos, 6, c.charName);
             c.systemPrompt = prompt;
             whisperName = d.value("WhisperModel", whisperName);
+            c.device = d.value("Device", c.device);
             c.model = d.value("LlmModel", c.model);
             voiceName = d.value("Voice", voiceName);
         } catch (const std::exception& e) {

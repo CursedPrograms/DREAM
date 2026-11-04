@@ -39,9 +39,11 @@ import psutil
 
 try:
     import torch
-    CUDA_AVAILABLE = torch.cuda.is_available()
 except ImportError:
-    CUDA_AVAILABLE = False
+    torch = None
+import dream_device   # Device in config.json: CPU or GPU for all of DREAM
+import dream_wake     # InstantWake in config.json: how many calls it takes to wake her
+CUDA_AVAILABLE = dream_device.use_gpu()   # (name kept: it means "run on the GPU")
 
 try:
     import cv2
@@ -391,6 +393,7 @@ def enter_sleep():
         return
     console.print("[blue]DREAM is falling asleep...[/blue]")
     _state["sleeping"] = True
+    SLEEPER.fell_asleep()
     set_state("sleeping")
     # Dreaming is the mind's job now (dream_mind/dreaming.py + dream_images.py): consolidation, a dream
     # built from her memories, and a painting of it. The old batch script is only a fallback.
@@ -398,6 +401,38 @@ def enter_sleep():
         t = threading.Thread(target=_run_deep_dream_background, daemon=True)
         t.start()
         _state["deep_dream_thread"] = t
+
+
+SLEEPER = dream_wake.Sleeper(lambda: MIND)   # tired, deep asleep: it can take a few calls
+
+
+def _mumble(text):
+    """A sleepy line said without waking: her voice only, the sleeping loop keeps playing."""
+    console.print(f"[blue]DREAM (asleep):[/blue] {text}")
+    _state["caption"] = (text, time.time())
+    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False, dir=AUDIO_DIR)
+    tmp.close()
+    try:
+        if _synthesize(text, tmp.name) and os.path.getsize(tmp.name) > 100:
+            _play_wav(tmp.name)
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+
+
+def _call_while_asleep(why):
+    """A call ("wake up", her name) or someone at the sensor while she sleeps. True: she's up."""
+    woke, said = SLEEPER.nudge()
+    if woke:
+        console.print(f"[bold green]{why} - DREAM is waking up![/bold green]")
+        _state["wake_line"] = said   # her groggy greeting after a few calls (None: the usual "Yes?")
+        return True
+    console.print(f"[dim]{why} - she stirs but sleeps on.[/dim]")
+    if said:
+        _mumble(said)
+    return False
 
 
 def exit_sleep():
@@ -725,14 +760,49 @@ def get_mic_samplerate():
     import sounddevice as sd
     return int(sd.query_devices(kind="input")["default_samplerate"])
 
-def _record_clip(filepath, seconds):
+# Commands stop when you stop talking. Speech vs silence follows the room: the quietest 50 ms
+# of the last NOISE_WINDOW seconds is the background, and talking is SPEECH_OVER_NOISE times
+# that (at least SPEECH_RMS_MIN, as a 0..1 RMS level), the same rule as the web page's.
+SPEECH_RMS_MIN    = 0.01
+SPEECH_OVER_NOISE = 3
+NOISE_WINDOW      = 2.0
+SILENCE_END       = 1.5   # this long quiet after speech ends the command
+NO_SPEECH         = 6.0   # this long with no speech at all gives up
+
+
+def _capture_until_quiet(native_rate, max_seconds):
+    """Record up to max_seconds, stopping SILENCE_END after the speaker goes quiet."""
+    import sounddevice as sd
+    block = native_rate // 20                      # 50 ms
+    chunks, readings = [], []
+    heard, last_voice, t = False, 0.0, 0.0
+    with sd.InputStream(samplerate=native_rate, channels=CHANNELS, dtype="int16", blocksize=block) as stream:
+        while t < max_seconds:
+            data, _ = stream.read(block)
+            chunks.append(data.copy())
+            t += block / native_rate
+            rms = float(np.sqrt(np.mean((data[:, 0].astype(np.float32) / 32768.0) ** 2)))
+            readings.append((t, rms))
+            while readings and t - readings[0][0] > NOISE_WINDOW:
+                readings.pop(0)
+            if rms > max(SPEECH_RMS_MIN, min(r for _, r in readings) * SPEECH_OVER_NOISE):
+                heard, last_voice = True, t
+            if (heard and t - last_voice > SILENCE_END) or (not heard and t > NO_SPEECH):
+                break
+    return np.concatenate(chunks)
+
+
+def _record_clip(filepath, seconds, until_quiet=False):
     import sounddevice as sd
     from scipy.signal import resample_poly
     try:
         native_rate = get_mic_samplerate()
-        audio = sd.rec(int(seconds * native_rate), samplerate=native_rate,
-                       channels=CHANNELS, dtype="int16")
-        sd.wait()
+        if until_quiet:
+            audio = _capture_until_quiet(native_rate, seconds)
+        else:
+            audio = sd.rec(int(seconds * native_rate), samplerate=native_rate,
+                           channels=CHANNELS, dtype="int16")
+            sd.wait()
         audio_flat = audio[:, 0] if audio.ndim > 1 else audio.flatten()
         if native_rate != SAMPLE_RATE:
             g = math.gcd(SAMPLE_RATE, native_rate)
@@ -816,10 +886,10 @@ def listen_for_wake_word():
     while _state["running"]:
         if _state["sleeping"] and _state["sensor_wake"]:
             _state["sensor_wake"] = False
-            console.print("[bold green]Presence detected — waking DREAM![/bold green]")
-            _state["wake_active"] = False
-            exit_sleep()
-            return "__WAKE__"
+            if _call_while_asleep("Presence detected"):
+                _state["wake_active"] = False
+                exit_sleep()
+                return "__WAKE__"
 
         if not _record_clip(WAKE_FILE, WAKE_SECONDS):
             time.sleep(0.2)
@@ -834,10 +904,9 @@ def listen_for_wake_word():
 
         console.print(f"[dim]Wake check: '{text}'[/dim]")
 
-        # --- Sleeping mode: only "wake up" counts ---
+        # --- Sleeping mode: "wake up" or her name, and she may need a few (dream_wake.py) ---
         if _state["sleeping"]:
-            if any(w in text for w in SLEEP_WAKE_WORDS):
-                console.print("[bold green]Wake-up word detected — waking DREAM![/bold green]")
+            if any(w in text for w in SLEEP_WAKE_WORDS + WAKE_WORDS) and _call_while_asleep("Called"):
                 _state["wake_active"] = False
                 exit_sleep()
                 return "__WAKE__"
@@ -879,7 +948,7 @@ def ask_llm(prompt, history, context=""):
                 response = mind_llm.generate(full_prompt, num_predict=(MIND.token_budget(150) if MIND else 150), temperature=0.7, timeout=120)
             else:
                 r = requests.post(OLLAMA_URL, json={"model": MODEL, "prompt": full_prompt, "stream": False,
-                                                    "options": {"temperature": 0.7, "num_predict": 150, "num_gpu": 20}}, timeout=120)
+                                                    "options": dream_device.ollama_options(temperature=0.7, num_predict=150)}, timeout=120)
                 if r.status_code != 200:
                     return "Sorry, I encountered an error."
                 response = r.json().get("response", "").strip()
@@ -954,7 +1023,7 @@ def _synthesize(text: str, wav_path: str, prosody: dict | None = None) -> bool:
     args = mind_voice.piper_args(prosody) if (prosody and mind_voice) else []
     try:
         proc = subprocess.run(
-            [PIPER_BIN, "-m", VOICE_MODEL, "-f", wav_path, *args],
+            [PIPER_BIN, "-m", VOICE_MODEL, "-f", wav_path, *args, *dream_device.piper_args()],
             input=text.encode("utf-8"), capture_output=True, timeout=60,
         )
     except subprocess.TimeoutExpired:
@@ -1780,12 +1849,12 @@ def voice_loop():
                     speak(summary)
                     continue
 
-                speak(_wake_greeting())
+                speak(_state.pop("wake_line", None) or _wake_greeting())
             follow_up = False
             set_state("listening")
             console.print("[bold yellow]Listening for command...[/bold yellow]")
 
-            if not _record_clip(AUDIO_FILE, RECORD_SECONDS):
+            if not _record_clip(AUDIO_FILE, RECORD_SECONDS, until_quiet=True):
                 speak("I didn't catch that.")
                 continue
 

@@ -20,6 +20,9 @@ from argparse import Namespace
 import cv2
 import numpy as np
 import torch
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import dream_device   # Device in config.json: CPU or GPU for all of DREAM
 import torch._dynamo
 torch._dynamo.config.suppress_errors = True
 torch.compiler.reset()
@@ -80,7 +83,7 @@ def fast_check_ffmpeg():
         return False
 
 # ─── Load models (once, at startup) ─────────────────────────────────────────
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device(dream_device.torch_device())
 
 vae, unet, pe = load_all_model(
     unet_model_path = UNET_MODEL_PATH,

@@ -25,6 +25,9 @@ import time
 
 import requests
 
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # scripts/
+import dream_device   # Device in config.json: CPU or GPU for all of DREAM
 from . import frames, llm, store
 
 try:
@@ -103,7 +106,7 @@ def describe(frame, question="", people=(), strangers=0):
     model = _models().vision_model()
     try:
         r = requests.post(llm.OLLAMA_URL, json={"model": model, "prompt": prompt, "images": [img], "stream": False,
-                                                "options": {"num_predict": 160, "temperature": 0.6}}, timeout=TIMEOUT_S)
+                                                "options": dream_device.ollama_options("image", num_predict=160, temperature=0.6)}, timeout=TIMEOUT_S)
         r.raise_for_status()
         text = (r.json().get("response") or "").strip()
     except requests.RequestException as e:
@@ -152,7 +155,7 @@ def observe(frame, people=(), strangers=0):
         return None
     try:
         r = requests.post(llm.OLLAMA_URL, json={"model": _models().vision_model(), "prompt": prompt, "images": [img],
-                                                "stream": False, "options": {"num_predict": 60, "temperature": 0.3}},
+                                                "stream": False, "options": dream_device.ollama_options("image", num_predict=60, temperature=0.3)},
                           timeout=TIMEOUT_S)
         r.raise_for_status()
         text = " ".join((r.json().get("response") or "").replace("*", "").split()).strip('"')

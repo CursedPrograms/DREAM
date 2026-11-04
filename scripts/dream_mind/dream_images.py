@@ -38,6 +38,9 @@ import numpy as np
 
 from . import dream_visions, dream_world, store
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # scripts/, for dream_device
+import dream_device   # ImageDevice in config.json
+
 try:
     import cv2
 except ImportError:
@@ -63,7 +66,9 @@ ENGINE_CACHE = "dream_engine.json"
 TF_PRESETS = {
     "pleasant":  {"layers": ["mixed3", "mixed4"], "octaves": 3, "steps": 12, "step_size": 0.01, "scale": 1.3},
     "strange":   {"layers": ["mixed3", "mixed4", "mixed5"], "octaves": 4, "steps": 15, "step_size": 0.01, "scale": 1.3},
-    "nightmare": {"layers": ["mixed7", "mixed8"], "octaves": 4, "steps": 20, "step_size": 0.8, "scale": 2.4},
+    # (was step 0.8, scale 2.4 from nightmare_dreamer.py: with the gradient normalised that fries the
+    #  picture into pure static, and its octaves got too small for mixed7-8; 0.05 / 1.4 crawls instead)
+    "nightmare": {"layers": ["mixed7", "mixed8"], "octaves": 4, "steps": 20, "step_size": 0.05, "scale": 1.4},
 }
 
 # OpenCV renderer: how each tone bends the picture each frame.
@@ -237,7 +242,7 @@ def render_tensorflow(source_path, tone, out_path, stop=None):
     worker = Path(__file__).with_name("deepdream_worker.py")
     preset = TF_PRESETS.get(tone, TF_PRESETS["strange"])
     proc = subprocess.Popen([sys.executable, str(worker), str(source_path), str(out_path), json.dumps(preset), str(tensorflow_side() or 224)],
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=dream_device.subprocess_env("image"))
     deadline = time.time() + TF_TIMEOUT_S
     while proc.poll() is None:
         if (stop is not None and stop.is_set()) or time.time() > deadline:
@@ -271,7 +276,7 @@ def latent_walk(dream, seed, stop=None):
     # through the world she's learned from her own pictures, once she has (dream_world.py).
     learned = None if mode == "spiral" else dream_world.learned_checkpoint()
     dream["image_world"] = "learned" if learned else "untrained"
-    ls.DEVICE = "cpu"                                   # small network; no need to touch the GPU
+    ls.DEVICE = dream_device.torch_device("image")      # ImageDevice in config.json (cpu by default)
     ls.OUTPUT_DIR = images_dir() / "latent"
     stamp = time.strftime("%Y%m%d_%H%M%S", time.localtime(dream["ts"]))
     try:
@@ -371,7 +376,7 @@ def paint(mind, dream, stop=None):
 
 
 def _visualize(dream, world, stop):
-    """Keep the frames for the night's video, then let the Image-Generator see
+    """Keep the frames for the night's video, then let her image generator (dream_generator.py) see
     the dream's words (dream_visions.py). Sets dream["vision"] when it could."""
     try:
         if world:

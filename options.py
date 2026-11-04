@@ -15,6 +15,8 @@ Values: on/off for true/false, < 12 > for numbers, typing for text, and a
 dropdown (Enter or click opens it, Left/Right steps through it) wherever
 options_choices.json names the choices, e.g.
     {"Config/DREAM/DreamImageModel": ["auto", "sd-turbo", "sdxl-turbo"]}
+and a one-line hint at the bottom for any setting options_hints.json explains, e.g.
+    {"Config/DREAM/PiperDevice": "cuda measured slower than cpu on an RTX 2060"}
 Saving keeps the old file as config.json.bak.
 """
 
@@ -106,9 +108,9 @@ class ConfigFile:
         self.data = copy.deepcopy(self.saved)
 
 
-def load_choices():
+def load_choices(name="options_choices.json"):
     try:
-        with open(os.path.join(HERE, "options_choices.json"), encoding="utf-8") as f:
+        with open(os.path.join(HERE, name), encoding="utf-8") as f:
             return json.load(f)
     except (OSError, ValueError):
         return {}
@@ -145,6 +147,7 @@ class Options:
         self.dropdown = None      # {"key", "opts", "sel", "scroll"} while a list is open
         self.message, self.message_t = "", 0
         self.choices = load_choices()
+        self.hints = load_choices("options_hints.json")   # optional
         self.f_title = pygame.font.SysFont("consolas,couriernew,monospace", 30, bold=True)
         self.f_row = pygame.font.SysFont("consolas,couriernew,monospace", 19)
         self.f_small = pygame.font.SysFont("consolas,couriernew,monospace", 15)
@@ -384,6 +387,8 @@ class Options:
                     hot=any(f.dirty for f in self.files))
         if self.message and pygame.time.get_ticks() - self.message_t < 5000:
             self.text(self.message, self.f_small, c["accent_hover"], (150, by + 10), W - 440)
+        elif rows and self.hints.get(self.key_path(rows[self.sel])):
+            self.text(self.hints[self.key_path(rows[self.sel])], self.f_small, c["text_sec"], (150, by + 10), W - 440)
         else:
             self.text("↑↓ pick  Enter open/edit  ←→ change  Esc back  Ctrl+S save",
                       self.f_small, c["text_dim"], (150, by + 10), W - 440)
