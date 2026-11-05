@@ -78,3 +78,19 @@ def test_nothing_without_aura():
     assert s.prompt_line("hi") is None and s.candidate() is None and s.morning() == "" and not s.sunset_now()
     s.data, s.got = {"outside": CLEAR}, time.time() - 7200      # stale: she doesn't know any more
     assert s.prompt_line("hi") is None
+
+
+def test_new_signs():
+    brewing = dict(CLEAR, pressure_trend="falling fast", storm_potential="high")
+    s = sky_with(brewing)
+    assert s.facts()["notable"][0] == "brewing" and s.candidate()[0] == "weather_brewing"
+    assert "pressure is dropping fast" in s._sentence(s.facts())
+    assert sky_with(dict(CLEAR, gusts_kmh=62)).candidate()[0] == "weather_wind"
+    assert sky_with(dict(CLEAR, fog=True, visibility_km=0.4)).candidate()[0] == "weather_fog"
+    assert sky_with(dict(CLEAR, temp=1.0)).candidate()[0] == "weather_frost"
+    night = datetime.now().replace(hour=21, minute=0).timestamp()
+    clear = sky_with(dict(CLEAR, clouds={"total": 5}))
+    clear.got = night
+    assert clear.facts(night)["notable"][0] == "stars"
+    storm = dict(CLEAR, pressure_trend="falling fast", soon={"storm_at": "17:00"})
+    assert sky_with(storm).facts()["notable"][0] == "storm"      # a forecast storm beats the barometer

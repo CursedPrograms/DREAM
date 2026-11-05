@@ -25,7 +25,10 @@ DREAM_PITCH = 0.6                   # her voice is deep and slow (like her senso
 AURA_PORT = 5017
 
 WEATHER_WORDS = ("weather", "outside", "rain", "forecast", "umbrella", "moon", "sunrise", "sunset",
-                 "humid", "snow", "storm", "windy", "how cold", "how warm", "sunny", "cloudy", "aura")
+                 "humid", "snow", "storm", "windy", "how cold", "how warm", "sunny", "cloudy", "aura",
+                 "barometer", "air pressure", "gust", "stargaz", "see the stars", "thunder", "lightning",
+                 "sunscreen", "frost", "fog", "dew point", "muggy", "water the garden", "water the plants",
+                 "daylight", "days getting", "uv index")
 READING_WORDS = ("temp", "warm", "hot", "cold", "humid", "reading")
 ROBOTS = ("NORA", "MILA", "NIKA", "WHIP", "KIDA00", "KIDA01", "KIDA-00", "KIDA-01", "ARIA", "RITA", "IDA", "ARM")
 

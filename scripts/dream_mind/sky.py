@@ -34,7 +34,8 @@ NOTABLE_CHANCE = 0.5             # something worth saying: rain, storm, bad air,
 MORNING_CHANCE = 0.6             # her good morning carries the weather
 SUNSET_REMARK_CHANCE = 0.35
 WEATHER_TALK = re.compile(r"\b(weather|rain|raining|storm|sunny|sun's|cloud|cloudy|outside|umbrella|cold out|"
-                          r"hot out|warm out|humid|forecast|sunset|moon|air quality|pollen)\b", re.I)
+                          r"hot out|warm out|humid|forecast|sunset|moon|air quality|pollen|pressure|barometer|"
+                          r"windy|gusty|gusts|fog|foggy|frost|stars|clear night)\b", re.I)
 
 
 def _deg(t):
@@ -90,14 +91,27 @@ class Sky:
         air = self.data.get("air") or {}
         moon = self.data.get("moon") or {}
         notable = None
+        hour = datetime.fromtimestamp(now or time.time()).hour
+        clouds = (o.get("clouds") or {}).get("total")
+        gust = o.get("gusts_kmh")
         if soon.get("storm_at"):
             notable = ("storm", soon["storm_at"])
+        elif o.get("pressure_trend") == "falling fast" or o.get("storm_potential") == "high":
+            notable = ("brewing", o.get("pressure_trend"))
         elif soon.get("rain_at") and "rain" not in (o.get("words") or ""):
             notable = ("rain", soon["rain_at"])
+        elif (gust is not None and gust >= 50) or soon.get("gusty_at"):
+            notable = ("wind", f"{gust:.0f}" if gust is not None and gust >= 50 else soon.get("gusty_at"))
+        elif o.get("fog"):
+            notable = ("fog", o.get("visibility_km"))
+        elif o.get("temp") is not None and o["temp"] <= 2:
+            notable = ("frost", None)
         elif air.get("aqi") is not None and air["aqi"] > 100:
             notable = ("air", air.get("words"))
         elif air.get("pollen_high"):
             notable = ("pollen", " and ".join(air["pollen_high"]))
+        elif (hour >= 18 or hour < 3) and clouds is not None and clouds < 25:
+            notable = ("stars", moon.get("phase"))
         elif moon.get("phase") == "full":
             notable = ("full_moon", None)
         return {"temp": o.get("temp"), "words": o.get("words"), "high": o.get("high"), "low": o.get("low"),
@@ -111,8 +125,19 @@ class Sky:
         kind, what = f["notable"] or (None, None)
         if kind == "storm":
             bits.append(f"a thunderstorm is coming around {what}")
+        elif kind == "brewing":
+            bits.append("the pressure is dropping fast and the air has the energy for a storm" if what == "falling fast"
+                        else "the air has the energy for a thunderstorm later")
         elif kind == "rain":
             bits.append(f"rain is likely around {what}")
+        elif kind == "wind":
+            bits.append(f"it's gusty, up to {what} km/h" if what and ":" not in str(what) else f"it gets gusty around {what}")
+        elif kind == "fog":
+            bits.append(f"it's foggy, only {what} km of visibility")
+        elif kind == "frost":
+            bits.append("it's cold enough for frost")
+        elif kind == "stars":
+            bits.append("it's a clear night, good for the stars" + (" with a full moon" if what == "full" else ""))
         elif kind == "air":
             bits.append(f"the air quality is {what}")
         elif kind == "pollen":
@@ -151,6 +176,24 @@ class Sky:
                 f"AURA says there's a thunderstorm coming around {what}.",
                 f"Heads up, a storm around {what}, according to AURA.",
                 f"There's a storm on the way. Around {what}, AURA reckons."]))
+        if kind == "brewing":
+            return ("weather_brewing", 0.5, "the barometer says a storm is brewing", random.choice([
+                "The pressure's dropping fast, AURA says. I think a storm's brewing.",
+                "AURA says the air's got the energy for a thunderstorm later.",
+                "Something's brewing out there. The barometer's falling fast."]))
+        if kind == "wind":
+            return ("weather_wind", 0.4, "it's getting gusty", random.choice([
+                f"It's gusty out there, up to {what} km/h." if what and ":" not in str(what) else f"It gets gusty around {what}, AURA says.",
+                "Hold on to your hat, it's windy out."]))
+        if kind == "fog":
+            return ("weather_fog", 0.45, "it's foggy", f"It's foggy out, only {what} kilometres of visibility. Careful if you're driving.")
+        if kind == "frost":
+            return ("weather_frost", 0.45, "it's freezing", random.choice([
+                "It's freezing out there. There might be frost.", "Frost weather tonight. Keep warm."]))
+        if kind == "stars":
+            return ("weather_stars", 0.3, "a clear night", random.choice([
+                "It's a clear night. Good for looking at the stars.",
+                "The sky's clear tonight. You should look up." + (" Full moon, too." if what == "full" else "")]))
         if kind == "rain":
             return ("weather_rain", 0.5, "AURA says rain is coming", random.choice([
                 f"Looks like rain around {what}, if you're going out.",
@@ -193,6 +236,10 @@ class Sky:
             line += f" Rain around {what}, though."
         elif kind == "storm":
             line += f" And a storm around {what}."
+        elif kind == "brewing":
+            line += " The pressure's dropping, so maybe a storm later."
+        elif kind == "frost":
+            line += " Frosty, too."
         return line
 
     def sunset_now(self, now=None):
