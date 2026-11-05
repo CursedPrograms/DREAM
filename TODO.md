@@ -31,7 +31,7 @@
 
 Measured 2026-11-04 (RTX 2060, 6 GB): MuseTalk took ~45 s for 6.7 s of speech (3.5 fps) and
 peaked at 6.7 GB, so it spills out of VRAM; the user thinks it looks bad too. `LipsyncEnabled`
-stays off. Only scripts/dream.py lip-syncs: app.py / dream.js (what DREAM-Controller.exe shows)
+stays off. Only scripts/dream.py lip-syncs: app.py / dream.js (what builds/dream.exe shows)
 and cpp_dream have no lip-sync at all, so whatever wins has to go into the web page too.
 
 MuseTalk claims 30+ fps on a V100 and was tested on a 4 GB RTX 3050 Ti, so part of the slowness
@@ -95,7 +95,7 @@ Tested 2026-10-13 on the RTX 2060 (Ollama):
 ## dream.exe (C++) catches up
 
 `cpp_dream` (`build\dream.exe`) is a separate program, and it's behind `scripts/dream.py`.
-(`builds\DREAM-Controller.exe` isn't: it shows her hosted page, so it has everything the page has.)
+(`builds\dream.exe` isn't: it shows her hosted page, so it has everything the page has.)
 
 - [ ] **Waking like a person** (`InstantWake`): port `scripts/dream_wake.py` (1-10 calls from her
       sleepiness, sleepy mumbles with the real time) into brain.cpp's sleep/wake.

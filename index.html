@@ -162,7 +162,7 @@ Webcam &rarr; face prints (who is there) + a vision model (what is there) &rarr;
         </tbody>
       </table>
     </div>
-    <p class="note"><strong>One serial owner at a time.</strong> Start <code>app.py</code> first if you want the dashboard and sensor board: <code>dream.py</code> reads the board through it. <code>dream.exe</code> opens the board itself, so don't run it alongside <code>app.py</code>.</p>
+    <p class="note"><strong>One serial owner at a time.</strong> Start <code>app.py</code> first if you want the dashboard and sensor board: <code>dream.py</code> reads the board through it. The C++ <code>dream.exe</code> opens the board itself, so don't run it alongside <code>app.py</code>.</p>
     <h3 class="sub">Talking, in Brainfuck</h3>
     <p class="muted">Every phrase is a <strong>Brainfuck</strong> program that prints its words &mdash; hello is <code>++++++++[&gt;+++++++++++++&lt;-]&gt;.+.</code> &rarr; <code>hi</code> &mdash; and a robot says it by beeping the program on its buzzer, one tone per symbol, in its own voice. <a href="https://cursedprograms.github.io/RIFT/">RIFT</a> runs the conversations and asks each robot to speak with <code>GET /chirp?u=&lt;0-13&gt;</code> (phrases 0&ndash;6, replies 7&ndash;13). DREAM&rsquo;s voice is deep and slow: <code>app.py</code> sends <code>TALK:&lt;u&gt;</code> to the sensor board, which beeps it on its buzzer (not during an alarm).</p>
     <p class="muted">With another robot that has a mind (DREAM, KIDA-01, TINA), RIFT holds a <strong>real conversation</strong> when nobody is using them: rock paper scissors, then the winner picks words or Brainfuck (<code>peer_talk.py</code>). In Brainfuck the chat opens with hello and only says goodbye at the end.</p>
@@ -189,7 +189,7 @@ Webcam &rarr; face prints (who is there) + a vision model (what is there) &rarr;
         </tbody>
       </table>
     </div>
-    <p class="note"><strong>Just her face.</strong> The desktop app, her browser page and <code>DREAM-Controller.exe</code> start with nothing over her video. <strong>Space</strong> shows or hides the controls (on a phone, double-tap her), and <strong>T</strong> shows her thoughts.</p>
+    <p class="note"><strong>Just her face.</strong> The desktop app, her browser page and <code>dream.exe</code> start with nothing over her video. <strong>Space</strong> shows or hides the controls (on a phone, double-tap her), and <strong>T</strong> shows her thoughts.</p>
   </div>
 </section>
 
@@ -315,7 +315,7 @@ Webcam &rarr; face prints (who is there) + a vision model (what is there) &rarr;
 <span class="p">$</span> pip install -r requirements.txt
 <span class="p">$</span> python main.py</pre>
     <h3 class="sub">Models: pick them, don't code them</h3>
-    <p class="muted">Every model is a dropdown in the options menu, saved in <code>config.json</code> and used by every DREAM (Python, browser, phone and <code>dream.exe</code>). Upgrade or downgrade the PC, pick models to match, run <code>download_weights.bat</code>.</p>
+    <p class="muted">Every model is a dropdown in the options menu, saved in <code>config.json</code> and used by every DREAM (Python, browser, phone and both exes). Upgrade or downgrade the PC, pick models to match, run <code>download_weights.bat</code>.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Setting</th><th>Default</th><th>Choices</th></tr></thead>
@@ -355,7 +355,7 @@ Webcam &rarr; face prints (who is there) + a vision model (what is there) &rarr;
     <h2>Windows app</h2>
     <h3 class="title">A native window on DREAM's page</h3>
     <p>It opens DREAM's own page in a window, so it always looks the same as the page. Keep it in DREAM's <code>builds</code> folder: if DREAM isn't running, it starts <code>run.bat</code> beside it.</p>
-    <p><a class="btn primary" href="https://github.com/CursedPrograms/DREAM/raw/main/builds/DREAM-Controller.exe">Download DREAM-Controller.exe</a></p>
+    <p><a class="btn primary" href="https://github.com/CursedPrograms/DREAM/raw/main/builds/dream.exe">Download dream.exe</a></p>
   </div>
 </section>
 
