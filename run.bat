@@ -7,6 +7,7 @@ REM   scripts\dream.py - DREAM herself (avatar, wake word, voice)
 REM   memory_server.py - the fleet's long-term memory (Hindsight), which TINA uses
 REM                      too - only if Config.DREAM.Memory.Hindsight is true
 REM Closing DREAM closes the server too. Arguments go to dream.py (e.g. --web).
+REM run.bat --server: the server (and memory) only, no dream.py window: what builds\dream.exe starts.
 REM Model weights for lip-sync are separate: download_weights.bat.
 setlocal
 cd /d "%~dp0"
@@ -38,6 +39,15 @@ where ollama >nul 2>&1 || echo Ollama not found - install it from https://ollama
 
 REM The fleet's memory: its own environment (CPU only, no PyTorch), set up the first time.
 "%PY%" -c "import json,sys; sys.exit(0 if json.load(open('config.json',encoding='utf-8'))['Config']['DREAM'].get('Memory',{}).get('Hindsight') else 1)" && call :memory
+
+REM --server (what builds\dream.exe starts): her server only, no desktop window of her own. The exe's
+REM window is her body; closing this window is what stops her, not Escape in another window.
+if /i "%~1"=="--server" (
+    title DREAM Dashboard
+    "%PY%" app.py
+    taskkill /fi "WINDOWTITLE eq DREAM Memory*" /t /f >nul 2>&1
+    exit /b
+)
 
 start "DREAM Dashboard" /min "%PY%" app.py
 "%PY%" scripts\dream.py %*

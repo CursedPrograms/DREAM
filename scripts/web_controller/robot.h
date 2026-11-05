@@ -1,4 +1,5 @@
 #define ROBOT_START 1   // runs on this PC: start run.bat if it isn't up
+#define ROBOT_START_ARGS L"--server"   // her server only: this window is her body (no dream.py window on top for Escape to close)
 // DREAM's controller window: the page it opens and the colours for the connect page
 #pragma once
 

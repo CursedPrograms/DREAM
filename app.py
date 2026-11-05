@@ -1689,6 +1689,8 @@ def chirp():
         u = -1
     if not 0 <= u <= 16:   # 0-13 the phrasebook, 14-16 rock / paper / scissors
         return jsonify({"ok": False, "error": "use /chirp?u=0-16"}), 400
+    if _dream["sleeping"]:  # the fleet's chatter doesn't wake her: RIFT leaves her be for a while
+        return jsonify({"ok": False, "reason": "asleep"}), 409
     return jsonify({"ok": send_sensor_command(f"TALK:{u}")})
 
 
