@@ -735,6 +735,7 @@ Everything runs on this PC. Ollama serves the language model, Piper speaks, Whis
 | "Wake up" (or "Dream") | Calls her while she sleeps. Like a person she may need a few calls (`InstantWake`, see [Sleep Mode](#sleep-mode)); someone appearing at the sensor is a nudge too |
 | "Check the wifi", "scan the network", "who's on the wifi", "list devices" | Scans the local network and reads out what she finds |
 | "System stats", "CPU usage", "how's the system" | CPU, RAM and disk (and CPU temperature on Linux) |
+| "What's the weather?", "will it rain?", "how warm is it at MILA?", "what's the moon doing?", "when is sunset?" | She asks [AURA](https://github.com/CursedPrograms/AURA), the weather station: first in Brainfuck (she beeps "wx?" and AURA beeps the sky back in one word: sun, cloud, rain, fog, snow, storm, hot or cold), then she says AURA's answer. AURA is found in RIFT's fleet list, else on this PC (`scripts/dream_aura.py`). "Temperature" alone is still her own system stats |
 | "Turn on / off the alarm", "arm / disarm the alarm" | Arms or disarms the PIR alarm on the sensor board |
 | "Lights red / blue / green / yellow / orange / purple / pink / cyan / white" | Sets the RGB strip (needs the word "lights", "make it" or "turn it") |
 | "Rainbow mode", "party lights", "lights off" | Rainbow animation, or lights off |

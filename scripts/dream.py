@@ -167,6 +167,7 @@ surveillance.start_motion_detection()
 OLLAMA_URL     = "http://localhost:11434/api/generate"
 import dream_models
 import dream_fleet   # "tell NORA to stop the music", and TINA's kind of work handed to TINA
+import dream_aura    # the weather, or a robot's temperature: asked of AURA, the weather station (in Brainfuck first)
 MODEL          = dream_models.llm()   # LlmModel in config.json (options.py)
 SAMPLE_RATE    = 16000
 CHANNELS       = 1
@@ -1898,6 +1899,16 @@ def voice_loop():
 
             # The fleet first: "tell NORA to turn the lights off" isn't about her own lights,
             # and "why does KIDA's script exit" isn't goodbye. Only the final answer is spoken.
+            # The weather, or a robot's temperature: AURA's (they say it in Brainfuck first)
+            if dream_aura.is_aura_question(user_text):
+                set_state("thinking")
+                _thought("That's one for AURA. I'll ask her in Brainfuck: wx?")
+                aura = dream_aura.ask_aura(user_text, rift_url=dream_fleet.RIFT)
+                if aura["bf"]:
+                    _thought(f"AURA beeped back: {aura['bf']}")
+                speak(aura["text"])
+                continue
+
             set_state("thinking")
             fleet = dream_fleet.handle(user_text, on_thought=_thought)
             if fleet is not None:

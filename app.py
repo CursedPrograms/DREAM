@@ -67,6 +67,7 @@ import dream_proxy_client   # her sensor board (and webcam) on another PC: dream
 import dream_eyes     # which camera she sees through: a page of hers, the proxy's, her own
 MODEL          = dream_models.llm()   # LlmModel in config.json (options.py)
 import dream_fleet   # "tell NORA to stop the music", and TINA's kind of work handed to TINA
+import dream_aura    # the weather, or a robot's temperature: asked of AURA, the weather station (in Brainfuck first)
 SAMPLE_RATE    = 16000
 CHANNELS       = 1
 RECORD_SECONDS = 16
@@ -1383,6 +1384,17 @@ def _handle_chat():
     # The fleet first: "tell NORA to turn the lights off" isn't about her own lights, and
     # "why does KIDA's script exit" isn't goodbye. Only the final answer is spoken; TINA's
     # reasoning goes to the page as thoughts ("Show thoughts").
+    # The weather, or a robot's temperature: AURA's (she and DREAM say it in Brainfuck first)
+    if dream_aura.is_aura_question(user_text):
+        set_state("thinking")
+        _thought("That's one for AURA. I'll ask her in Brainfuck: wx?")
+        aura = dream_aura.ask_aura(user_text, rift_url=dream_fleet.RIFT)
+        if aura["bf"]:
+            _thought(f"AURA beeped back: {aura['bf']}")
+        push_event({"type": "transcript", "role": "assistant", "text": aura["text"]})
+        set_state("idle")
+        return _make_reply(aura["text"], voice_mode)
+
     set_state("thinking")
     fleet = dream_fleet.handle(user_text, on_thought=_thought)
     if fleet is not None:
