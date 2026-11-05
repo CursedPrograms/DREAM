@@ -23,9 +23,9 @@
     <a class="brand" href="#top">DREAM</a>
     <ul>
       <li><a href="#overview">Overview</a></li>
+      <li><a href="#hardware">Hardware</a></li>
       <li><a href="#run">Run</a></li>
       <li><a href="#inner-life">Inner life</a></li>
-      <li><a href="#hardware">Hardware</a></li>
       <li><a href="#screens">Screens</a></li>
       <li><a href="https://github.com/CursedPrograms/DREAM">GitHub</a></li>
     </ul>
@@ -71,7 +71,6 @@
 </header>
 
 <main>
-
 <section id="overview">
   <div class="wrap">
     <h2>Overview</h2>
@@ -111,6 +110,39 @@ Webcam &rarr; face prints (who is there) + a vision model (what is there) &rarr;
         <p>She talks to the KIDA, NORA and WHIP robots through RIFT.</p>
       </div>
     </div>
+  </div>
+</section>
+
+<section id="hardware">
+  <div class="wrap">
+    <h2>Hardware</h2>
+    <h3 class="title">Her senses</h3>
+    <div class="grid cols-2">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>PC</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>RAM</td><td>8&nbsp;GB+</td></tr>
+          <tr><td>CPU / GPU</td><td>Works on CPU alone (slowly). An NVIDIA GPU makes replies much faster. New or different GPU? Pick models to fit it in the options menu: no code changes</td></tr>
+          <tr><td>OS</td><td>Windows 10/11 or Linux (the C++ build is Windows only)</td></tr>
+          <tr><td>Peripherals</td><td>USB microphone, speakers, optional webcam</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Sensor board (Arduino UNO)</th><th>Pin</th></tr></thead>
+        <tbody>
+          <tr><td>PIR OUT</td><td class="mono">4</td></tr>
+          <tr><td>Buzzer +</td><td class="mono">3</td></tr>
+          <tr><td>RGB strip data (40&times; NeoPixel)</td><td class="mono">6</td></tr>
+          <tr><td>mmWave (DFRobot C4001) TX / RX</td><td class="mono">9 / 10</td></tr>
+        </tbody>
+      </table>
+    </div>
+    </div>
+    <p class="muted spaced">The board runs <code>dream_sensors.ino</code> at 9600 baud and answers <code>WHO</code> with <code>I am Dream</code>, so programs find it on any COM port. It needs the <strong>Adafruit NeoPixel</strong> and <strong>DFRobot_C4001</strong> libraries.</p>
+    <p class="note"><strong>Power the strip properly:</strong> 40 pixels can draw over 2&nbsp;A at full white. Use a supply that can carry it, and share GND with the Arduino.</p>
   </div>
 </section>
 
@@ -247,36 +279,23 @@ Webcam &rarr; face prints (who is there) + a vision model (what is there) &rarr;
   </div>
 </section>
 
-<section id="hardware">
+<section id="emoca">
   <div class="wrap">
-    <h2>Hardware</h2>
-    <h3 class="title">Her senses</h3>
-    <div class="grid cols-2">
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>PC</th><th></th></tr></thead>
-        <tbody>
-          <tr><td>RAM</td><td>8&nbsp;GB+</td></tr>
-          <tr><td>CPU / GPU</td><td>Works on CPU alone (slowly). An NVIDIA GPU makes replies much faster. New or different GPU? Pick models to fit it in the options menu: no code changes</td></tr>
-          <tr><td>OS</td><td>Windows 10/11 or Linux (the C++ build is Windows only)</td></tr>
-          <tr><td>Peripherals</td><td>USB microphone, speakers, optional webcam</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Sensor board (Arduino UNO)</th><th>Pin</th></tr></thead>
-        <tbody>
-          <tr><td>PIR OUT</td><td class="mono">4</td></tr>
-          <tr><td>Buzzer +</td><td class="mono">3</td></tr>
-          <tr><td>RGB strip data (40&times; NeoPixel)</td><td class="mono">6</td></tr>
-          <tr><td>mmWave (DFRobot C4001) TX / RX</td><td class="mono">9 / 10</td></tr>
-        </tbody>
-      </table>
-    </div>
-    </div>
-    <p class="muted spaced">The board runs <code>dream_sensors.ino</code> at 9600 baud and answers <code>WHO</code> with <code>I am Dream</code>, so programs find it on any COM port. It needs the <strong>Adafruit NeoPixel</strong> and <strong>DFRobot_C4001</strong> libraries.</p>
-    <p class="note"><strong>Power the strip properly:</strong> 40 pixels can draw over 2&nbsp;A at full white. Use a supply that can carry it, and share GND with the Arduino.</p>
+    <h2>Experiments</h2>
+    <h3 class="title">A 3D head from photos</h3>
+    <p class="muted"><code>emoca_test/emoca_to_obj.py</code> runs <a href="https://github.com/radekd91/emoca">EMOCA</a> on bald reference photos of her (front, profile and back), then fits one <a href="https://flame.is.tue.mpg.de">FLAME</a> head to all of them at once: her face landmarks, her ears and her outline in every photo, with a last detail pass for what FLAME's sliders can't reach. <code>emoca_test\make_rig.bat</code> then builds a rigged head for Blender and game engines: jaw, neck and eye bones, 50 expression shape keys, and separate skin and eye materials. The models are free for non-commercial research only.</p>
+    <figure class="shot">
+      <img src="emoca_test/output/bald_front_fit.png" alt="The bald front photo next to the fitted head drawn over it" width="3072" height="1536" loading="lazy">
+      <figcaption>The front photo, and the fitted head drawn over it</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="emoca_test/output/bald_fit.png" alt="The profile photo next to the fitted head drawn over it, the mesh's ear on hers" width="3072" height="1536" loading="lazy">
+      <figcaption>The profile: one head fitted to all the photos puts the mesh's ear on hers</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="emoca_test/output/dream_rig_views.png" alt="The rigged head from the front, three-quarter, side and back" width="1600" height="400" loading="lazy">
+      <figcaption>The rigged head from the front, &frac34;, side and back</figcaption>
+    </figure>
   </div>
 </section>
 
@@ -328,26 +347,6 @@ Webcam &rarr; face prints (who is there) + a vision model (what is there) &rarr;
         <figcaption>Her dashboard</figcaption>
       </figure>
     </div>
-  </div>
-</section>
-
-<section id="emoca">
-  <div class="wrap">
-    <h2>Experiments</h2>
-    <h3 class="title">A 3D head from photos</h3>
-    <p class="muted"><code>emoca_test/emoca_to_obj.py</code> runs <a href="https://github.com/radekd91/emoca">EMOCA</a> on bald reference photos of her (front, profile and back), then fits one <a href="https://flame.is.tue.mpg.de">FLAME</a> head to all of them at once: her face landmarks, her ears and her outline in every photo, with a last detail pass for what FLAME's sliders can't reach. <code>emoca_test\make_rig.bat</code> then builds a rigged head for Blender and game engines: jaw, neck and eye bones, 50 expression shape keys, and separate skin and eye materials. The models are free for non-commercial research only.</p>
-    <figure class="shot">
-      <img src="emoca_test/output/bald_front_fit.png" alt="The bald front photo next to the fitted head drawn over it" width="3072" height="1536" loading="lazy">
-      <figcaption>The front photo, and the fitted head drawn over it</figcaption>
-    </figure>
-    <figure class="shot">
-      <img src="emoca_test/output/bald_fit.png" alt="The profile photo next to the fitted head drawn over it, the mesh's ear on hers" width="3072" height="1536" loading="lazy">
-      <figcaption>The profile: one head fitted to all the photos puts the mesh's ear on hers</figcaption>
-    </figure>
-    <figure class="shot">
-      <img src="emoca_test/output/dream_rig_views.png" alt="The rigged head from the front, three-quarter, side and back" width="1600" height="400" loading="lazy">
-      <figcaption>The rigged head from the front, &frac34;, side and back</figcaption>
-    </figure>
   </div>
 </section>
 

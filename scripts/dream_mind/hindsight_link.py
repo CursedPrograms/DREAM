@@ -2,8 +2,9 @@
 hindsight_link.py - DREAM's memories, also kept in Hindsight (bank "dream").
 
 Her own memory (memory.py) stays the one she relies on. Hindsight, the memory
-server she shares with TINA, adds recall by meaning across everything you've
-ever told her, and it learns facts about you from it. So:
+server she hosts for the fleet (TINA, NINA and RIFT keep their banks there
+too), adds recall by meaning across everything you've ever told her, and it
+learns facts about you from it. So:
 
   each exchange   is also sent to Hindsight - from a background queue, never
                   slowing a reply - with the episode's id as its document id
@@ -11,6 +12,9 @@ ever told her, and it learns facts about you from it. So:
                   RECALL_TIMEOUT_S: a slow or missing server never delays her
   forgetting      "forget what I said about X" deletes those documents there
                   too, and "forget everything" deletes her whole bank
+  the fleet       asked about the robots, she also reads what RIFT (the mission
+                  log), NINA (what went wrong) and TINA (her work) remember -
+                  read only, and in the same short wait
 
 Off unless config.json has Config.DREAM.Memory.Hindsight = true (the self-test
 leaves it off).
@@ -37,12 +41,13 @@ def _settings():
             m = json.load(f)["Config"]["DREAM"].get("Memory", {})
     except (OSError, ValueError, KeyError):
         m = {}
-    return bool(m.get("Hindsight", False)), m.get("HindsightUrl", "http://localhost:8888"), m.get("Bank", "dream")
+    return (bool(m.get("Hindsight", False)), m.get("HindsightUrl", "http://localhost:8888"), m.get("Bank", "dream"),
+            list(m.get("FleetBanks", ["rift", "nina", "tina"])))
 
 
 class HindsightLink:
     def __init__(self):
-        on, self.url, self.bank = _settings()
+        on, self.url, self.bank, self.fleet_banks = _settings()
         self.on = on and ENABLED
         self._client = None
         self._down_until = 0.0
@@ -119,6 +124,30 @@ class HindsightLink:
         t.start()
         t.join(RECALL_TIMEOUT_S)
         return list(out) if not t.is_alive() else []
+
+    def recall_fleet(self, query, k=1):
+        """What the rest of the fleet remembers about this: [(bank, text)], all banks asked at once,
+        never slower than RECALL_TIMEOUT_S."""
+        if not self.on or not self.fleet_banks or time.time() < self._down_until:
+            return []
+        out = []
+
+        def ask(bank):
+            try:
+                c = self._get()
+                if c:
+                    res = c.recall(bank_id=bank, query=query, max_tokens=400, budget="low")
+                    out.extend((bank, r.text) for r in (res.results or [])[:k] if getattr(r, "text", None))
+            except Exception:
+                pass                     # a bank nobody has written to yet is no reason to back off
+
+        threads = [threading.Thread(target=ask, args=(b,), daemon=True) for b in self.fleet_banks]
+        for t in threads:
+            t.start()
+        end = time.time() + RECALL_TIMEOUT_S
+        for t in threads:
+            t.join(max(0.0, end - time.time()))
+        return list(out)
 
     # -- forgetting
     def forget_episodes(self, episode_ids):

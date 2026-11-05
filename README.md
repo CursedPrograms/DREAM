@@ -43,7 +43,6 @@
 
 ## Related Projects
 
-
 <table>
   <tr>
     <td align="center"><a href="https://github.com/CursedPrograms/ARIA-Robot-v00"><img src="https://raw.githubusercontent.com/CursedPrograms/ARIA-Robot-v00/main/images/avatar_round.png" width="72" alt="ARIA"><br>ARIA</a></td>
@@ -67,6 +66,8 @@
 ---
 
 ## Overview
+
+**Website: <https://cursedprograms.github.io/DREAM/>**
 
 <details>
 <summary><b>Overview</b></summary>
@@ -107,26 +108,9 @@ Thinking models (qwen3:4b, deepseek-r1, gpt-oss) aren't in her list: tested with
 </div>
 <br>
 
-## Core Characteristics
-
-- Fully local voice chatbot pipeline (offline capable)
-- Emergent and unpredictable behavior patterns
-- Continuous perception + memory loop
-- Robotics integration layer (KIDA / NORA / WHIP ecosystem)
-- An inner life: mood, needs, memory that fades, dreams, opinions that drift, and the habit of speaking first ([Inner Life](#inner-life))
-- Runs as a desktop app, in a browser, or as one C++ program
-- Finds her own hardware: boards introduce themselves over serial, so no fixed COM ports
-
-</details>
-
-<br>
-<div align="center">
-  <img src="images/character/angles%20(2).jpeg" alt="DREAM from several angles" width="400"/>
-</div>
-
 ---
 
-## Prerequisites
+## Hardware
 
 <details>
 <summary><b>Prerequisites</b></summary>
@@ -179,9 +163,7 @@ DREAM is a robot too: this PC is her body, the way servos and boards are the oth
 
 </details>
 
----
-
-## Pinouts
+### Pinout
 
 > [!CAUTION]
 > **Ground Loop Warning:** All modules must share a common GND. Failure to bridge grounds will cause erratic motor behavior and sensor noise.
@@ -191,20 +173,20 @@ DREAM is a robot too: this PC is her body, the way servos and boards are the oth
 
 These pins match `dream_sensors/dream_sensors.ino`.
 
-### PIR Sensor
+#### PIR Sensor
 - VCC → 5V
 - GND → GND
 - OUT → Pin 4
 
-### Buzzer
+#### Buzzer
 - + → Pin 3
 - - → GND
 
-### RGB strip (40 x NeoPixel)
+#### RGB strip (40 x NeoPixel)
 - Data → Pin 6
 - 5V and GND from a supply that can carry it (40 pixels can draw over 2 A at full white; share GND with the Arduino)
 
-### mmWave radar (DFRobot C4001, UART)
+#### mmWave radar (DFRobot C4001, UART)
 - Sensor TX → Pin 9
 - Sensor RX → Pin 10
 - VCC and GND as per the module's datasheet
@@ -327,7 +309,7 @@ Files: `templates/dream.html`, `static/js/dream.js`, `scripts/web_launcher.py` (
 
 ---
 
-## Setup
+## Quick start
 
 ### Install Ollama
 
@@ -587,13 +569,32 @@ python inference.py --checkpoint_path "checkpoints/wav2lip-sd-gan.pt" --face "/v
 
 ---
 
+## Core Characteristics
+
+- Fully local voice chatbot pipeline (offline capable)
+- Emergent and unpredictable behavior patterns
+- Continuous perception + memory loop
+- Robotics integration layer (KIDA / NORA / WHIP ecosystem)
+- An inner life: mood, needs, memory that fades, dreams, opinions that drift, and the habit of speaking first ([Inner Life](#inner-life))
+- Runs as a desktop app, in a browser, or as one C++ program
+- Finds her own hardware: boards introduce themselves over serial, so no fixed COM ports
+
+</details>
+
+<br>
+<div align="center">
+  <img src="images/character/angles%20(2).jpeg" alt="DREAM from several angles" width="400"/>
+</div>
+
+---
+
 ## Contents
 
 | | |
 |---|---|
-| **Use it** | [Ways to run DREAM](#ways-to-run-dream) - [How it fits together](#how-it-fits-together) - [Voice commands](#voice-commands) - [Setup](#setup) |
-| **What she is** | [Overview](#-overview) - [System awareness](#system-awareness) - [Depth vision](#depth-vision) - [Autonomous behavior](#autonomous-behavior) - [Inner Life](#inner-life) |
-| **Hardware** | [Prerequisites](#prerequisites) - [Pinouts](#pinouts) - [Sensor board](#sensor-board) |
+| **Use it** | [Ways to run DREAM](#ways-to-run-dream) - [How it fits together](#how-it-fits-together) - [Voice commands](#voice-commands) - [Quick start](#quick-start) |
+| **What she is** | [Overview](#overview) - [System awareness](#system-awareness) - [Depth vision](#depth-vision) - [Autonomous behavior](#autonomous-behavior) - [Inner Life](#inner-life) |
+| **Hardware** | [Hardware](#hardware) - [Pinout](#pinout) - [Sensor board](#sensor-board) |
 | **Other front ends** | [DREAM in the browser](#dream-in-the-browser) - [DREAM as one program (C++)](#dream-as-one-program-c) |
 | **Reference** | [Web server and API](#web-server-and-api) - [Data and memory files](#data-and-memory-files) - [Configuration](#configuration) - [Testing](#testing) - [Experiments](#experiments) - [Environment notes](#environment-notes) - [Repository layout](#repository-layout) - [Troubleshooting](#troubleshooting) - [Privacy and safety](#privacy-and-safety) |
 
@@ -842,6 +843,90 @@ DREAM can live on two PCs: the **AI PC** runs her (`app.py`: Whisper, the langua
 **Where she is: the newest page of hers.** Every open page of hers (her window on the AI PC, the proxy's window, her site on your phone) checks in every second, and the newest one is her body: it shows her, speaks for her and listens for her. The others wait on standby, dimmed and silent, saying *"DREAM is with you on SENSOR-PC"*. Close the newest (or stop the proxy: its window goes with it) and within a few seconds the one before is her again: she's back on the AI PC. Open her page on your phone and she's on your phone until you close it.
 
 **Her eyes, best first:** the newest open page with a camera (that phone or PC asks once), then the proxy's webcam (where her sensor board is, where people come and go), then the AI PC's own webcam (opened only when something needs a picture, as before). `scripts/dream_eyes.py`, `scripts/dream_proxy_client.py`.
+
+---
+
+## The fleet's memory (Hindsight)
+
+DREAM is the **D**istributed **R**untime for **E**thereal **A**utonomous **M**emories, so the fleet's long-term memory lives with her. She hosts a [Hindsight](https://github.com/vectorize-io/hindsight) server, and she, TINA, NINA and RIFT all keep their memories in it.
+
+### What Hindsight is
+
+Her own memory (`memories/mind/`, [Inner Life](#inner-life)) is what she relies on: what you said, when, and how she felt about it. It finds things by their words. Hindsight is a second, deeper memory on top of it:
+
+- **It understands meaning.** "My cat" finds "Miso was sick last week", even with no word in common (embeddings, then a reranker to sort the best first).
+- **It learns facts.** Everything she keeps there is read by a small language model, which pulls out the facts ("they have a cat called Miso", "NORA went quiet three times this week") and links them to the people and robots they're about.
+- **It keeps time.** Every memory has its date, so "last week" and "yesterday" mean something.
+
+### How it runs
+
+```
+            this PC (DREAM's)                                   anywhere on the network
+ ┌──────────────────────────────────────────┐
+ │ run.bat                                  │
+ │  ├─ app.py / dream.py   (DREAM)          │◄── register: memory:8888 ──► RIFT /fleet
+ │  └─ memory_server.py   :8888 (Hindsight) │◄── retain / recall ───────── TINA, NINA, RIFT
+ │        ├─ Ollama qwen3:4b  (the facts)   │       (they find :8888 through RIFT)
+ │        ├─ ONNX on the CPU  (meaning)     │
+ │        └─ embedded Postgres (the store)  │
+ └──────────────────────────────────────────┘
+```
+
+- **`run.bat` starts it** when `Config.DREAM.Memory.Hindsight` is on (the default), minimised, as "DREAM Memory (Hindsight)", and closes it when DREAM closes.
+- **It has its own environment,** `hindsight-venv/`, set up the first time (uv if you have it, else Python 3.12's own venv and pip; it takes a while once). No PyTorch and no GPU: the meaning part runs on the CPU with ONNX, so it never takes the GPU from her voice or face.
+- **Fully local.** The facts are pulled out by Ollama's `qwen3:4b` (`Memory.LlmModel`), on this PC. The database is an embedded Postgres in pg0's own folder in your user profile, not in the repo. Nothing leaves your network.
+- **The others find it through RIFT.** DREAM registers `memory:8888` with RIFT, so TINA, NINA and RIFT ask RIFT's `/fleet` where it is (`HindsightUrl: "auto"`) and follow her if she moves PCs.
+
+### One bank each
+
+| Bank | Who writes it | What goes in | How often |
+| :--- | :--- | :--- | :--- |
+| `dream` | DREAM | every exchange with you ("They said ... DREAM answered ..."), and her dreams | each exchange, from a background queue |
+| `tina` | TINA | her tasks, their outcomes and changes, facts she's told to remember, her chats with the robots | as they happen |
+| `nina` | NINA | her warnings and problems ("NORA isn't answering", "WHIP took 4 seconds") | one digest every 15 minutes |
+| `rift` | RIFT | the mission log: who came online or went quiet, moods, notes (not the Brainfuck chatter) | one digest every half hour |
+
+NINA and RIFT send digests, several lines in one memory, because the server reads every memory with the same LLM DREAM talks with: a memory per event would keep it busy while you're talking to her.
+
+### When it's read
+
+- **DREAM, answering you:** she asks her bank what it knows about what you just said, and puts the best two facts in front of her LLM as "You also know: ...". If you mention the robots or the fleet (RIFT, NINA, TINA, NORA, WHIP ...), she also asks the `rift`, `nina` and `tina` banks (`Memory.FleetBanks`), all at once, so she can say "NINA told me NORA kept dropping off last night".
+- **TINA:** before each task she recalls what she's done before on it; her `recall` tool reads her own bank, or DREAM's, NINA's or RIFT's.
+- **NINA:** when a problem comes up she asks whether it has happened before, and notes "This has happened before" with what the memory says (once an hour per problem).
+- **Anyone:** `GET /memory/recall?q=...&bank=rift|nina|tina|dream` on RIFT, or `GET /memory/recall?q=...` on NINA.
+
+### Nobody waits on it
+
+- **A recall gives up** after 1.5 s for DREAM, 2 s for the others. A slow or stopped server costs an answer nothing.
+- **Keeping a memory never blocks.** DREAM's go through a background queue. The others write to a local file first (`memory_pending*.jsonl`) and send it when the server answers. Stop the server, and their memories wait there until it's back: nothing is lost.
+- **After a failure** each of them leaves the server alone for a minute, then looks again (through RIFT, in case DREAM moved).
+
+### Forgetting
+
+"Forget what I said about X" deletes those exchanges from her bank too, and "forget everything" deletes her whole `dream` bank. The other banks are the robots' memories, not yours, and stay. Anything still queued when you say it is never sent.
+
+### Settings (`Config.DREAM.Memory`)
+
+| Setting | Default | |
+| :--- | :--- | :--- |
+| `Hindsight` | `true` | host the server and use it. `false`: she uses only her own memory, and the others keep theirs in their files |
+| `Port` | `8888` | the server's port (and what she registers: `memory:8888`) |
+| `HindsightUrl` | `http://localhost:8888` | where she reaches it herself |
+| `Bank` | `dream` | her bank |
+| `FleetBanks` | `rift`, `nina`, `tina` | whose memories she reads when you talk about the robots |
+| `LlmModel` / `OllamaUrl` | `qwen3:4b` / `http://localhost:11434` | the model that pulls the facts out |
+| `EmbeddingsProvider` / `RerankerProvider` | `onnx` / `flashrank` | the CPU models for meaning |
+
+The others: `HindsightUrl` (`auto`) in TINA's and NINA's `config.json`, `RIFT_MEMORY=0` / `RIFT_MEMORY_URL` for RIFT. `Fleet/fleet_memory.py` in RIFT is the one client they share (NINA and TINA carry a copy).
+
+### Is it working?
+
+- `http://localhost:8888/health` answers on DREAM's PC.
+- RIFT's fleet list shows `memory:8888` among DREAM's capabilities.
+- `GET /memory` on RIFT (`:5000`) or NINA (`:5012`) says where they found it (`"found": true`) and how many memories are waiting (`"pending"`).
+- Not starting? Run `run.bat` from a command window and read the memory server's window: the first start downloads its models, and it needs Ollama running with `qwen3:4b` (`download_weights.bat` pulls it).
+
+---
 
 ## Sensor board
 
@@ -1097,6 +1182,7 @@ The server also registers itself on the network as `DREAM` (zeroconf) and discov
 | `videos/` | Avatar clips: `idle*`, `listening*`, `thinking*`, `talking*`, `flirtytalk*`, `sleeping.mp4`, `intro1.mp4` | Yes |
 | `voices/` | Piper voices (`.onnx` and `.json`) | Ignored |
 | `certs/` | The self-signed certificate | Ignored |
+| `hindsight-venv/` | The memory server's own environment ([The fleet's memory](#the-fleets-memory-hindsight)); its database is in pg0's folder in your user profile | Ignored |
 | `audio/` | Temporary recordings and speech | Mostly ignored |
 | `cpp_dream/models/` | The Whisper model used by `dream.exe` (`ggml-<WhisperModel>.bin`, else `ggml-tiny.en.bin`) | Ignored |
 
@@ -1120,6 +1206,8 @@ The server also registers itself on the network as `DREAM` (zeroconf) and discov
 | `Config.DREAM.ShowThoughts` | Start with "Show thoughts" on (default off). `T` toggles it in the desktop app and on the browser page (or 💭 there) |
 | `Config.DREAM.AutoLook` | `Enabled` (default on) and `EverySeconds` (default 60, at least 15): her photo-a-minute. She only looks while awake, idle and not talking; "stop looking around" turns it off too |
 | `Config.DREAM.Voice` | Her Piper voice (default `en_US-amy-medium`), from all 37 English voices. `download_weights.bat` downloads it into `voices/`; if it isn't there, she uses the first voice that is |
+| `Config.DREAM.Memory.Hindsight` | Host the fleet's memory server and use it herself (default on). See [The fleet's memory](#the-fleets-memory-hindsight) |
+| `Config.DREAM.Memory.FleetBanks` | Whose memories she also reads when you talk about the robots (default `rift`, `nina`, `tina`) |
 | `Config.DREAM.Memory.LlmModel` | The model the memory server thinks with (default `qwen3:4b`); pulled by `download_weights.bat` when `Memory.Hindsight` is on |
 | `Config.DREAM.Device` | CPU or GPU for **the conversation loop**: Whisper (the wake word and commands), the LLM (Ollama) and lip-sync - what you wait on when she answers. `cuda` (default) is the GPU, `cpu` the processor, `auto` the GPU when there is one; `cuda` without a GPU falls back to the CPU. On an RTX 2060: a 3 s wake-word clip takes 0.22 s instead of 1.6 s, and the LLM runs at 74 tokens/s instead of 22 (see [How fast she answers](#how-fast-she-answers)) |
 | `Config.DREAM.ImageDevice` | CPU or GPU for **image work**: her looks (the vision model), dream pictures and visions, DeepDream, depth and face recognition. `cpu` (default) keeps it off the GPU so it never slows the loop or makes Ollama swap models out |
@@ -1362,14 +1450,6 @@ DREAM/
 
 ---
 
-<div align="center">&copy; Cursed Entertainment 2026</div>
-
-<div align="center">
-  <a href="https://cursed-entertainment.itch.io/">
-    <img src="https://github.com/CursedPrograms/cursedentertainment/raw/main/images/logos/logo-wide-grey.png" alt="Cursed Entertainment" width="250"/>
-  </a>
-</div>
-
 <div align="center">
   <a href="https://github.com/SynthWomb">
     <img src="https://github.com/SynthWomb/synth.womb/blob/main/logos/synthwomb07.png?raw=true" alt="SynthWomb" width="200"/>
@@ -1379,6 +1459,19 @@ DREAM/
 ---
 
 <!-- DREAM-ECOSYSTEM:START -->
+
+---
+
+<div align="center">&copy; Cursed Entertainment 2026</div>
+
+<div align="center">
+  <a href="https://cursed-entertainment.itch.io/">
+    <img src="https://github.com/CursedPrograms/cursedentertainment/raw/main/images/logos/logo-wide-grey.png" alt="Cursed Entertainment" width="250"/>
+  </a>
+</div>
+
+---
+
 ## The DREAM Robotics ecosystem
 
 **Minds** — [DREAM](https://github.com/CursedPrograms/DREAM) companion · [TINA](https://github.com/CursedPrograms/TINA) engineer · [NINA](https://github.com/CursedPrograms/NINA) caretaker · [RIFT](https://github.com/CursedPrograms/RIFT) fleet hub · [LYCEA](https://github.com/CursedPrograms/LYCEA) training school  

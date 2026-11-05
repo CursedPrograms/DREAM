@@ -46,11 +46,17 @@ taskkill /fi "WINDOWTITLE eq DREAM Memory*" /t /f >nul 2>&1
 exit /b
 
 :memory
-if not exist "hindsight-venv\Scripts\hindsight-api.exe" (
-    echo Setting up the fleet's memory server - the first time takes a while ...
-    uv venv hindsight-venv --python 3.12 || (echo uv not found - skipping the memory server & exit /b)
-    uv pip install --python hindsight-venv\Scripts\python.exe hindsight-api-slim pg0-embedded onnxruntime tokenizers huggingface-hub flashrank || exit /b
-)
+if exist "hindsight-venv\Scripts\hindsight-api.exe" goto :memstart
+echo Setting up the fleet's memory server - the first time takes a while ...
+where uv >nul 2>&1 && goto :memuv
+REM No uv: Python 3.12's own venv and pip do the same
+py -3.12 -m venv hindsight-venv || (echo Python 3.12 not found - skipping the memory server & exit /b)
+hindsight-venv\Scripts\python.exe -m pip install -q hindsight-api-slim pg0-embedded onnxruntime tokenizers huggingface-hub flashrank || exit /b
+goto :memstart
+:memuv
+uv venv hindsight-venv --python 3.12 || exit /b
+uv pip install --python hindsight-venv\Scripts\python.exe hindsight-api-slim pg0-embedded onnxruntime tokenizers huggingface-hub flashrank || exit /b
+:memstart
 start "DREAM Memory (Hindsight)" /min hindsight-venv\Scripts\python.exe memory_server.py
 exit /b
 

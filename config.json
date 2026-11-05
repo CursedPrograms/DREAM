@@ -45,9 +45,10 @@
       "StaticIP": "192.168.1.100",
       "SystemPrompt": "You are {name}, an intelligent AI assistant. You run entirely offline. Be concise and speak in plain sentences only. No markdown, no bullet points, no special characters. Answer in 2-3 sentences maximum. Your words will be spoken aloud. You are physically rendered as a lady with blue hair. You love Technology and is always sarcastic and flirty",
       "Memory": {
-        "Hindsight": false,
+        "Hindsight": true,
         "HindsightUrl": "http://localhost:8888",
         "Bank": "dream",
+        "FleetBanks": ["rift", "nina", "tina"],
         "Port": 8888,
         "LlmModel": "qwen3:4b",
         "OllamaUrl": "http://localhost:11434",

@@ -64,6 +64,8 @@ LOOK = re.compile(r"\bwhat (?:do|can) you see\b|\blook at (?:this|me|that)\b|\bw
 WHO = re.compile(r"\bwho am i\b|\bdo you (?:know|recogni[sz]e) (?:me|who i am)\b|\bwho do you see\b|\bwho'?s (?:there|here|that)\b", re.I)
 LOOKS_OFF = re.compile(r"\bstop (?:looking around|taking (?:pictures|photos)|watching the room)\b|\bdon'?t take (?:pictures|photos)\b", re.I)
 LOOKS_ON = re.compile(r"\b(?:you can|start|go ahead and) (?:look around|take (?:pictures|photos)|watch the room)\b", re.I)
+# about the robots: she reads what RIFT, NINA and TINA remember too (hindsight_link.recall_fleet)
+_FLEET_TALK = re.compile(r"\b(?:robots?|fleet|rift|nina|tina|nora|mila|nika|whip|kida|ida|arm|aria|rita|mission)\b", re.I)
 SAW = re.compile(r"\b(?:what|who) (?:did|have) you (?:see|seen|notice|noticed)\b|\bwhat have you been (?:seeing|watching)\b|\bdid you see\b", re.I)
 FORGET_FACE = re.compile(r"\bforget (?:my|our) faces?\b|\bforget what i look like\b|\bforget (?:all )?(?:the )?faces\b", re.I)
 
@@ -112,7 +114,7 @@ class Mind:
         self._last_body = 0.0
         self.self_model = SelfModel()
         self.dreamer = Dreamer(self)
-        self.hindsight = HindsightLink()       # the memory server she shares with VERA (off unless enabled in config)
+        self.hindsight = HindsightLink()       # the memory server she hosts for the fleet (off unless enabled in config)
         self.world = WorldTrainer(self)        # learns her dream world from her pictures while she's idle
         self.tools = ToolBox()
         self.executive = Executive(self, self.tools)
@@ -656,6 +658,9 @@ class Mind:
             lines.append(f"You remember (from {when}): they said \"{_clip(e['user'], 90)}\".")
         for fact in self.hindsight.recall(text):   # what the shared memory learned about them (never waits long)
             lines.append(f"You also know: {_clip(fact, 140)}")
+        if _FLEET_TALK.search(text):                # about the robots: what RIFT, NINA and TINA remember
+            for bank, fact in self.hindsight.recall_fleet(text):
+                lines.append(f"{bank.upper()} remembers: {_clip(fact, 140)}")
         views = self.opinions.view_on(text)
         if views:
             lines.append(views)

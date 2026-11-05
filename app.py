@@ -140,6 +140,10 @@ FLEET_LADDER = FleetLadder("DREAM", enabled=dashboard_cfg.get("FleetLadder", Fal
 FLEET_CAPABILITIES  = ["voice_chat", "tts", "stt", "llm",
                        f"talk:{THIS_PORT}",   # RIFT's conversations: /chirp?u= on this port
                        "peer"]                # ...and real ones with KIDA-01 (/peer, see peer_talk.py)
+# She hosts the fleet's memory (memory_server.py): "memory:<port>" is how TINA, NINA and RIFT find it.
+_mem_cfg = cfg["Config"].get("DREAM", {}).get("Memory", {})
+if _mem_cfg.get("Hindsight"):
+    FLEET_CAPABILITIES.append(f"memory:{_mem_cfg.get('Port', 8888)}")
 
 # Fleet heartbeat transport: "wifi" (default) registers with RIFT over HTTP,
 # same as always. "bluetooth" registers directly with NORA instead, over a
@@ -253,9 +257,25 @@ MY_IP = _get_ip()
 # access. This generates a cert good for MY_IP once per machine so /dream.html
 # works from a phone on the LAN. The phone still needs to accept the one-time
 # self-signed-certificate warning in its browser.
-def ensure_self_signed_cert():
-    if os.path.exists(CERT_PATH) and os.path.exists(KEY_PATH):
+def _cert_has_ip(ip):
+    """Does the certificate on disk name this address? (Unsure: say yes, keep it.)"""
+    try:
+        from cryptography import x509
+        cert = x509.load_pem_x509_certificate(open(CERT_PATH, "rb").read())
+        san = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+        import ipaddress
+        return ipaddress.ip_address(ip) in san.get_values_for_type(x509.IPAddress)
+    except Exception:
         return True
+
+def ensure_self_signed_cert():
+    # A new LAN address (another router, DHCP) gets a new certificate naming it, or phones and
+    # NINA (who checks DREAM against this certificate) can't trust https://<new ip>:5009.
+    if os.path.exists(CERT_PATH) and os.path.exists(KEY_PATH) and _cert_has_ip(MY_IP):
+        return True
+    if os.path.exists(CERT_PATH):
+        print(f"[DREAM] This PC is now {MY_IP}: making a new certificate for it "
+              "(a phone accepts it once more)")
     os.makedirs(CERTS_DIR, exist_ok=True)
     try:
         subprocess.run(
