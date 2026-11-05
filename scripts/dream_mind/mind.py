@@ -42,6 +42,7 @@ from .philosophy import Philosophy
 from .reflection import (SelfModel, add_thought, latest_thought, mark_thought_shared, reflect, unshared_thought)
 from . import senses
 from .vision import Vision
+from .sky import Sky
 from . import voice
 
 STATE_FILE = "mind_state.json"
@@ -115,6 +116,11 @@ class Mind:
         self.self_model = SelfModel()
         self.dreamer = Dreamer(self)
         self.hindsight = HindsightLink()       # the memory server she hosts for the fleet (off unless enabled in config)
+        try:                                   # the weather, from AURA: through RIFT's fleet list
+            from dream_fleet import RIFT as _rift
+        except Exception:
+            _rift = "http://127.0.0.1:5000"
+        self.sky = Sky(_rift)                  # comes up now and then, like it would with a person
         self.world = WorldTrainer(self)        # learns her dream world from her pictures while she's idle
         self.tools = ToolBox()
         self.executive = Executive(self, self.tools)
@@ -208,12 +214,14 @@ class Mind:
         self._start_faces()
         self._looks_thread = threading.Thread(target=self._looks_loop, args=(self._faces_stop,), daemon=True, name="dream-looks")
         self._looks_thread.start()
+        self.sky.start()
         self.save()
         return True
 
     def stop(self):
         self._stop.set()
         self.world.stop()
+        self.sky.stop()
         self._stop_expression()
         self._faces_stop.set()
         self.end_sleep()
@@ -281,9 +289,27 @@ class Mind:
                 self._last_initiative = now
                 self._maybe_act(now, hs)
             self._check_milestones(now)
+            self._sunset(now, hs)
         if now - self._last_save > SAVE_EVERY_S:
             self._last_save = now
             self.save()
+
+    def _sunset(self, now, hs):
+        """Half an hour after sunset (AURA's time), once a day: if her lights are on, she warms them to
+        orange. She never turns them on by herself. Sometimes she says so, if someone's there."""
+        if not self.sky.sunset_now(now):
+            return
+        lights = self.host.get("lights")
+        state = lights() if lights else None
+        if not state or str(state).upper() in ("OFF", "UNKNOWN"):
+            return
+        try:
+            ok = self.tools.call("sensor", allow_physical=True, cmd="RGB ORANGE")
+        except Exception:
+            ok = False
+        line = self.sky.sunset_line() if ok else None
+        if line and bool(hs.get("present", self._present)) and self.host.get("speak") and not self.conversation_active:
+            self._host("speak", line)
 
     def _feel_body(self, now):
         """A body that hurts wears on the mood: gently, but it adds up."""
@@ -361,6 +387,7 @@ class Mind:
             "absence_gap_h": self.reunion_gap_h, "mood_shift": self.memory.mood_shift(now),
             "reminisce": self._pick_reminiscence(now), "thought_to_share": thought["text"] if thought else None,
             "seen_name": (self.faces.in_view(now) or [None])[0],
+            "sky": self.sky.candidate(now, self.mood.valence, hour),
         }
 
     def _birthday_in(self, now):
@@ -510,6 +537,7 @@ class Mind:
         """Call once she has answered: the exchange becomes a memory. If she said she
         was too tired to go on, she now goes to sleep."""
         p = self._pending
+        self.sky.note_reply(reply)
         self._remember_exchange(reply)
         if p and p.get("sleep_after") and self.host.get("sleep"):
             threading.Timer(self.withdraw_delay_s, lambda: self.host["sleep"]()).start()   # let the words finish first
@@ -686,6 +714,9 @@ class Mind:
         if self.faces.known and self.faces.strangers_in_view(now):
             lines.append("Someone you don't recognise is in view of your camera.")
         lines.append("Let this quietly colour your tone. Don't recite it, and don't mention it unless asked.")
+        sky = self.sky.prompt_line(text, now)       # the weather: only sometimes, and she may mention it
+        if sky:
+            lines.append(sky)
         return "\n".join(lines)
 
     # ------------------------------------------------------------ expression (the camera, if allowed)

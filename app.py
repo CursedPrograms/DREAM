@@ -702,6 +702,8 @@ def _handle_sensor_line(line: str):
         _alarm_state["enabled"] = line.endswith("ON")
         push_event({"type": "alarm", "enabled": _alarm_state["enabled"]})
         _log_sensor("alarm", "Alarm enabled" if _alarm_state["enabled"] else "Alarm disabled")
+    elif line.startswith("RGB_STATE "):
+        _sensor_status["rgb"] = line[10:].strip()          # OFF / RAINBOW / a colour: her mind's sunset needs it
     elif line.startswith("RADAR_ERROR"):
         _sensor_status["radar_ok"] = False
         _log_sensor("error", "mmWave radar failed to start")
@@ -1780,6 +1782,7 @@ if __name__ == "__main__":
             "speak": lambda text: threading.Thread(target=_announce, args=(text, "speak"), daemon=True).start() or True,
             "sleep": enter_sleep,
             "sensor": send_sensor_command,
+            "lights": lambda: _sensor_status.get("rgb"),   # None until the board has said: she leaves them be
             "state": lambda: {"sleeping": _dream["sleeping"], "state": _state["value"],
                               "present": _dream["presence_seen"] or _sensor_status["present"]},
         }):

@@ -1052,6 +1052,16 @@ DREAM is no longer just a voice in a box that answers when spoken to. `scripts/d
 | **Reading your face (off by default)** | If you ask ("watch my face while we talk"), she reads camera frames about once a second for a smile, presence and tiredness, and adjusts. Only numbers are kept, never pictures. "Stop watching my face" turns it off. | `expression.py`, `frames.py` |
 | **Reflection** | Now and then she steps back from recent conversations and writes one honest thought, what she has learned about you, and who she is becoming. That lives in a small editable "core memory" always in her prompt. | `reflection.py` |
 
+### The weather, the way a person mentions it
+
+DREAM knows what it's like outside from [AURA](https://github.com/CursedPrograms/AURA), the fleet's weather station (`scripts/dream_mind/sky.py` asks AURA every 10 minutes). She isn't a weather report: it comes up now and then, and it's her choice.
+
+- **In conversation:** on an ordinary day, about one reply in eight, her model is told what it's like outside and that she may mention it in passing if it fits. When something's worth saying (rain or a thunderstorm in the next few hours, bad air, a lot of pollen, a full moon), it's on her mind about half the time. Once she has said anything about the weather, it fades for three hours.
+- **On her own:** rain or a storm coming, bad air or pollen are things she might bring up unprompted. Her mind weighs them against everything else she could say (so it isn't certain), and each is said at most once in six hours (rain, storms) or once a day. A lovely day she mentions only now and then, in the daytime, and only when she's in a good mood.
+- **Good morning:** about six mornings in ten, her good morning carries the day's weather ("It's 18 degrees and partly cloudy outside. Rain around 16:00, though."). It's decided once each morning.
+- **Sunset:** within half an hour after sunset (AURA's time for where you are), if her lights are on, she warms them to orange. She never turns them on herself, and about a third of the time, if you're there, she says so.
+- Without AURA running, none of this happens. Asking her outright ("what's the weather?") always goes to AURA (see Voice commands).
+
 ### The four "Future Plans", now built
 
 <details>

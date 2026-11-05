@@ -347,6 +347,8 @@ class Executive:
                                       "Welcome back. Anything good happen while you were out?",
                                       f"Hey, you're back. How were the last {gap}?",
                                       "There you are. Tell me one good thing about your day."])
+            if 5 <= p["hour"] < 12 and p["absence_gap_h"] < 20:
+                line += self.mind.sky.morning(p["now"])        # sometimes, the day's weather with it
             if p.get("seen_name"):   # she can see who it is
                 line = _with_name(line, p["seen_name"])
             add("welcome_back", 0.95, f"someone came back after {gap}", line, after=("greeted_reunion", p["now"]))
@@ -413,6 +415,13 @@ class Executive:
         if p["thought_to_share"] and d["curiosity"] > 0.4:
             add("share_thought", 0.35, "I had a thought I wanted to share", f"Something I've been wondering: {p['thought_to_share']}",
                 after=("thought_shared", p["thought_to_share"]))
+
+        sky = p.get("sky")   # the weather, from AURA: rain or a storm coming, bad air, now and then a lovely day
+        if sky:
+            kind, urgency, reason, line = sky
+            rest = 6 * 3600 if kind in ("weather_storm", "weather_rain") else 24 * 3600
+            if p["now"] - self.asked.get(kind, 0) > rest and p["now"] - self.mind.sky.last_mentioned > 2 * 3600:
+                add(kind, urgency, reason, line, after=("weather_said", kind))
 
         if p["sleepiness"] > 0.85 and p["since_user_s"] > 5 * 60 and (p["hour"] >= 22 or p["hour"] < 6):
             add("go_to_sleep", 0.8, "I'm very tired and it's late", random.choice(SLEEPY_LINES), goal="stay_rested",
@@ -482,6 +491,10 @@ class Executive:
                 m.memory.mark_recalled([ep], now)
         elif what == "thought_shared":
             m.mark_thought_shared()
+        elif what == "weather_said":
+            self.asked[arg] = now
+            m.sky.last_mentioned = now
+        m.sky.note_reply(cand.get("text"), now)     # a good morning with the weather in it counts as saying it
         if cand["kind"] in ("check_in", "welcome_back", "reminisce"):
             m.drives.satisfy("social", 0.1)
         if cand["kind"] == "flirt":

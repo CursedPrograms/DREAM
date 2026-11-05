@@ -1466,6 +1466,14 @@ def _hub_request(method: str, path: str, **kwargs):
             last_error = e
     raise last_error
 
+def _lights_state():
+    """Her lights as the board last said (OFF / a colour), through app.py; None when unknown."""
+    try:
+        return _hub_request("get", "/api/sensors", timeout=3).json()["status"].get("rgb")
+    except Exception:
+        return None
+
+
 def send_sensor_command(cmd: str) -> bool:
     """Sends a line (ALARM ON/OFF, RGB <color>/OFF/RAINBOW, BUZZER) to the sensor board via app.py."""
     try:
@@ -2154,7 +2162,7 @@ def main():
             return {"sleeping": _state["sleeping"], "state": _state["value"], "present": _state["presence_seen"]}
 
         if MIND.start(host={"speak": _mind_speak, "sleep": enter_sleep, "state": _mind_state, "sensor": send_sensor_command,
-                            "prepare_speech": prepare_speech}):
+                            "prepare_speech": prepare_speech, "lights": _lights_state}):
             console.print("[magenta]Inner life started - mood, needs, memory and dreams are running[/magenta]")
         else:
             console.print("[yellow]Another DREAM already runs the inner life - this one stays passive[/yellow]")
