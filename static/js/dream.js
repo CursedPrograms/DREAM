@@ -100,6 +100,11 @@ function pickClip(state, avoid) {
 
 function playClip(path, { loop = true, onEnded = null } = {}) {
   if (!path) { if (onEnded) onEnded(); return; }
+  if (!started || !isBody) {           // not started, or on standby: she isn't here (no second DREAM out of step)
+    curPath = path;
+    if (onEnded) setTimeout(onEnded, 0);
+    return;
+  }
   back.loop = loop;
   back.src = shown(path);
   back.onended = onEnded ? () => onEnded() : null;
@@ -178,6 +183,7 @@ function showCaption(text) {
 
 /* ── Speaking ────────────────────────────────────────────────────────────── */
 function playAudio(url) {
+  if (!isBody) return Promise.resolve();   // her voice is where her body is, never on two pages
   return new Promise(resolve => {
     if (currentAudio) currentAudio.pause();
     setVisualState('talking');
@@ -206,6 +212,7 @@ function peerLine(id, status) {
 
 /* Show a line and have the server voice it. */
 async function sayText(text) {
+  if (!isBody) return;
   showCaption(text);
   try {
     const r = await fetch('/api/speak', {
@@ -218,6 +225,7 @@ async function sayText(text) {
 
 /* Send a message (typed text or a recorded command) and speak the reply. */
 async function submitChat(init) {
+  if (!(await claimBody())) return;    // talked to here: she's here (the other pages go still)
   setVisualState('thinking');
   try {
     const res = await fetch('/api/chat', init);
@@ -376,6 +384,7 @@ async function wakeLoop() {
 $('mic-btn').addEventListener('click', async () => {
   if (manualRecording) { manualStop = true; return; }
   if (busy) return;
+  if (!(await claimBody())) return;    // tapped to talk here: she comes here
   if (!(await ensureMic())) {
     showCaption('⚠ Mic needs HTTPS or localhost — use the ⌨ button to type instead.');
     return;
@@ -471,9 +480,11 @@ window.addEventListener('keydown', e => {
   else if (e.code === 'KeyT') toggleThoughts();
 });
 
-// Phones have no Space bar: two taps on her face within 350 ms do the same.
+// Phones have no Space bar: two taps anywhere that isn't a control within 350 ms do the same
+// (the whole page, so it works on standby too, under the "DREAM is with you on..." note).
 let lastTap = 0;
-stage.addEventListener('pointerup', () => {
+window.addEventListener('pointerup', e => {
+  if (e.target.closest('button, input, textarea, a, #splash, #thoughts')) return;
   const now = Date.now();
   if (now - lastTap < 350) { toggleUi(); lastTap = 0; } else lastTap = now;
 });
@@ -526,7 +537,9 @@ function connectSSE() {
         if (started && isBody && !busy) runExclusive(() => say(d.text, d.audio_url));
         break;
       case 'peer_line':   // her line to KIDA (peer_talk.py): said like any reply; app.py waits for "done"
-        if (started && !busy && !sleeping) runExclusive(async () => {
+        // only where her body is: on two pages at once the same line played twice, a little apart,
+        // and the two copies sounded like hiss under her voice
+        if (started && isBody && !busy && !sleeping) runExclusive(async () => {
           await peerLine(d.id, 'speaking');
           try { await say(d.text, d.audio_url); } finally { await peerLine(d.id, 'done'); }
         });
@@ -565,8 +578,30 @@ function setBody(active, where) {
   if (active === isBody) return;
   isBody = active;
   document.body.classList.toggle('standby', !active);
-  if (!active && currentAudio) currentAudio.pause();   // her voice is somewhere else now
-  if (active) setVisualState(sleeping ? 'sleeping' : 'idle');
+  if (!active) {
+    if (currentAudio) currentAudio.pause();   // her voice is somewhere else now
+    front.pause(); back.pause();              // and so is she: one DREAM, not two out of step
+  } else {
+    curState = null;                          // she's back: start her here afresh
+    setVisualState(sleeping ? 'sleeping' : 'idle');
+  }
+}
+
+/* You're talking to this page: she comes here first, so there's only ever one of her talking. */
+async function claimBody() {
+  if (isBody) return true;
+  try {
+    const d = await (await fetch('/api/body/claim', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: PAGE_ID, started: PAGE_STARTED, label: BODY_LABEL }),
+    })).json();
+    if (!d.active) {                   // she's answering on another page right now
+      showCaption(`DREAM is answering on ${d.label || 'another page'}: a moment.`);
+      return false;
+    }
+  } catch { /* her server is gone */ }
+  setBody(true, BODY_LABEL);
+  return true;
 }
 
 async function bodyBeat() {
@@ -625,6 +660,10 @@ window.addEventListener('pagehide', () => {
 
 /* ── Startup: same order as dream.py — intro clip, then the announcement ─── */
 async function startup() {
+  // her intro and "DREAM online" once per run of her server, not again on every page that opens
+  let first = true;
+  try { first = (await (await fetch('/api/dream/intro', { method: 'POST' })).json()).first; } catch { /* old server */ }
+  if (!first || !isBody) return;
   if (pools.intro.length) await playOnce(pools.intro[Math.floor(Math.random() * pools.intro.length)], 'WAKING UP');
   if (!sleeping && cfg.startup_text) await sayText(cfg.startup_text);
 }
@@ -641,9 +680,9 @@ $('splash').addEventListener('click', async () => {
     $('wake-toggle').classList.add('off');
     $('mic-hint').textContent = hintText();
   });
-  runExclusive(startup);
-  bodyBeat();
+  await bodyBeat();                    // her body first: on standby this page starts quiet, not a second DREAM
   setInterval(bodyBeat, 1000);
+  runExclusive(startup);
   ensureCamera().then(() => { if (camVideo) setInterval(sendFrame, 350); });
 });
 

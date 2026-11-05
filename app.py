@@ -4,6 +4,48 @@ import os, sys, time, json, math, socket, tempfile, subprocess, wave, re
 from collections import deque
 import threading, queue, random, ipaddress
 from concurrent.futures import ThreadPoolExecutor
+import faulthandler
+
+
+class _Tee:
+    """Her console, also into dream_server.log (gitignored): when she drops out, the window with the
+    reason has usually closed with her. The last two runs are kept (dream_server.log, .old.log)."""
+    def __init__(self, stream, log):
+        self.stream, self.log = stream, log
+    def write(self, text):
+        for out in (self.stream, self.log):
+            try:
+                out.write(text)
+                out.flush()
+            except Exception:
+                pass
+        return len(text)
+    def flush(self):
+        for out in (self.stream, self.log):
+            try:
+                out.flush()
+            except Exception:
+                pass
+    def __getattr__(self, name):
+        return getattr(self.stream, name)
+
+
+def _keep_log():
+    here = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(here, "dream_server.log")
+    try:
+        if os.path.exists(path):
+            os.replace(path, os.path.join(here, "dream_server.old.log"))
+        log = open(path, "a", encoding="utf-8", buffering=1)
+    except OSError:
+        return
+    log.write(f"==== DREAM started {time.strftime('%Y-%m-%d %H:%M:%S')} ====\n")
+    sys.stdout, sys.stderr = _Tee(sys.stdout, log), _Tee(sys.stderr, log)
+    faulthandler.enable(file=log, all_threads=True)   # a hard crash (no Python traceback) still leaves one here
+
+
+if __name__ == "__main__":
+    _keep_log()
 
 import numpy as np
 import requests as _req
@@ -226,11 +268,15 @@ _chat_lock = threading.Lock()
 def set_state(s):
     _state["value"] = s
     _sse_queue.put({"type": "state", "state": s})
+    if s not in ("idle", "sleeping"):
+        dream_eyes.engaged()   # mid-conversation: a newly opened page doesn't take her away (dream_eyes.py)
 
 def push_event(evt: dict):
     _sse_queue.put(evt)
     # the conversation, for a call window (RIFT): what's said to her, and everything she says
     t = evt.get("type")
+    if t in ("transcript", "speak", "wake"):
+        dream_eyes.engaged()
     if t == "transcript":
         dream_mirror.note_line(evt.get("role"), evt.get("text"))
     elif t in ("speak", "wake", "stir"):
@@ -945,6 +991,7 @@ _dream = {
     "distance_m":    None,
     "last_user_ts":  time.time(),  # last time someone (not a robot) was with her
     "peer_until":    0.0,    # she's saying a line to another robot until then (peer_talk.py)
+    "introduced":    False,  # her intro clip and "DREAM online" played this run: once, not per page
 }
 
 def touch_interaction():
@@ -1171,6 +1218,25 @@ def api_body_beat():
     d = request.get_json(silent=True) or {}
     return jsonify(dream_eyes.body_beat(d.get("page", ""), int(d.get("started") or 0), d.get("label") or "a page"))
 
+@app.route("/api/body/claim", methods=["POST"])
+def api_body_claim():
+    """You're talking to this page: she's here now, and the other pages go still (dream_eyes.py).
+    Not while she's answering on another one: then this page hears where she is."""
+    d = request.get_json(silent=True) or {}
+    page = d.get("page", "")
+    if _dream["busy"] and not dream_eyes.is_body(page) and dream_eyes.status().get("body"):
+        return jsonify({"active": False, "label": dream_eyes.body_label()})
+    dream_eyes.claim(page, int(d.get("started") or 0), d.get("label") or "a page")
+    return jsonify({"active": True})
+
+
+@app.route("/api/dream/intro", methods=["POST"])
+def api_dream_intro():
+    """A page starting: should it play her intro and "DREAM online"? Only the first one this run."""
+    first = not _dream["introduced"]
+    _dream["introduced"] = True
+    return jsonify({"first": first})
+
 @app.route("/api/body/bye", methods=["POST"])
 def api_body_bye():
     """A page closing (navigator.sendBeacon): the page before it is her body again at once."""
@@ -1215,6 +1281,7 @@ def api_dream_activity():
         return jsonify({"ok": True})
     busy = bool(data.get("busy"))
     _dream["busy"] = busy
+    dream_eyes.engaged()     # talking on a page (or just finished): she stays on it a while (dream_eyes.py)
     if busy:
         touch_interaction()
     return jsonify({"busy": busy})

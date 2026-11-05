@@ -3,8 +3,13 @@ dream_eyes.py - where DREAM is: which page of hers is her body, and which camera
 
 Her BODY is the newest page of hers that's open (her own window on this PC, the DREAM proxy's window on
 another, her site on your phone): it shows her, speaks for her and listens for her. Every other page
-waits on standby, silent, saying where she is. Close the newest one and within a few seconds the one
-before it is her body again (close the proxy: she's back on this PC).
+waits on standby, still and silent, saying where she is. Close the newest one and within a few seconds
+the one before it is her body again (close the proxy: she's back on this PC).
+
+Mid-conversation she stays put: a page opened while she's talking with you (or listening, or
+thinking) waits until she's been quiet for QUIET_S, then she moves to it. Talking TO a page (typing,
+tap-to-talk, "Hey DREAM") brings her there at once: claim(). "Newest" is by when her
+server first heard from the page, not the device's own clock (a phone's can be ahead of the PC's).
 
 Her EYES, best first:
     1. the newest open page that has a camera (it sends frames: POST /api/eyes/frame)
@@ -20,10 +25,12 @@ import threading
 import time
 
 FRESH_S = 3.0          # a page that hasn't checked in for this long is closed
+QUIET_S = 60.0         # a conversation is over after this long without one (engaged())
 PROXY_FPS = 4
 
 _pages = {}            # id -> {"started": ms, "label": str, "beat": time, "cam": time of its last frame}
 _lock = threading.Lock()
+_body = {"page": None, "busy_until": 0.0}   # where she is, and until when she's mid-conversation there
 _proxy = {"addr": None, "thread": None, "stop": False}
 
 
@@ -45,10 +52,43 @@ def _newest(with_camera=False):
     return max(live, key=lambda k: live[k]["started"]) if live else None
 
 
+def _current():
+    """Her body: the newest page, unless she's mid-conversation on another one that's still open."""
+    newest = _newest()
+    now = time.time()
+    with _lock:
+        here = _body["page"]
+        still_open = here in _pages and now - max(_pages[here]["beat"], _pages[here]["cam"]) < FRESH_S
+        if not (still_open and newest != here and now < _body["busy_until"]):
+            _body["page"] = newest
+        return _body["page"]
+
+
+def claim(page, started_ms=0, label=None):
+    """You're talking to this page: she comes here now (and stays while you talk)."""
+    _touch(page, started_ms, label)
+    with _lock:
+        _body["page"] = page
+        _body["busy_until"] = time.time() + QUIET_S
+
+
+def body_label():
+    """Where she is now ("this PC", "a phone"...)."""
+    body = _current()
+    with _lock:
+        return _pages[body]["label"] if body in _pages else ""
+
+
+def engaged():
+    """She's talking, listening or thinking (app.py): her body stays where it is for QUIET_S more."""
+    with _lock:
+        _body["busy_until"] = time.time() + QUIET_S
+
+
 def _touch(page, started_ms, label=None, cam=False):
     with _lock:
-        p = _pages.setdefault(page, {"started": started_ms, "label": label or "a page", "beat": 0.0, "cam": 0.0})
-        p["started"] = started_ms or p["started"]
+        # "started": when her server first heard from it (the device's clock may be off)
+        p = _pages.setdefault(page, {"started": time.time() * 1000, "label": label or "a page", "beat": 0.0, "cam": 0.0})
         if label:
             p["label"] = label
         p["cam" if cam else "beat"] = time.time()
@@ -57,7 +97,7 @@ def _touch(page, started_ms, label=None, cam=False):
 def body_beat(page, started_ms, label):
     """A page checking in (every second). Is it her body now, and where is she?"""
     _touch(page, started_ms, label)
-    body = _newest()
+    body = _current()
     with _lock:
         where = _pages[body]["label"] if body in _pages else label
     return {"active": body == page, "label": where}
@@ -65,7 +105,7 @@ def body_beat(page, started_ms, label):
 
 def is_body(page):
     """Is this page her body right now (the newest open one)? Only it lends her its phone's sensors."""
-    return bool(page) and _newest() == page
+    return bool(page) and _current() == page
 
 
 def page_frame(page, started_ms, jpeg):
@@ -141,7 +181,7 @@ def start():
 
 
 def status():
-    body, eyes = _newest(), _newest(with_camera=True)
+    body, eyes = _current(), _newest(with_camera=True)
     with _lock:
         where = _pages[body]["label"] if body in _pages else None
     source = "page" if eyes else "proxy" if _proxy["addr"] else "local"
