@@ -88,8 +88,20 @@ SLEEPING_VIDEO      = os.path.join(VIDEOS_DIR, "sleeping.mp4")
 # Wake-from-sleep does NOT use this; waking (mmWave presence or the spoken
 # "wake up" word) just talks normally, same as any other response — see
 # speak()'s plain "talking" pool fallback.
-STARTUP_INTRO_VIDEO = os.path.join(VIDEOS_DIR, "intro1.mp4")
+STARTUP_INTRO_VIDEO = os.path.join(VIDEOS_DIR, "intro1.mp4")   # the fallback; _pick_intro() picks one
 STARTUP_INTRO_AUDIO = os.path.join(AUDIO_DIR,  "intro1.wav")
+
+
+def _pick_intro():
+    """A random intro*.mp4 from videos/ each start-up, with its own audio/<name>.wav if there is one."""
+    try:
+        clips = sorted(f for f in os.listdir(VIDEOS_DIR) if f.startswith("intro") and f.endswith(".mp4"))
+    except OSError:
+        clips = []
+    if not clips:
+        return STARTUP_INTRO_VIDEO, STARTUP_INTRO_AUDIO
+    name = random.choice(clips)
+    return os.path.join(VIDEOS_DIR, name), os.path.join(AUDIO_DIR, name[:-4] + ".wav")
 # MuseTalk output goes here (temp, overwritten each turn)
 MUSETALK_OUT_DIR    = os.path.join(BASE_DIR, "musetalk_out")
 os.makedirs(MUSETALK_OUT_DIR, exist_ok=True)
@@ -1817,18 +1829,19 @@ def voice_loop():
         # 2) she then actually speaks the ready announcement, which falls
         #    through to speak()'s plain "talking" pool (MuseTalk unavailable
         #    here) since force_video is already clear by the time it runs.
-        if os.path.exists(STARTUP_INTRO_VIDEO):
+        intro_video, intro_audio = _pick_intro()
+        if os.path.exists(intro_video):
             # "thinking", not "talking": speak() below renders the voice in the
             # thinking state, so the clip under the intro carries straight on
             # instead of flashing a talking loop in between.
             set_state("thinking")
-            _state["force_video"] = STARTUP_INTRO_VIDEO
-            if os.path.exists(STARTUP_INTRO_AUDIO):
-                _play_wav(STARTUP_INTRO_AUDIO)
+            _state["force_video"] = intro_video
+            if os.path.exists(intro_audio):
+                _play_wav(intro_audio)
             else:
                 # No audio track yet — just wait for the clip to play through
                 # once (VideoStateManager clears force_video when it finishes).
-                while _state["force_video"] == STARTUP_INTRO_VIDEO and _state["running"]:
+                while _state["force_video"] == intro_video and _state["running"]:
                     time.sleep(0.1)
 
         speak(STARTUP_TEXT)  # Generates + caches startup_intro.mp4 for next run

@@ -147,8 +147,20 @@ bool handleCommand(const std::string& userText, std::vector<Turn>& history) {
 void startupAnnouncement() {
     // Same order as dream.py without the lipsync cache: the intro clip (with its
     // own audio if there is one), then she says she's ready.
-    std::string introVideo = (fs::path(cfg().videosDir) / "intro1.mp4").string();
-    std::string introAudio = (fs::path(cfg().audioDir) / "intro1.wav").string();
+    // A random intro*.mp4 each start-up (intro1 if none), with audio/<name>.wav if it has one.
+    std::vector<std::string> intros;
+    std::error_code ec;
+    for (const auto& e : fs::directory_iterator(cfg().videosDir, ec)) {
+        const std::string n = e.path().filename().string();
+        if (e.is_regular_file() && n.rfind("intro", 0) == 0 && e.path().extension() == ".mp4") intros.push_back(n);
+    }
+    std::string name = "intro1.mp4";
+    if (!intros.empty()) {
+        static std::mt19937 rng{std::random_device{}()};
+        name = intros[std::uniform_int_distribution<size_t>(0, intros.size() - 1)(rng)];
+    }
+    std::string introVideo = (fs::path(cfg().videosDir) / name).string();
+    std::string introAudio = (fs::path(cfg().audioDir) / fs::path(name).replace_extension(".wav")).string();
     if (dream::fileExists(introVideo)) {
         S().setState("talking");
         S().setForceVideo(introVideo);

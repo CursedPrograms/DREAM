@@ -63,6 +63,11 @@ def body_beat(page, started_ms, label):
     return {"active": body == page, "label": where}
 
 
+def is_body(page):
+    """Is this page her body right now (the newest open one)? Only it lends her its phone's sensors."""
+    return bool(page) and _newest() == page
+
+
 def page_frame(page, started_ms, jpeg):
     """A frame from one of her pages' cameras. It becomes what she sees if that page is the newest
     one with a camera."""

@@ -62,6 +62,34 @@ for (const v of [videoA, videoB]) {
 }
 let front = videoA, back = videoB;
 
+/* Upright phone: each clip's portrait twin (videos/portrait/), swapped mid-clip when it's turned.
+   curPath stays the landscape clip: that's what the mirrors (RITA) and pickClip go by. */
+let portrait = {};
+const tall = window.matchMedia('(orientation: portrait)');
+const shown = path => (tall.matches && portrait[path]) || path;
+
+tall.addEventListener('change', () => {
+  if (!curPath || !front.src) return;
+  const want = shown(curPath);
+  if (new URL(want, location.href).href === front.src) return;
+  const at = front.currentTime, old = front;
+  back.loop = old.loop;
+  back.onended = old.onended;
+  back.onerror = old.onerror;
+  back.src = want;
+  back.oncanplay = () => {
+    back.oncanplay = null;
+    try { back.currentTime = at; } catch { /* starts from the top */ }
+    back.play().catch(() => {});
+    back.classList.add('showing');
+    old.classList.remove('showing');
+    old.onended = old.onerror = null;   // only the shown twin finishes a one-shot clip
+    old.pause();
+    [front, back] = [back, front];
+  };
+  back.load();
+});
+
 function pickClip(state, avoid) {
   const pool = pools[state] && pools[state].length ? pools[state] : pools.idle;
   if (!pool || !pool.length) return null;
@@ -73,7 +101,7 @@ function pickClip(state, avoid) {
 function playClip(path, { loop = true, onEnded = null } = {}) {
   if (!path) { if (onEnded) onEnded(); return; }
   back.loop = loop;
-  back.src = path;
+  back.src = shown(path);
   back.onended = onEnded ? () => onEnded() : null;
   back.onerror = onEnded ? () => onEnded() : null;  // a clip that won't load mustn't hang the flow
   back.oncanplay = () => {
@@ -552,6 +580,16 @@ async function bodyBeat() {
   } catch { /* her server is gone: stay as we are */ }
 }
 
+/* The phone's own sensors (proximity, light, movement, battery): the Android app hands them over
+   here, and they go to her only while this page is her body. Her sensor board keeps working too. */
+window.dreamPhoneSensors = readings => {
+  if (!started || !isBody) return;
+  fetch('/api/body/sensors', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...readings, page: PAGE_ID, started: PAGE_STARTED, label: BODY_LABEL }),
+  }).catch(() => {});
+};
+
 /* her eyes: this device's camera, a few small frames a second, while this page is her body */
 async function ensureCamera() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
@@ -587,7 +625,7 @@ window.addEventListener('pagehide', () => {
 
 /* ── Startup: same order as dream.py — intro clip, then the announcement ─── */
 async function startup() {
-  if (pools.intro.length) await playOnce(pools.intro[0], 'WAKING UP');
+  if (pools.intro.length) await playOnce(pools.intro[Math.floor(Math.random() * pools.intro.length)], 'WAKING UP');
   if (!sleeping && cfg.startup_text) await sayText(cfg.startup_text);
 }
 
@@ -620,7 +658,12 @@ async function loadConfig() {
 }
 
 async function loadVideoPools() {
-  try { pools = { ...pools, ...(await (await fetch('/api/videos')).json()) }; } catch { /* empty pools: playClip no-ops */ }
+  try {
+    const got = await (await fetch('/api/videos')).json();
+    portrait = got.portrait || {};
+    delete got.portrait;
+    pools = { ...pools, ...got };
+  } catch { /* empty pools: playClip no-ops */ }
   curState = null;  // the state may already be set (asleep on load) but had no clips to show yet
   setVisualState(sleeping ? 'sleeping' : 'idle');
 }

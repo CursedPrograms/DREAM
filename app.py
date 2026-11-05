@@ -631,7 +631,48 @@ _sensor_status = {"connected": False, "present": False, "range_m": None, "radar_
 _sensor_log    = deque(maxlen=50)
 
 def _sensor_snapshot():
-    return {**_sensor_status, "alarm_enabled": _alarm_state["enabled"]}
+    # A phone that stopped reporting (closed, or no longer her body) drops out after half a minute
+    phone = _phone_sensors if time.time() - _phone_sensors.get("t", 0) < 30 else None
+    return {**_sensor_status, "alarm_enabled": _alarm_state["enabled"], "phone": phone}
+
+# The phone she's with (the Android app, while it's her body) lends her its sensors on top of her
+# own board: someone near it or picking it up is company, its light meter tells her if the lights
+# are on. Her board keeps working as before; the phone never says "nobody's here".
+_phone_sensors: dict = {}
+PHONE_PRESENCE_EVERY_S = 20    # a hand at the phone counts as company at most this often
+PHONE_DARK_LUX = 5             # below this the room is dark
+PHONE_LIGHT_LUX = 30           # back above this the lights are on
+
+def _phone_reading(d: dict):
+    prev = dict(_phone_sensors)
+    now = time.time()
+    reading = {"t": now, "ts": time.strftime("%H:%M:%S"), "label": str(d.get("label") or "a phone")[:40]}
+    for key in ("lux", "battery"):
+        if isinstance(d.get(key), (int, float)):
+            reading[key] = round(float(d[key]), 1)
+    for key in ("near", "moved", "charging"):
+        if key in d:
+            reading[key] = bool(d[key])
+    reading["presence_ts"] = prev.get("presence_ts", 0)
+    reading["dark"] = prev.get("dark", False)
+    # Someone at the phone: a hand over it, or picking it up
+    touched = (reading.get("near") and not prev.get("near")) or reading.get("moved")
+    if touched and now - reading["presence_ts"] >= PHONE_PRESENCE_EVERY_S:
+        reading["presence_ts"] = now
+        _log_sensor("phone", f"Someone at {reading['label']}")
+        _dream_on_sensor_line("PRESENT")
+    # The lights, by the phone's light meter (with a gap between dark and light, so it doesn't flicker)
+    lux = reading.get("lux")
+    if lux is not None:
+        if not reading["dark"] and lux < PHONE_DARK_LUX:
+            reading["dark"] = True
+            _log_sensor("phone", "The lights went out")
+        elif reading["dark"] and lux > PHONE_LIGHT_LUX:
+            reading["dark"] = False
+            _log_sensor("phone", "The lights came on")
+    _phone_sensors.clear()
+    _phone_sensors.update(reading)
+    push_event({"type": "sensor_status", **_sensor_snapshot()})
 
 def _log_sensor(kind: str, text: str):
     entry = {"ts": time.strftime("%H:%M:%S"), "kind": kind, "text": text}
@@ -845,7 +886,7 @@ def build_video_pools():
             path = os.path.join(source, f)
             if f == "sleeping.mp4":
                 pools["sleeping"].append(path)
-            elif f == "intro1.mp4":
+            elif f.startswith("intro"):     # every intro*.mp4: the page picks one each start-up
                 pools["intro"].append(path)
             else:
                 for prefix in VIDEO_POOL_PREFIXES:
@@ -853,7 +894,18 @@ def build_video_pools():
                         pools[prefix].append(path)
                         break
     pools = dream_addons.pools(pools)   # an add-on may play its own clips for some states
-    return {state: [_video_url(p, source, url_prefix) for p in clips] for state, clips in pools.items()}
+    out = {state: [_video_url(p, source, url_prefix) for p in clips] for state, clips in pools.items()}
+    # Upright phone: videos/portrait/ holds a 720x1280 twin of each clip (scripts/make_portrait_videos.py).
+    # The page swaps to the twin while it's taller than wide; a clip without one plays cropped.
+    portrait_dir = os.path.join(source, "portrait")
+    out["portrait"] = {}
+    if os.path.isdir(portrait_dir):
+        for clips in pools.values():
+            for p in clips:
+                twin = os.path.join(portrait_dir, os.path.basename(p))
+                if os.path.dirname(os.path.abspath(p)) == os.path.abspath(source) and os.path.isfile(twin):
+                    out["portrait"][_video_url(p, source, url_prefix)] = url_prefix + "portrait/" + os.path.basename(p)
+    return out
 
 def _video_url(path, source, url_prefix):
     if os.path.dirname(os.path.abspath(path)) == os.path.abspath(source):
@@ -1126,6 +1178,16 @@ def api_body_bye():
         page = raw
     dream_eyes.page_bye(page)
     return jsonify({"ok": True})
+
+@app.route("/api/body/sensors", methods=["POST"])
+def api_body_sensors():
+    """The phone's sensors (the Android app, through her page). Only the page that is her body
+    right now is listened to; the rest are on standby, like their mics and speakers."""
+    d = request.get_json(silent=True) or {}
+    if not dream_eyes.is_body(d.get("page", "")):
+        return jsonify({"ok": True, "used": False})
+    _phone_reading(d)
+    return jsonify({"ok": True, "used": True})
 
 @app.route("/api/eyes")
 def api_eyes():
@@ -1729,6 +1791,15 @@ if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(**phone_kwargs), daemon=True).start()
     scheme = "https" if https_ok else "http"
     print(f"[DREAM] DREAM on your phone: {scheme}://{MY_IP}:{PHONE_PORT}")
+    if https_ok:
+        # The Android app asks once whether to trust this certificate: the same fingerprint means it's her.
+        try:
+            from cryptography import x509
+            from cryptography.hazmat.primitives import hashes
+            fp = x509.load_pem_x509_certificate(open(CERT_PATH, "rb").read()).fingerprint(hashes.SHA256())
+            print(f"[DREAM] Certificate SHA-256 (the app shows it): {fp.hex(':').upper()}")
+        except Exception:
+            pass
     if https_ok:
         run_kwargs["ssl_context"] = (CERT_PATH, KEY_PATH)
         print(f"[DREAM] HTTPS enabled — dashboard on https://{MY_IP}:{THIS_PORT}")
