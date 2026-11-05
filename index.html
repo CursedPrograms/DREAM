@@ -158,6 +158,7 @@ Webcam &rarr; face prints (who is there) + a vision model (what is there) &rarr;
           <tr><td>Desktop app</td><td><code>python scripts/dream.py</code></td><td>Fullscreen avatar video, wake word, sleep, sensor board, voice commands, inner life</td></tr>
           <tr><td>In the browser</td><td><code>python scripts/dream.py --web</code></td><td>Opens <code>localhost:5010/dream.html</code> with the same behaviours, using the browser's mic and speakers</td></tr>
           <tr><td>Web server</td><td><code>python app.py</code></td><td>The dashboard and API on <code>https://&lt;this-pc&gt;:5009</code>, and <strong>DREAM on your phone</strong> on <code>https://&lt;this-pc&gt;:5001</code>. It owns the sensor board</td></tr>
+          <tr><td>On your phone</td><td>The Android app</td><td>Her phone page from the PC she runs on, full screen. Opening it brings her to the phone: its screen, mic, camera and sensors (see Apps, below)</td></tr>
           <tr><td>One program (C++)</td><td><code>cpp_dream\build\dream.exe</code></td><td>Avatar, wake word, sensors, timers, memories and network scan in one ~6&nbsp;MB exe</td></tr>
         </tbody>
       </table>
@@ -350,12 +351,31 @@ Webcam &rarr; face prints (who is there) + a vision model (what is there) &rarr;
   </div>
 </section>
 
-<section id="windows">
+<section id="apps">
   <div class="wrap">
-    <h2>Windows app</h2>
-    <h3 class="title">A native window on DREAM's page</h3>
-    <p>It opens DREAM's own page in a window, so it always looks the same as the page. Keep it in DREAM's <code>builds</code> folder: if DREAM isn't running, it starts <code>run.bat</code> beside it.</p>
-    <p><a class="btn primary" href="https://github.com/CursedPrograms/DREAM/raw/main/builds/dream.exe">Download dream.exe</a></p>
+    <h2>Apps</h2>
+    <h3 class="title">DREAM in a window, and on your phone</h3>
+    <div class="grid cols-2">
+      <div class="card">
+        <span class="k">Windows</span>
+        <h4>dream.exe</h4>
+        <p>Opens DREAM's own page in a native window, so it always looks the same as the page. Keep it in DREAM's <code>builds</code> folder: if DREAM isn't running, it starts <code>run.bat</code> beside it, with her memory server too.</p>
+        <p><a class="btn primary" href="https://github.com/CursedPrograms/DREAM/raw/main/builds/dream.exe">Download dream.exe</a></p>
+      </div>
+      <div class="card">
+        <span class="k">Android</span>
+        <h4>The DREAM app</h4>
+        <p>Opens her from the PC she runs on. The newest page of hers is her body, so opening the app brings her to the phone, and leaving it gives her back to the PC. The first time, it asks you to trust her PC's certificate: <code>app.py</code> prints the same fingerprint when it starts.</p>
+        <p><a class="btn primary" href="https://github.com/CursedPrograms/DREAM/raw/main/Android%20App/apk/DREAM-debug-2026-11-05.apk">Download the APK</a></p>
+      </div>
+    </div>
+    <h3 class="sub">With you on the phone</h3>
+    <ul class="muted">
+      <li><strong>Upright or sideways.</strong> Turn the phone and she turns with it: every clip has a portrait version, and she carries on from the same moment.</li>
+      <li><strong>Her eyes.</strong> The phone's camera is her eyes while she's with it.</li>
+      <li><strong>The phone's sensors.</strong> A hand near it or picking it up counts as company, and its light meter tells her when the lights go out. Her own sensor board keeps working too.</li>
+      <li><strong>A different hello.</strong> She opens with a random intro clip each time she starts.</li>
+    </ul>
   </div>
 </section>
 
